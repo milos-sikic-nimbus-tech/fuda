@@ -1,0 +1,114 @@
+package taskfiles
+
+import (
+	"errors"
+	"fmt"
+	"path"
+
+	"go.yaml.in/yaml/v3"
+)
+
+func parseConfig(files map[string][]byte, layout Layout, problems *[]Problem) Config {
+	var c Config
+	load := func(name string, decode func(*yaml.Node) error) {
+		p := path.Join(layout.BoardDir, name)
+		content, ok := files[p]
+		if !ok {
+			return
+		}
+		if err := decodeConfig(content, decode); err != nil {
+			*problems = append(*problems, Problem{Path: p, Reason: err.Error() + "; ignored, derived from the tasks instead"})
+		}
+	}
+	load("stages.md", func(n *yaml.Node) error { return decodeStages(n, &c.Stages) })
+	load("labels.md", func(n *yaml.Node) error { return decodeLabelGroups(n, &c.LabelGroups) })
+	load("people.md", func(n *yaml.Node) error { return decodePeople(n, &c.People) })
+	return c
+}
+
+func decodeConfig(content []byte, decode func(*yaml.Node) error) error {
+	front, _, err := splitFrontmatter(content)
+	if err != nil {
+		return err
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(front, &doc); err != nil {
+		return errors.New("invalid YAML: " + err.Error())
+	}
+	pairs, err := mappingPairs(&doc)
+	if err != nil {
+		return err
+	}
+	if len(pairs) != 1 {
+		return errors.New("the frontmatter must hold exactly one top-level key")
+	}
+	return decode(pairs[0].value)
+}
+
+type stageEntry struct {
+	Name   string   `yaml:"name"`
+	Status []string `yaml:"status"`
+	When   string   `yaml:"when"`
+}
+
+func decodeStages(n *yaml.Node, dst *[]Stage) error {
+	var entries []stageEntry
+	if err := n.Decode(&entries); err != nil {
+		return fmt.Errorf("stages: %w", err)
+	}
+	if len(entries) == 0 {
+		return errors.New("stages: the list is empty")
+	}
+	stages := make([]Stage, 0, len(entries))
+	for i, e := range entries {
+		if e.Name == "" {
+			return fmt.Errorf("stages: entry %d has no name", i+1)
+		}
+		if e.When != "" && e.When != "pr-open" {
+			return fmt.Errorf("stages: %q has unknown when %q (only pr-open)", e.Name, e.When)
+		}
+		if len(e.Status) == 0 && e.When == "" {
+			return fmt.Errorf("stages: %q needs a status list or when: pr-open", e.Name)
+		}
+		stages = append(stages, Stage{Name: e.Name, Statuses: e.Status, WhenPROpen: e.When == "pr-open"})
+	}
+	*dst = stages
+	return nil
+}
+
+func decodeLabelGroups(n *yaml.Node, dst *[]LabelGroup) error {
+	if n.Kind != yaml.MappingNode {
+		return errors.New("groups: expected a mapping of group names to value lists")
+	}
+	groups := make([]LabelGroup, 0, len(n.Content)/2)
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		values, err := stringList(n.Content[i+1])
+		if err != nil {
+			return fmt.Errorf("groups: %q: %w", n.Content[i].Value, err)
+		}
+		groups = append(groups, LabelGroup{Name: n.Content[i].Value, Values: values})
+	}
+	*dst = groups
+	return nil
+}
+
+type personEntry struct {
+	Name    string   `yaml:"name"`
+	Aliases []string `yaml:"aliases"`
+}
+
+func decodePeople(n *yaml.Node, dst *[]Person) error {
+	var entries []personEntry
+	if err := n.Decode(&entries); err != nil {
+		return fmt.Errorf("people: %w", err)
+	}
+	people := make([]Person, 0, len(entries))
+	for i, e := range entries {
+		if e.Name == "" {
+			return fmt.Errorf("people: entry %d has no name", i+1)
+		}
+		people = append(people, Person(e))
+	}
+	*dst = people
+	return nil
+}
