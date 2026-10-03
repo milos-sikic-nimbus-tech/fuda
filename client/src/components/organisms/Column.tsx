@@ -15,7 +15,7 @@ export function Column({
 }) {
   const status = column.prOpen ? 'in review' : (column.statuses[0] ?? '')
   return (
-    <section className="flex w-76 shrink-0 flex-col rounded-xl bg-muted/50 dark:bg-muted/30">
+    <section className="flex w-[85vw] shrink-0 snap-start flex-col rounded-xl bg-muted/50 sm:w-76 dark:bg-muted/30">
       <header className="flex h-10 items-center gap-2 px-3 text-[13px] font-medium">
         <StatusIcon status={status} />
         <span>{column.name}</span>

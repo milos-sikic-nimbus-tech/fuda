@@ -21,7 +21,8 @@ export function ProblemsDrawer({ problems }: { problems: Problem[] }) {
           className="h-8 gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50"
         >
           <FileWarning className="size-3.5" />
-          {problems.length} {problems.length === 1 ? 'problem' : 'problems'}
+          {problems.length}
+          <span className="hidden sm:inline">{problems.length === 1 ? 'problem' : 'problems'}</span>
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">

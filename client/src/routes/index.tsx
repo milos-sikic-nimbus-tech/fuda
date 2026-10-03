@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo } from 'react'
+import { NoMatches } from '@/components/molecules/NoMatches'
 import { Board } from '@/components/organisms/Board'
 import { FilterBar } from '@/components/organisms/FilterBar'
 import { TaskSheet } from '@/components/organisms/TaskSheet'
@@ -39,7 +40,11 @@ function BoardPage() {
         cards={data.cards}
         shown={cards.length}
       />
-      <Board columns={data.columns} cards={cards} prLink={data.prLink} />
+      {cards.length === 0 && data.cards.length > 0 ? (
+        <NoMatches />
+      ) : (
+        <Board columns={data.columns} cards={cards} prLink={data.prLink} />
+      )}
       <TaskSheet taskIds={taskIds} prLink={data.prLink} />
     </main>
   )

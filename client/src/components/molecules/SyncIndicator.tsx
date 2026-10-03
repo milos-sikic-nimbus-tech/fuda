@@ -56,8 +56,10 @@ export function SyncIndicator({ sync }: { sync: SyncStatus }) {
               sync.lastError ? 'bg-amber-500 ring-amber-100' : 'bg-primary ring-primary/15',
             )}
           />
-          <span>synced {ago(sync.develop.syncedAt)}</span>
-          <span className="font-mono text-[11px]">{shortSha(sync.develop.sha)}</span>
+          <span className="hidden lg:inline">synced {ago(sync.develop.syncedAt)}</span>
+          <span className="hidden font-mono text-[11px] lg:inline">
+            {shortSha(sync.develop.sha)}
+          </span>
         </span>
       </Hint>
       <Hint label="Read the repo now">
@@ -65,11 +67,12 @@ export function SyncIndicator({ sync }: { sync: SyncStatus }) {
           variant="outline"
           size="sm"
           className="h-7 gap-1.5 bg-card px-2 text-xs shadow-xs"
+          aria-label="Sync now"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
         >
           <RefreshCw className={cn('size-3.5', mutation.isPending && 'animate-spin')} />
-          Sync
+          <span className="hidden sm:inline">Sync</span>
         </Button>
       </Hint>
     </div>

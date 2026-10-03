@@ -21,7 +21,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
       <dt className="pt-0.5 text-xs text-muted-foreground">{label}</dt>
-      <dd className="flex flex-wrap items-center gap-1.5 text-[13px]">{children}</dd>
+      <dd className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] [overflow-wrap:anywhere]">
+        {children}
+      </dd>
     </>
   )
 }

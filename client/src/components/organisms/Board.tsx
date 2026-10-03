@@ -11,7 +11,7 @@ export function Board({
   prLink?: string
 }) {
   return (
-    <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-4 pb-4">
+    <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-3 sm:snap-none sm:px-4 sm:pb-4">
       {columns.map((column) => (
         <Column
           key={column.id}

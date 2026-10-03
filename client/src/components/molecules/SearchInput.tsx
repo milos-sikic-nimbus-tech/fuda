@@ -25,13 +25,13 @@ export function SearchInput({
   }, [draft, value, onChange])
 
   return (
-    <div className="relative">
+    <div className="relative w-full sm:w-auto">
       <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="Search id, title, people, labels"
-        className="h-8 w-64 bg-card pl-8 text-sm shadow-xs"
+        className="h-8 w-full bg-card pl-8 text-sm shadow-xs sm:w-64"
       />
     </div>
   )
