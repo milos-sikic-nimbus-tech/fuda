@@ -1,18 +1,26 @@
-const statusColors: Record<string, string> = {
-  backlog: 'bg-slate-400',
-  'in progress': 'bg-blue-500',
-  'in review': 'bg-violet-500',
-  merged: 'bg-teal-500',
-  testing: 'bg-amber-500',
-  validated: 'bg-emerald-600',
-  done: 'bg-emerald-800',
+import type { CSSProperties } from 'react'
+
+const knownStatuses = [
+  'backlog',
+  'in progress',
+  'in review',
+  'merged',
+  'testing',
+  'validated',
+  'done',
+]
+const knownTypes = ['bug', 'feat', 'impr', 'refactor', 'test', 'chore', 'docs', 'question']
+
+function token(prefix: string, known: string[], value: string): string {
+  const key = value.trim().toLowerCase()
+  return `var(--color-${prefix}-${known.includes(key) ? key.replaceAll(' ', '-') : 'other'})`
 }
 
-export function statusColor(status: string): string {
-  return statusColors[status.trim().toLowerCase()] ?? 'bg-zinc-300'
-}
+export const statusHue = (status: string) => token('status', knownStatuses, status)
 
-const hues = [
+export const typeHue = (type: string) => token('type', knownTypes, type)
+
+const personHues = [
   '#10b981',
   '#6366f1',
   '#f59e0b',
@@ -26,9 +34,9 @@ const hues = [
 ]
 
 export function personColor(name: string): string {
-  let hash = 0
-  for (const ch of name.toLowerCase()) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
-  return hues[hash % hues.length]
+  let h = 0
+  for (const ch of name.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return personHues[h % personHues.length]
 }
 
 export function initials(name: string): string {
@@ -36,4 +44,8 @@ export function initials(name: string): string {
   return (
     (parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')
   ).toUpperCase()
+}
+
+export function hueStyle(hue: string): CSSProperties {
+  return { '--hue': hue } as CSSProperties
 }

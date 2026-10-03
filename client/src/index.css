@@ -4,6 +4,27 @@
 @plugin "@tailwindcss/typography";
 @import '@fontsource-variable/geist';
 
+@theme static {
+  --color-status-backlog: #94a3b8;
+  --color-status-in-progress: #3b82f6;
+  --color-status-in-review: #8b5cf6;
+  --color-status-merged: #14b8a6;
+  --color-status-testing: #f59e0b;
+  --color-status-validated: #059669;
+  --color-status-done: #065f46;
+  --color-status-other: #a1a1aa;
+
+  --color-type-bug: #ef4444;
+  --color-type-feat: #3b82f6;
+  --color-type-impr: #14b8a6;
+  --color-type-refactor: #8b5cf6;
+  --color-type-test: #f59e0b;
+  --color-type-chore: #71717a;
+  --color-type-docs: #0ea5e9;
+  --color-type-question: #ec4899;
+  --color-type-other: #a1a1aa;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
@@ -95,6 +116,33 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@utility tint-surface {
+  background-color: color-mix(in oklab, var(--hue) 7%, var(--color-background));
+}
+
+@utility tint-border {
+  border-color: color-mix(in oklab, var(--hue) 20%, transparent);
+}
+
+@utility hue-lift {
+  &:hover {
+    border-color: color-mix(in oklab, var(--hue) 45%, transparent);
+    box-shadow: 0 6px 18px -8px var(--hue);
+    translate: 0 -2px;
+  }
+}
+
+@layer base {
+  body {
+    background-image: radial-gradient(
+      60rem 30rem at 0% -10%,
+      color-mix(in oklab, var(--color-primary) 9%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
   }
 }
 

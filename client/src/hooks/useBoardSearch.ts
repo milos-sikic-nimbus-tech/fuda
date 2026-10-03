@@ -5,16 +5,19 @@ export function useBoardSearch() {
   const search = useSearch({ from: '/' })
   const navigate = useNavigate({ from: '/' })
 
-  const update = (patch: Partial<BoardSearch>) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+  const update = (patch: Partial<BoardSearch>) => {
+    void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+  }
 
   const toggle = (key: ListKey, value: string) => update({ [key]: toggled(search[key], value) })
 
-  const openTask = (id: string | undefined) =>
-    navigate({ search: (prev) => ({ ...prev, task: id }) })
+  const openTask = (id: string | undefined) => {
+    void navigate({ search: (prev) => ({ ...prev, task: id }) })
+  }
 
-  const clear = () =>
-    navigate({ search: (prev) => ({ task: prev.task, sort: prev.sort }), replace: true })
+  const clear = () => {
+    void navigate({ search: (prev) => ({ task: prev.task, sort: prev.sort }), replace: true })
+  }
 
   return { search, update, toggle, openTask, clear }
 }

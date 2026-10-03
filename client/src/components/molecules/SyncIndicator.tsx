@@ -1,4 +1,5 @@
 import { RefreshCw, TriangleAlert } from 'lucide-react'
+import { Hint } from '@/components/atoms/Hint'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SyncStatus } from '@/lib/api'
@@ -48,16 +49,18 @@ export function SyncIndicator({ sync }: { sync: SyncStatus }) {
             : 'main is not watched'}
         </TooltipContent>
       </Tooltip>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title={cooling ? 'Synced moments ago' : 'Sync now'}
-        disabled={mutation.isPending}
-        onClick={() => mutation.mutate()}
-      >
-        <RefreshCw className={cn('size-3.5', mutation.isPending && 'animate-spin')} />
-      </Button>
+      <Hint label={cooling ? 'Synced moments ago; try again shortly' : 'Read the repo now'}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          aria-label="Sync now"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          <RefreshCw className={cn('size-3.5', mutation.isPending && 'animate-spin')} />
+        </Button>
+      </Hint>
     </div>
   )
 }

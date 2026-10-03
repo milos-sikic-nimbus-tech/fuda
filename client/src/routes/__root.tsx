@@ -22,8 +22,8 @@ function RootLayout() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-svh flex-col bg-background text-foreground">
-        <header className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-2 backdrop-blur">
+      <div className="flex h-svh flex-col text-foreground">
+        <header className="flex items-center gap-3 border-b border-border/60 bg-card/70 px-4 py-2 backdrop-blur-md">
           <Link to="/" className="flex items-baseline gap-2 font-semibold">
             <span className="text-primary">fuda</span>
             {data?.title && (

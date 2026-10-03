@@ -1,14 +1,23 @@
-import { X } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusDot } from '@/components/atoms/StatusDot'
+import { ActiveFilters } from '@/components/molecules/ActiveFilters'
 import { DateRange } from '@/components/molecules/DateRange'
-import { FilterSelect } from '@/components/molecules/FilterSelect'
+import { FilterSelect, type Option } from '@/components/molecules/FilterSelect'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import type { Column, Facets } from '@/lib/api'
-import { activeFilterCount, listOf } from '@/lib/filters'
+import type { Column, Facets, LabelGroup } from '@/lib/api'
+import { listOf } from '@/lib/filters'
 
 const groupTitles: Record<string, string> = {
   type: 'Type',
@@ -16,9 +25,23 @@ const groupTitles: Record<string, string> = {
   area: 'Area',
   label: 'Labels',
 }
+const primaryGroups = ['type', 'epic']
 
-function title(group: string): string {
+function groupTitle(group: string): string {
   return groupTitles[group] ?? group.charAt(0).toUpperCase() + group.slice(1)
+}
+
+function personOptions(names: string[]): Option[] {
+  return names.map((name) => ({
+    value: name,
+    search: name,
+    label: (
+      <span className="inline-flex items-center gap-2">
+        <Avatar name={name} />
+        {name}
+      </span>
+    ),
+  }))
 }
 
 function Toggle({
@@ -31,10 +54,22 @@ function Toggle({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground select-none">
+    <label className="flex cursor-pointer items-center gap-2 text-sm select-none">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
       {label}
     </label>
+  )
+}
+
+function LabelGroupFilter({ group }: { group: LabelGroup }) {
+  const { search, toggle } = useBoardSearch()
+  return (
+    <FilterSelect
+      title={groupTitle(group.name)}
+      options={group.values.map((v) => ({ value: `${group.name}:${v}`, label: v, search: v }))}
+      selected={listOf(search.label).filter((l) => l.startsWith(`${group.name}:`))}
+      onToggle={(v) => toggle('label', v)}
+    />
   )
 }
 
@@ -49,104 +84,130 @@ export function FilterBar({
   shown: number
   total: number
 }) {
-  const statuses = columns.some((c) => c.statuses.length > 1 || c.unknown) ? facets.statuses : []
-  const { search, update, toggle, clear } = useBoardSearch()
-  const labels = listOf(search.label)
-  const people = facets.people.map((p) => ({
-    value: p,
-    label: (
-      <span className="inline-flex items-center gap-2">
-        <Avatar name={p} />
-        {p}
-      </span>
-    ),
-    search: p,
-  }))
+  const { search, update, toggle } = useBoardSearch()
+  const statusNeeded = columns.some((c) => c.statuses.length > 1 || c.unknown)
+  const primary = facets.labelGroups.filter((g) => primaryGroups.includes(g.name))
+  const secondary = facets.labelGroups.filter((g) => !primaryGroups.includes(g.name))
+  const moreActive =
+    secondary.some((g) => listOf(search.label).some((l) => l.startsWith(`${g.name}:`))) ||
+    [
+      search.tester,
+      search.status,
+      search.prefix,
+      search.from,
+      search.to,
+      search.blocked,
+      search.available,
+    ].some(Boolean)
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-      <SearchInput value={search.q} onChange={(q) => update({ q })} />
-      <Toggle
-        label="also in task text"
-        checked={!!search.text}
-        onChange={(v) => update({ text: v || undefined })}
-      />
-      <FilterSelect
-        title="Status"
-        options={statuses.map((s) => ({
-          value: s,
-          label: (
-            <span className="inline-flex items-center gap-2">
-              <StatusDot status={s} />
-              {s}
-            </span>
-          ),
-          search: s,
-        }))}
-        selected={listOf(search.status)}
-        onToggle={(v) => toggle('status', v)}
-      />
-      <FilterSelect
-        title="Owner"
-        options={people}
-        selected={listOf(search.owner)}
-        onToggle={(v) => toggle('owner', v)}
-      />
-      <FilterSelect
-        title="Tester"
-        options={people.filter((p) => facets.testers.includes(p.value))}
-        selected={listOf(search.tester)}
-        onToggle={(v) => toggle('tester', v)}
-      />
-      {facets.labelGroups.map((g) => (
+    <div className="border-b border-border/60">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+        <SearchInput value={search.q} onChange={(q) => update({ q })} />
+        {primary.map((g) => (
+          <LabelGroupFilter key={g.name} group={g} />
+        ))}
         <FilterSelect
-          key={g.name}
-          title={title(g.name)}
-          options={g.values.map((v) => ({ value: `${g.name}:${v}`, label: v, search: v }))}
-          selected={labels.filter((l) => l.startsWith(`${g.name}:`))}
-          onToggle={(v) => toggle('label', v)}
+          title="Owner"
+          options={personOptions(facets.people)}
+          selected={listOf(search.owner)}
+          onToggle={(v) => toggle('owner', v)}
         />
-      ))}
-      {facets.prefixes.length > 1 && (
-        <FilterSelect
-          title="Prefix"
-          options={facets.prefixes.map((p) => ({
-            value: p,
-            label: <span className="font-mono">{p}</span>,
-            search: p,
-          }))}
-          selected={listOf(search.prefix)}
-          onToggle={(v) => toggle('prefix', v)}
-        />
-      )}
-      <DateRange from={search.from} to={search.to} onChange={(range) => update(range)} />
-      <Toggle
-        label="Blocked"
-        checked={!!search.blocked}
-        onChange={(v) => update({ blocked: v || undefined })}
-      />
-      <Toggle
-        label="Available"
-        checked={!!search.available}
-        onChange={(v) => update({ available: v || undefined })}
-      />
-      <select
-        value={search.sort ?? 'id'}
-        onChange={(e) => update({ sort: e.target.value === 'added' ? 'added' : undefined })}
-        className="h-8 rounded-md border border-input bg-card px-2 text-xs"
-      >
-        <option value="id">Sort: id</option>
-        <option value="added">Sort: newest added</option>
-      </select>
-      <span className="ml-auto text-xs text-muted-foreground">
-        {shown === total ? `${total} tasks` : `${shown} of ${total} tasks`}
-      </span>
-      {activeFilterCount(search) > 0 && (
-        <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={clear}>
-          <X className="size-3.5" />
-          Clear
-        </Button>
-      )}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              data-active={moreActive || undefined}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              More filters
+              {moreActive && <span className="size-1.5 rounded-full bg-primary" />}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 space-y-4">
+            {secondary.length +
+              (facets.testers.length ? 1 : 0) +
+              (statusNeeded ? 1 : 0) +
+              (facets.prefixes.length > 1 ? 1 : 0) >
+              0 && (
+              <div className="flex flex-wrap gap-2">
+                {secondary.map((g) => (
+                  <LabelGroupFilter key={g.name} group={g} />
+                ))}
+                <FilterSelect
+                  title="Tester"
+                  options={personOptions(facets.testers)}
+                  selected={listOf(search.tester)}
+                  onToggle={(v) => toggle('tester', v)}
+                />
+                <FilterSelect
+                  title="Status"
+                  options={(statusNeeded ? facets.statuses : []).map((s) => ({
+                    value: s,
+                    search: s,
+                    label: (
+                      <span className="inline-flex items-center gap-2">
+                        <StatusDot status={s} />
+                        {s}
+                      </span>
+                    ),
+                  }))}
+                  selected={listOf(search.status)}
+                  onToggle={(v) => toggle('status', v)}
+                />
+                <FilterSelect
+                  title="Prefix"
+                  options={(facets.prefixes.length > 1 ? facets.prefixes : []).map((p) => ({
+                    value: p,
+                    search: p,
+                    label: <span className="font-mono">{p}</span>,
+                  }))}
+                  selected={listOf(search.prefix)}
+                  onToggle={(v) => toggle('prefix', v)}
+                />
+              </div>
+            )}
+            <DateRange from={search.from} to={search.to} onChange={(range) => update(range)} />
+            <div className="space-y-2">
+              <Toggle
+                label="Blocked only"
+                checked={!!search.blocked}
+                onChange={(v) => update({ blocked: v || undefined })}
+              />
+              <Toggle
+                label="Available to pick up"
+                checked={!!search.available}
+                onChange={(v) => update({ available: v || undefined })}
+              />
+              <Toggle
+                label="Search also in task text"
+                checked={!!search.text}
+                onChange={(v) => update({ text: v || undefined })}
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {shown === total ? `${total} tasks` : `${shown} of ${total}`}
+          </span>
+          <Select
+            value={search.sort ?? 'id'}
+            onValueChange={(v) => update({ sort: v === 'added' ? 'added' : undefined })}
+          >
+            <SelectTrigger size="sm" className="h-8 w-40 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="id">Sort by id</SelectItem>
+              <SelectItem value="added">Newest added first</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <ActiveFilters />
     </div>
   )
 }

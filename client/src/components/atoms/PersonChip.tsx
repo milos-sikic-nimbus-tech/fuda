@@ -1,10 +1,18 @@
+import { Hint } from '@/components/atoms/Hint'
 import { initials, personColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
-  return (
+export function Avatar({
+  name,
+  hint,
+  className,
+}: {
+  name: string
+  hint?: string
+  className?: string
+}) {
+  const avatar = (
     <span
-      title={name}
       style={{ backgroundColor: personColor(name) }}
       className={cn(
         'inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white',
@@ -14,6 +22,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
       {initials(name)}
     </span>
   )
+  return hint ? <Hint label={hint}>{avatar}</Hint> : avatar
 }
 
 export function PersonChip({ name, onClick }: { name: string; onClick?: () => void }) {
