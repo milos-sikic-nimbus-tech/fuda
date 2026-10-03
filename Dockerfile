@@ -1,4 +1,4 @@
-FROM node:24-alpine AS client
+FROM --platform=$BUILDPLATFORM node:24-alpine AS client
 RUN corepack enable
 WORKDIR /src
 COPY --chown=node:node client/package.json client/pnpm-lock.yaml client/
@@ -8,13 +8,14 @@ RUN cd client && pnpm install --frozen-lockfile
 COPY --chown=node:node client client
 RUN mkdir -p api/internal/web/dist && cd client && pnpm build
 
-FROM golang:1.27-alpine AS api
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS api
+ARG TARGETOS TARGETARCH
 WORKDIR /src/api
 COPY api/go.mod api/go.sum ./
 RUN go mod download
 COPY api ./
 COPY --from=client /src/api/internal/web/dist ./internal/web/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/fuda ./cmd/fuda && mkdir -p /out/data
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/fuda ./cmd/fuda && mkdir -p /out/data
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=api /out/fuda /fuda

@@ -19,6 +19,9 @@ type Config struct {
 	Addr  string `env:"FUDA_ADDR" envDefault:":8080"`
 	Title string `env:"FUDA_TITLE"`
 
+	AuthUser     string `env:"FUDA_AUTH_USER" envDefault:"fuda"`
+	AuthPassword string `env:"FUDA_AUTH_PASSWORD"`
+
 	Source    Source `env:"FUDA_SOURCE" envDefault:"local"`
 	LocalPath string `env:"FUDA_LOCAL_PATH"`
 

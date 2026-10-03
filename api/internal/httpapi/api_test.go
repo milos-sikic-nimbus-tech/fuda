@@ -48,7 +48,7 @@ func TestAPISmoke(t *testing.T) {
 	if err := service.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), service, fstest.MapFS{}))
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), service, fstest.MapFS{}, Credentials{}))
 	defer server.Close()
 
 	var b struct {
@@ -117,6 +117,34 @@ func getJSON(t *testing.T, url string, status int, v any) {
 	if v != nil {
 		if err := json.Unmarshal(body, v); err != nil {
 			t.Fatalf("%s: %v", url, err)
+		}
+	}
+}
+
+func TestBasicAuth(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	handler := basicAuth(Credentials{User: "fuda", Password: "secret"})(ok)
+
+	cases := []struct {
+		path       string
+		user, pass string
+		want       int
+	}{
+		{"/api/board", "", "", http.StatusUnauthorized},
+		{"/api/board", "fuda", "wrong", http.StatusUnauthorized},
+		{"/api/board", "fuda", "secret", http.StatusOK},
+		{"/healthz", "", "", http.StatusOK},
+		{"/api/webhooks/github", "", "", http.StatusOK},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodGet, c.path, nil)
+		if c.user != "" {
+			req.SetBasicAuth(c.user, c.pass)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != c.want {
+			t.Errorf("%s as %q: got %d, want %d", c.path, c.user, rec.Code, c.want)
 		}
 	}
 }

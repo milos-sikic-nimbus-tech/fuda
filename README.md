@@ -53,7 +53,8 @@ docker run -p 8080:8080 -v fuda-data:/data \
   -e FUDA_SOURCE=github -e FUDA_GITHUB_REPO=owner/repo -e FUDA_GITHUB_TOKEN=… fuda
 ```
 
-fuda has no authentication of its own; put it behind your proxy's auth (e.g. basic auth).
+Protect it with your proxy's auth, or set `FUDA_AUTH_PASSWORD` (and optionally `FUDA_AUTH_USER`, default
+`fuda`) for built-in basic auth. `/healthz` and `/api/webhooks/*` stay open either way.
 
 ## License
 

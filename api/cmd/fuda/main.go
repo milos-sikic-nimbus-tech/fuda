@@ -82,7 +82,7 @@ func run(log *slog.Logger) error {
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, service, web.Dist()),
+		Handler:           httpapi.NewHandler(log, service, web.Dist(), httpapi.Credentials{User: cfg.AuthUser, Password: cfg.AuthPassword}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
