@@ -1,0 +1,7 @@
+**/node_modules
+api/internal/web/dist
+bin
+.fuda-cache
+.env
+personal-agent.md
+.git

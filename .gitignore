@@ -1,0 +1,8 @@
+api/internal/web/dist/*
+!api/internal/web/dist/.gitkeep
+bin/
+.fuda-cache/
+node_modules/
+.env
+personal-agent.md
+.DS_Store
