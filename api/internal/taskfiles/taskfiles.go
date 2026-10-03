@@ -38,8 +38,8 @@ func (l Label) String() string {
 }
 
 type Field struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type Stage struct {
