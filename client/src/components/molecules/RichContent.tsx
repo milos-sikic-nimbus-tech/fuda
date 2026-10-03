@@ -52,7 +52,11 @@ async function renderMermaid(root: HTMLElement) {
   const blocks = [...root.querySelectorAll<HTMLElement>('code.language-mermaid')]
   if (blocks.length === 0) return
   const { default: mermaid } = await import('mermaid')
-  mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'strict' })
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: document.documentElement.classList.contains('dark') ? 'dark' : 'neutral',
+    securityLevel: 'strict',
+  })
   for (const [i, code] of blocks.entries()) {
     const pre = code.closest('pre') ?? code
     try {
@@ -114,7 +118,7 @@ export function RichContent({
     <div
       ref={ref}
       className={cn(
-        'prose prose-sm max-w-none prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-lg prose-a:text-primary prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground',
+        'prose prose-sm max-w-none dark:prose-invert prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-lg prose-a:text-primary prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground',
         className,
       )}
       onClick={(e) => {

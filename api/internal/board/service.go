@@ -39,6 +39,13 @@ type Options struct {
 	Cooldown     time.Duration
 	CodeURL      func(repoPath string) string
 	PRLink       string
+	Origin       Origin
+}
+
+type Origin struct {
+	Host string `json:"host"`
+	Repo string `json:"repo"`
+	URL  string `json:"url,omitempty"`
 }
 
 type Service struct {
@@ -269,15 +276,16 @@ type BoardView struct {
 	Board
 	Title  string     `json:"title"`
 	PRLink string     `json:"prLink,omitempty"`
+	Origin Origin     `json:"origin"`
 	Sync   SyncStatus `json:"sync"`
 }
 
 func (s *Service) Board() (BoardView, bool) {
 	snap := s.snapshot.Load()
 	if snap == nil {
-		return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Sync: s.Status()}, false
+		return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Origin: s.opts.Origin, Sync: s.Status()}, false
 	}
-	return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Board: snap.board, Sync: s.Status()}, true
+	return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Origin: s.opts.Origin, Board: snap.board, Sync: s.Status()}, true
 }
 
 func (s *Service) Status() SyncStatus {

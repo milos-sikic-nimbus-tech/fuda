@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Ban, GitPullRequest } from 'lucide-react'
 import { LabelChip } from '@/components/atoms/LabelChip'
 import { PersonChip } from '@/components/atoms/PersonChip'
-import { StatusDot } from '@/components/atoms/StatusDot'
+import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { TaskLink } from '@/components/atoms/TaskLink'
 import { RichContent } from '@/components/molecules/RichContent'
 import {
@@ -21,7 +21,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
       <dt className="pt-0.5 text-xs text-muted-foreground">{label}</dt>
-      <dd className="flex flex-wrap items-center gap-1.5 text-sm">{children}</dd>
+      <dd className="flex flex-wrap items-center gap-1.5 text-[13px]">{children}</dd>
     </>
   )
 }
@@ -47,7 +47,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
             {search.task}
             {task && (
               <span className="inline-flex items-center gap-1 font-sans">
-                <StatusDot status={task.status} />
+                <StatusIcon status={task.status} className="size-3" />
                 {task.status}
               </span>
             )}

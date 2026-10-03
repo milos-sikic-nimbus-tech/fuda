@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './api'
+import { toast } from 'sonner'
+import { ApiError, api } from './api'
 
 export const keys = {
   board: ['board'] as const,
@@ -44,7 +45,15 @@ export function useSync() {
   return useMutation({
     mutationFn: api.sync,
     onSuccess: () => {
+      toast.success('Reading the repo…')
       setTimeout(() => void client.invalidateQueries(), 1500)
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 429) {
+        toast.info('Synced moments ago', { description: 'Try again in a few seconds.' })
+        return
+      }
+      toast.error('Sync failed', { description: error.message })
     },
   })
 }

@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react'
-
 const knownStatuses = [
   'backlog',
   'in progress',
@@ -44,8 +42,4 @@ export function initials(name: string): string {
   return (
     (parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')
   ).toUpperCase()
-}
-
-export function hueStyle(hue: string): CSSProperties {
-  return { '--hue': hue } as CSSProperties
 }

@@ -1,7 +1,8 @@
-import { RefreshCw, TriangleAlert } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import { Hint } from '@/components/atoms/Hint'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SyncStatus } from '@/lib/api'
 import { useSync } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -14,51 +15,61 @@ function ago(iso: string): string {
 }
 
 function shortSha(sha: string): string {
-  return sha.startsWith('worktree-') ? 'working tree' : sha.slice(0, 8)
+  return sha.startsWith('worktree-') ? 'working tree' : sha.slice(0, 7)
+}
+
+function useSyncErrorToast(lastError: string | undefined) {
+  const shown = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (lastError && lastError !== shown.current) {
+      toast.warning('The last sync failed', {
+        description: `${lastError}. Showing the last good copy.`,
+      })
+    }
+    shown.current = lastError
+  }, [lastError])
 }
 
 export function SyncIndicator({ sync }: { sync: SyncStatus }) {
   const mutation = useSync()
-  const cooling = mutation.error?.message.includes('moments ago')
+  useSyncErrorToast(sync.lastError)
+
+  const mainNote = sync.main
+    ? sync.main.notYet
+      ? `${sync.main.branch}: no board there yet`
+      : `${sync.main.branch} @ ${shortSha(sync.main.sha)}`
+    : 'main is not watched'
 
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      {sync.lastError && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1 text-amber-700">
-              <TriangleAlert className="size-3.5" />
-              last sync failed
-            </span>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-80">{sync.lastError}</TooltipContent>
-        </Tooltip>
-      )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span>
-            {sync.develop.branch} @ <span className="font-mono">{shortSha(sync.develop.sha)}</span>{' '}
-            · {ago(sync.develop.syncedAt)}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          {sync.main
-            ? sync.main.notYet
-              ? `${sync.main.branch}: not yet (no board there)`
-              : `${sync.main.branch} @ ${shortSha(sync.main.sha)}`
-            : 'main is not watched'}
-        </TooltipContent>
-      </Tooltip>
-      <Hint label={cooling ? 'Synced moments ago; try again shortly' : 'Read the repo now'}>
+      <Hint
+        label={
+          <>
+            Last read {ago(sync.develop.syncedAt)} · {mainNote}
+          </>
+        }
+      >
+        <span className="inline-flex items-center gap-2">
+          <span
+            className={cn(
+              'size-1.5 rounded-full ring-3',
+              sync.lastError ? 'bg-amber-500 ring-amber-100' : 'bg-primary ring-primary/15',
+            )}
+          />
+          <span>synced {ago(sync.develop.syncedAt)}</span>
+          <span className="font-mono text-[11px]">{shortSha(sync.develop.sha)}</span>
+        </span>
+      </Hint>
+      <Hint label="Read the repo now">
         <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          aria-label="Sync now"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 bg-card px-2 text-xs shadow-xs"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
         >
           <RefreshCw className={cn('size-3.5', mutation.isPending && 'animate-spin')} />
+          Sync
         </Button>
       </Hint>
     </div>

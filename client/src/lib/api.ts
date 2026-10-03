@@ -53,9 +53,12 @@ export type SyncStatus = {
   lastError?: string
 }
 
+export type Origin = { host: 'github' | 'azure' | 'local'; repo: string; url?: string }
+
 export type BoardData = {
   title: string
   prLink?: string
+  origin: Origin
   columns: Column[]
   cards: Card[]
   facets: Facets

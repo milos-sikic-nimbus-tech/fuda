@@ -191,7 +191,11 @@ export function FilterBar({
                 {...prefix}
               />
             </div>
-            <DateRange from={search.from} to={search.to} onChange={(range) => update(range)} />
+            <DateRange
+              from={search.from}
+              to={search.to}
+              onChange={(range) => update({ from: range.from, to: range.to })}
+            />
             <div className="space-y-2">
               <Toggle
                 label="Blocked only"

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -35,17 +36,22 @@ const (
 )
 
 type hostLinks struct {
-	code func(string) string
-	pr   string
+	code   func(string) string
+	pr     string
+	origin board.Origin
 }
 
 func newSource(cfg config.Config) (board.Source, hostLinks, error) {
 	switch cfg.Source {
 	case config.SourceLocal:
-		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{}, nil
+		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}}, nil
 	case config.SourceGitHub:
 		gh := github.New(cfg.GitHubRepo, cfg.GitHubToken, docsRoot)
-		return gh, hostLinks{code: gh.CodeURL(workBranch), pr: gh.PRLink()}, nil
+		return gh, hostLinks{
+			code:   gh.CodeURL(workBranch),
+			pr:     gh.PRLink(),
+			origin: board.Origin{Host: "github", Repo: cfg.GitHubRepo, URL: "https://github.com/" + cfg.GitHubRepo},
+		}, nil
 	}
 	return nil, hostLinks{}, fmt.Errorf("source %q is not available yet", cfg.Source)
 }
@@ -74,6 +80,7 @@ func run(log *slog.Logger) error {
 		Cooldown:     cfg.SyncCooldown,
 		CodeURL:      links.code,
 		PRLink:       links.pr,
+		Origin:       links.origin,
 	})
 	go func() {
 		if err := service.Sync(ctx); err != nil {

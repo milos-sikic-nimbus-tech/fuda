@@ -22,12 +22,7 @@ export function LabelChip({
   const isType = group === 'type'
   return (
     <Hint
-      label={
-        <>
-          {group ? `${group}: ${value}` : value}
-          <span className="opacity-70"> · click to {active ? 'remove the' : ''} filter</span>
-        </>
-      }
+      label={`${group ? `${group}: ` : ''}${value} · click to ${active ? 'remove the filter' : 'filter'}`}
     >
       <button
         type="button"
@@ -36,10 +31,11 @@ export function LabelChip({
           onClick?.()
         }}
         className={cn(
-          'inline-flex max-w-44 items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] leading-tight transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+          'inline-flex h-5 max-w-40 items-center gap-1.5 truncate rounded-full border px-2 text-[11px] transition-colors',
+          'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
           active
-            ? 'border-primary bg-primary/10 text-primary'
-            : 'border-transparent bg-secondary text-secondary-foreground hover:border-primary/30',
+            ? 'border-primary/40 bg-primary/10 text-primary'
+            : 'border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground',
         )}
       >
         {isType && (
@@ -49,7 +45,7 @@ export function LabelChip({
           />
         )}
         {showGroup && group && !isType && group !== 'label' && (
-          <span className="opacity-55">{group}</span>
+          <span className="opacity-60">{group}</span>
         )}
         <span className="truncate">{value}</span>
       </button>
