@@ -34,8 +34,7 @@ const (
 )
 
 func newSource(cfg config.Config) (board.Source, error) {
-	switch cfg.Source {
-	case config.SourceLocal:
+	if cfg.Source == config.SourceLocal {
 		return local.New(cfg.LocalPath, docsRoot, workBranch), nil
 	}
 	return nil, fmt.Errorf("source %q is not available yet", cfg.Source)
