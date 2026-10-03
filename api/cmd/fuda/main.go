@@ -75,10 +75,12 @@ func run(log *slog.Logger) error {
 		CodeURL:      links.code,
 		PRLink:       links.pr,
 	})
-	if err := service.Sync(ctx); err != nil {
-		log.Error("first sync failed; serving without data until a sync succeeds", "error", err)
-	}
-	go service.Run(ctx, cfg.SyncInterval)
+	go func() {
+		if err := service.Sync(ctx); err != nil {
+			log.Error("first sync failed; serving without data until a sync succeeds", "error", err)
+		}
+		service.Run(ctx, cfg.SyncInterval)
+	}()
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
