@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"fuda/internal/board"
+	"fuda/internal/guide"
 )
 
 type api struct {
@@ -21,6 +22,8 @@ func (a api) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/search", a.search)
 	mux.HandleFunc("GET /api/archive", a.archive)
 	mux.HandleFunc("GET /api/docs", a.doc)
+	mux.HandleFunc("GET /api/guide", a.guideList)
+	mux.HandleFunc("GET /api/guide/{slug}", a.guidePage)
 	mux.HandleFunc("POST /api/sync", a.sync)
 	mux.HandleFunc("POST /api/webhooks/{host}", a.webhook)
 }
@@ -50,6 +53,18 @@ func (a api) archive(w http.ResponseWriter, _ *http.Request) {
 func (a api) doc(w http.ResponseWriter, r *http.Request) {
 	view, err := a.service.Doc(r.URL.Query().Get("path"))
 	a.result(w, view, err)
+}
+
+func (a api) guideList(w http.ResponseWriter, _ *http.Request) {
+	a.json(w, http.StatusOK, guide.List())
+}
+
+func (a api) guidePage(w http.ResponseWriter, r *http.Request) {
+	page, err := guide.Render(r.PathValue("slug"))
+	if errors.Is(err, guide.ErrNotFound) {
+		err = board.ErrNotFound
+	}
+	a.result(w, page, err)
 }
 
 func (a api) sync(w http.ResponseWriter, r *http.Request) {

@@ -8,6 +8,8 @@ export const keys = {
   search: (q: string) => ['search', q] as const,
   archive: ['archive'] as const,
   doc: (path: string) => ['doc', path] as const,
+  guide: ['guide'] as const,
+  guidePage: (slug: string) => ['guide', slug] as const,
 }
 
 export function useBoard() {
@@ -55,5 +57,17 @@ export function useSync() {
       }
       toast.error('Sync failed', { description: error.message })
     },
+  })
+}
+
+export function useGuide() {
+  return useQuery({ queryKey: keys.guide, queryFn: api.guide, staleTime: Infinity })
+}
+
+export function useGuidePage(slug: string) {
+  return useQuery({
+    queryKey: keys.guidePage(slug),
+    queryFn: () => api.guidePage(slug),
+    staleTime: Infinity,
   })
 }

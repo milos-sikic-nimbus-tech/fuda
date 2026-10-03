@@ -62,6 +62,9 @@ func (l Links) resolve(dest, dir string) (string, bool) {
 	if isExternal(dest) || strings.HasPrefix(dest, "mailto:") {
 		return dest, true
 	}
+	if strings.HasPrefix(dest, "/guide/") {
+		return dest, true
+	}
 	if strings.HasPrefix(dest, "/") {
 		return "", false
 	}

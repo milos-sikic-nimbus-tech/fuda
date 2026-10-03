@@ -122,6 +122,16 @@
   .mermaid-diagram {
     @apply my-4 flex justify-center overflow-x-auto;
   }
+  .has-copy {
+    @apply relative;
+  }
+  .copy-code {
+    @apply absolute top-2 right-2 rounded-md border border-border bg-card px-2 py-0.5 font-sans text-[11px] text-muted-foreground opacity-0 transition-opacity hover:text-foreground;
+  }
+  .has-copy:hover .copy-code,
+  .copy-code:focus-visible {
+    @apply opacity-100;
+  }
   .task-ref {
     @apply font-mono text-[0.9em];
   }

@@ -48,6 +48,25 @@ function linkTaskIds(root: HTMLElement, pattern: RegExp, selfId?: string) {
   }
 }
 
+function addCopyButtons(root: HTMLElement) {
+  for (const pre of root.querySelectorAll('pre')) {
+    const code = pre.querySelector('code')
+    if (!code || code.classList.contains('language-mermaid')) continue
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'copy-code'
+    button.textContent = 'Copy'
+    button.addEventListener('click', () => {
+      void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
+        button.textContent = 'Copied'
+        setTimeout(() => (button.textContent = 'Copy'), 1500)
+      })
+    })
+    pre.classList.add('has-copy')
+    pre.append(button)
+  }
+}
+
 async function renderMermaid(root: HTMLElement) {
   const blocks = [...root.querySelectorAll<HTMLElement>('code.language-mermaid')]
   if (blocks.length === 0) return
@@ -111,6 +130,7 @@ export function RichContent({
     if (dropTitle) root.querySelector('h1')?.remove()
     if (lead) promoteSection(root, lead)
     if (pattern) linkTaskIds(root, pattern, selfId)
+    addCopyButtons(root)
     void renderMermaid(root)
   }, [html, pattern, selfId, lead, dropTitle])
 

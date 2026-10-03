@@ -74,6 +74,10 @@ export type TaskDetail = Card & {
 
 export type DocDetail = { path: string; title: string; html: string; backlinks: string[] }
 
+export type GuidePage = { slug: string; title: string }
+
+export type GuideContent = GuidePage & { html: string }
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -99,6 +103,8 @@ export const api = {
   archive: () => request<Card[]>('/api/archive'),
   doc: (path: string) => request<DocDetail>(`/api/docs?path=${encodeURIComponent(path)}`),
   sync: () => request<void>('/api/sync', { method: 'POST' }),
+  guide: () => request<GuidePage[]>('/api/guide'),
+  guidePage: (slug: string) => request<GuideContent>(`/api/guide/${encodeURIComponent(slug)}`),
 }
 
 export function prHref(template: string | undefined, n: number): string | undefined {

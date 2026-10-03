@@ -5,7 +5,6 @@ import { HostIcon } from '@/components/atoms/HostIcon'
 import { Logo } from '@/components/atoms/Logo'
 import { SyncIndicator } from '@/components/molecules/SyncIndicator'
 import { ThemeToggle } from '@/components/molecules/ThemeToggle'
-import { ComingSoon } from '@/components/organisms/ComingSoon'
 import { ProblemsDrawer } from '@/components/organisms/ProblemsDrawer'
 import type { BoardData } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -77,14 +76,9 @@ export function AppHeader({ board }: { board?: BoardData }) {
         <Link to="/docs/$" params={{ _splat: 'board/README.md' }} className={tabClass}>
           <TabLabel icon={FileText}>Docs</TabLabel>
         </Link>
-        <ComingSoon
-          feature="The guide"
-          description="How to set up a repo for fuda, the task format, board config files and the agent guide will live here. Until then, see the repo's docs/board/TASKS.md."
-        >
-          <button type="button" className={tabClass}>
-            <TabLabel icon={BookOpen}>Guide</TabLabel>
-          </button>
-        </ComingSoon>
+        <Link to="/guide/$" params={{ _splat: '' }} className={tabClass}>
+          <TabLabel icon={BookOpen}>Guide</TabLabel>
+        </Link>
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         {board && <ProblemsDrawer problems={board.problems} />}
