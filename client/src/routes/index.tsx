@@ -36,8 +36,8 @@ function BoardPage() {
       <FilterBar
         facets={data.facets}
         columns={data.columns}
+        cards={data.cards}
         shown={cards.length}
-        total={data.cards.length}
       />
       <Board columns={data.columns} cards={cards} prLink={data.prLink} />
       <TaskSheet taskIds={taskIds} prLink={data.prLink} />

@@ -16,14 +16,14 @@ export function DateRange({
         type="date"
         value={from ?? ''}
         onChange={(e) => onChange({ from: e.target.value || undefined, to })}
-        className="h-8 w-34 text-xs"
+        className="h-8 w-34 bg-card text-xs"
       />
       <span>–</span>
       <Input
         type="date"
         value={to ?? ''}
         onChange={(e) => onChange({ from, to: e.target.value || undefined })}
-        className="h-8 w-34 text-xs"
+        className="h-8 w-34 bg-card text-xs"
       />
     </div>
   )

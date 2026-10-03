@@ -1,0 +1,16 @@
+export function Logo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
+      <defs>
+        <linearGradient id="fuda-logo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#10b981" />
+          <stop offset="1" stopColor="#047857" />
+        </linearGradient>
+      </defs>
+      <path d="M9 3h14l5 5v19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" fill="url(#fuda-logo)" />
+      <circle cx="16" cy="9" r="2.4" fill="#ecfdf5" />
+      <rect x="9" y="16" width="14" height="2.6" rx="1.3" fill="#ecfdf5" />
+      <rect x="9" y="21.5" width="9" height="2.6" rx="1.3" fill="#ecfdf5" opacity=".75" />
+    </svg>
+  )
+}

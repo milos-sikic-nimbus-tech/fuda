@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { Logo } from '@/components/atoms/Logo'
 import { SyncIndicator } from '@/components/molecules/SyncIndicator'
 import { ProblemsDrawer } from '@/components/organisms/ProblemsDrawer'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -24,8 +25,9 @@ function RootLayout() {
     <TooltipProvider delayDuration={300}>
       <div className="flex h-svh flex-col text-foreground">
         <header className="flex items-center gap-3 border-b border-border/60 bg-card/70 px-4 py-2 backdrop-blur-md">
-          <Link to="/" className="flex items-baseline gap-2 font-semibold">
-            <span className="text-primary">fuda</span>
+          <Link to="/" className="flex items-center gap-2 font-semibold">
+            <Logo className="size-6" />
+            <span className="tracking-tight text-primary">fuda</span>
             {data?.title && (
               <span className="text-sm font-medium text-muted-foreground">{data.title}</span>
             )}

@@ -1,4 +1,5 @@
 import { SlidersHorizontal } from 'lucide-react'
+import { useMemo } from 'react'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusDot } from '@/components/atoms/StatusDot'
 import { ActiveFilters } from '@/components/molecules/ActiveFilters'
@@ -16,8 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import type { Column, Facets, LabelGroup } from '@/lib/api'
-import { listOf } from '@/lib/filters'
+import type { Card, Column, Facets, LabelGroup } from '@/lib/api'
+import { countFacets, type FacetCounts, type ListKey, listOf } from '@/lib/filters'
+import { cn } from '@/lib/utils'
 
 const groupTitles: Record<string, string> = {
   type: 'Type',
@@ -31,10 +33,11 @@ function groupTitle(group: string): string {
   return groupTitles[group] ?? group.charAt(0).toUpperCase() + group.slice(1)
 }
 
-function personOptions(names: string[]): Option[] {
+function personOptions(names: string[], counts: Map<string, number>): Option[] {
   return names.map((name) => ({
     value: name,
     search: name,
+    count: counts.get(name) ?? 0,
     label: (
       <span className="inline-flex items-center gap-2">
         <Avatar name={name} />
@@ -61,14 +64,33 @@ function Toggle({
   )
 }
 
-function LabelGroupFilter({ group }: { group: LabelGroup }) {
-  const { search, toggle } = useBoardSearch()
+function useListFilter(key: ListKey) {
+  const { search, toggle, update } = useBoardSearch()
+  return {
+    selected: listOf(search[key]),
+    onToggle: (value: string) => toggle(key, value),
+    onClear: () => update({ [key]: undefined }),
+  }
+}
+
+function LabelGroupFilter({ group, counts }: { group: LabelGroup; counts: FacetCounts }) {
+  const { search, toggle, update } = useBoardSearch()
+  const prefix = `${group.name}:`
+  const labels = listOf(search.label)
   return (
     <FilterSelect
       title={groupTitle(group.name)}
-      options={group.values.map((v) => ({ value: `${group.name}:${v}`, label: v, search: v }))}
-      selected={listOf(search.label).filter((l) => l.startsWith(`${group.name}:`))}
+      options={group.values.map((v) => ({
+        value: prefix + v,
+        label: v,
+        search: v,
+        count: counts.label.get(prefix + v) ?? 0,
+      }))}
+      selected={labels.filter((l) => l.startsWith(prefix))}
       onToggle={(v) => toggle('label', v)}
+      onClear={() =>
+        update({ label: labels.filter((l) => !l.startsWith(prefix)).join(',') || undefined })
+      }
     />
   )
 }
@@ -76,15 +98,21 @@ function LabelGroupFilter({ group }: { group: LabelGroup }) {
 export function FilterBar({
   facets,
   columns,
+  cards,
   shown,
-  total,
 }: {
   facets: Facets
   columns: Column[]
+  cards: Card[]
   shown: number
-  total: number
 }) {
-  const { search, update, toggle } = useBoardSearch()
+  const { search, update } = useBoardSearch()
+  const counts = useMemo(() => countFacets(cards), [cards])
+  const owner = useListFilter('owner')
+  const tester = useListFilter('tester')
+  const status = useListFilter('status')
+  const prefix = useListFilter('prefix')
+
   const statusNeeded = columns.some((c) => c.statuses.length > 1 || c.unknown)
   const primary = facets.labelGroups.filter((g) => primaryGroups.includes(g.name))
   const secondary = facets.labelGroups.filter((g) => !primaryGroups.includes(g.name))
@@ -98,77 +126,71 @@ export function FilterBar({
       search.to,
       search.blocked,
       search.available,
+      search.text,
     ].some(Boolean)
 
   return (
-    <div className="border-b border-border/60">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+    <div className="border-b border-border/60 bg-card/50 backdrop-blur-sm">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
         <SearchInput value={search.q} onChange={(q) => update({ q })} />
         {primary.map((g) => (
-          <LabelGroupFilter key={g.name} group={g} />
+          <LabelGroupFilter key={g.name} group={g} counts={counts} />
         ))}
         <FilterSelect
           title="Owner"
-          options={personOptions(facets.people)}
-          selected={listOf(search.owner)}
-          onToggle={(v) => toggle('owner', v)}
+          options={personOptions(facets.people, counts.owner)}
+          {...owner}
         />
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5"
-              data-active={moreActive || undefined}
+              className={cn(
+                'h-8 gap-1.5 bg-card shadow-xs',
+                moreActive && 'border-primary/50 bg-primary/5 text-primary',
+              )}
             >
               <SlidersHorizontal className="size-3.5" />
               More filters
-              {moreActive && <span className="size-1.5 rounded-full bg-primary" />}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80 space-y-4">
-            {secondary.length +
-              (facets.testers.length ? 1 : 0) +
-              (statusNeeded ? 1 : 0) +
-              (facets.prefixes.length > 1 ? 1 : 0) >
-              0 && (
-              <div className="flex flex-wrap gap-2">
-                {secondary.map((g) => (
-                  <LabelGroupFilter key={g.name} group={g} />
-                ))}
-                <FilterSelect
-                  title="Tester"
-                  options={personOptions(facets.testers)}
-                  selected={listOf(search.tester)}
-                  onToggle={(v) => toggle('tester', v)}
-                />
-                <FilterSelect
-                  title="Status"
-                  options={(statusNeeded ? facets.statuses : []).map((s) => ({
-                    value: s,
-                    search: s,
-                    label: (
-                      <span className="inline-flex items-center gap-2">
-                        <StatusDot status={s} />
-                        {s}
-                      </span>
-                    ),
-                  }))}
-                  selected={listOf(search.status)}
-                  onToggle={(v) => toggle('status', v)}
-                />
-                <FilterSelect
-                  title="Prefix"
-                  options={(facets.prefixes.length > 1 ? facets.prefixes : []).map((p) => ({
-                    value: p,
-                    search: p,
-                    label: <span className="font-mono">{p}</span>,
-                  }))}
-                  selected={listOf(search.prefix)}
-                  onToggle={(v) => toggle('prefix', v)}
-                />
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2 empty:hidden">
+              {secondary.map((g) => (
+                <LabelGroupFilter key={g.name} group={g} counts={counts} />
+              ))}
+              <FilterSelect
+                title="Tester"
+                options={personOptions(facets.testers, counts.tester)}
+                {...tester}
+              />
+              <FilterSelect
+                title="Status"
+                options={(statusNeeded ? facets.statuses : []).map((s) => ({
+                  value: s,
+                  search: s,
+                  count: counts.status.get(s) ?? 0,
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      <StatusDot status={s} />
+                      {s}
+                    </span>
+                  ),
+                }))}
+                {...status}
+              />
+              <FilterSelect
+                title="Prefix"
+                options={(facets.prefixes.length > 1 ? facets.prefixes : []).map((p) => ({
+                  value: p,
+                  search: p,
+                  count: counts.prefix.get(p) ?? 0,
+                  label: <span className="font-mono">{p}</span>,
+                }))}
+                {...prefix}
+              />
+            </div>
             <DateRange from={search.from} to={search.to} onChange={(range) => update(range)} />
             <div className="space-y-2">
               <Toggle
@@ -191,13 +213,13 @@ export function FilterBar({
         </Popover>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-muted-foreground tabular-nums">
-            {shown === total ? `${total} tasks` : `${shown} of ${total}`}
+            {shown === cards.length ? `${cards.length} tasks` : `${shown} of ${cards.length}`}
           </span>
           <Select
             value={search.sort ?? 'id'}
             onValueChange={(v) => update({ sort: v === 'added' ? 'added' : undefined })}
           >
-            <SelectTrigger size="sm" className="h-8 w-40 text-xs">
+            <SelectTrigger size="sm" className="h-8 w-40 bg-card text-xs shadow-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

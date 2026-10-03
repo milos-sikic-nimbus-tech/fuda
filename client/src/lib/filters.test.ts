@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Card } from './api'
-import { activeFilterCount, boardSearchSchema, filterCards, sortCards, toggled } from './filters'
+import {
+  activeFilterCount,
+  boardSearchSchema,
+  countFacets,
+  filterCards,
+  sortCards,
+  toggled,
+} from './filters'
 
 function card(id: string, overrides: Partial<Card> = {}): Card {
   return {
@@ -98,5 +105,14 @@ describe('sortCards', () => {
   it('sorts ids naturally, or by newest added', () => {
     expect(ids(sortCards(cards, 'id'))).toEqual(['SS-2', 'SS-3', 'SS-10'])
     expect(ids(sortCards(cards, 'added'))).toEqual(['SS-10', 'SS-3', 'SS-2'])
+  })
+})
+
+describe('countFacets', () => {
+  it('counts each value across cards', () => {
+    const counts = countFacets(cards)
+    expect(counts.label.get('type:bug')).toBe(2)
+    expect(counts.owner.get('Ana')).toBe(1)
+    expect(counts.status.get('backlog')).toBe(2)
   })
 })

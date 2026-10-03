@@ -31,7 +31,7 @@ export function SearchInput({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="Search id, title, people, labels"
-        className="h-8 w-64 pl-8 text-sm"
+        className="h-8 w-64 bg-card pl-8 text-sm shadow-xs"
       />
     </div>
   )

@@ -5,6 +5,7 @@
 @import '@fontsource-variable/geist';
 
 @theme static {
+  --color-page: var(--page);
   --color-status-backlog: #94a3b8;
   --color-status-in-progress: #3b82f6;
   --color-status-in-review: #8b5cf6;
@@ -69,7 +70,8 @@
 }
 
 :root {
-  --background: #f6faf7;
+  --background: #ffffff;
+  --page: #f3f8f5;
   --foreground: #0f1f17;
   --card: #ffffff;
   --card-foreground: #0f1f17;
@@ -108,7 +110,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-page text-foreground;
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {

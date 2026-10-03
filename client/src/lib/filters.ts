@@ -103,3 +103,30 @@ export function activeFilterCount(search: BoardSearch): number {
     [search.blocked, search.available, search.q, search.from, search.to].filter(Boolean).length
   )
 }
+
+export type FacetCounts = {
+  status: Map<string, number>
+  owner: Map<string, number>
+  tester: Map<string, number>
+  label: Map<string, number>
+  prefix: Map<string, number>
+}
+
+export function countFacets(cards: Card[]): FacetCounts {
+  const counts: FacetCounts = {
+    status: new Map(),
+    owner: new Map(),
+    tester: new Map(),
+    label: new Map(),
+    prefix: new Map(),
+  }
+  const add = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1)
+  for (const card of cards) {
+    add(counts.status, card.status)
+    add(counts.prefix, card.prefix)
+    card.owners.forEach((o) => add(counts.owner, o))
+    card.testers.forEach((t) => add(counts.tester, t))
+    card.labels.forEach((l) => add(counts.label, l))
+  }
+  return counts
+}
