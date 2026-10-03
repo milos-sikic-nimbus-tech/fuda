@@ -17,6 +17,7 @@ export const boardSearchSchema = z.object({
   from: optionalText,
   to: optionalText,
   sort: z.enum(['id', 'added']).optional().catch(undefined),
+  view: z.enum(['board', 'list']).optional().catch(undefined),
   task: optionalText,
 })
 

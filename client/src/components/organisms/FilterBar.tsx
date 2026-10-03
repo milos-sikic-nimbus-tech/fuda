@@ -1,3 +1,6 @@
+import { LayoutGrid, List } from 'lucide-react'
+import { Hint } from '@/components/atoms/Hint'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ActiveFilters } from '@/components/molecules/ActiveFilters'
 import { FilterMenu } from '@/components/molecules/FilterMenu'
 import { SearchInput } from '@/components/molecules/SearchInput'
@@ -32,6 +35,25 @@ export function FilterBar({
       <FilterMenu groups={groups} />
       <ActiveFilters groups={groups} />
       <div className="ml-auto flex items-center gap-3">
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          value={search.view ?? 'board'}
+          onValueChange={(v) => v && update({ view: v === 'list' ? 'list' : undefined })}
+          className="bg-card shadow-xs"
+        >
+          <Hint label="Board">
+            <ToggleGroupItem value="board" aria-label="Board view" className="h-8 px-2">
+              <LayoutGrid className="size-3.5" />
+            </ToggleGroupItem>
+          </Hint>
+          <Hint label="List">
+            <ToggleGroupItem value="list" aria-label="List view" className="h-8 px-2">
+              <List className="size-3.5" />
+            </ToggleGroupItem>
+          </Hint>
+        </ToggleGroup>
         <span className="text-xs text-muted-foreground tabular-nums">
           {shown === cards.length ? `${cards.length} tasks` : `${shown} of ${cards.length}`}
         </span>

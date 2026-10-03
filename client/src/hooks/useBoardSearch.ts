@@ -16,7 +16,10 @@ export function useBoardSearch() {
   }
 
   const clear = () => {
-    void navigate({ search: (prev) => ({ task: prev.task, sort: prev.sort }), replace: true })
+    void navigate({
+      search: (prev) => ({ task: prev.task, sort: prev.sort, view: prev.view }),
+      replace: true,
+    })
   }
 
   return { search, update, toggle, openTask, clear }

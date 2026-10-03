@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { NoMatches } from '@/components/molecules/NoMatches'
 import { Board } from '@/components/organisms/Board'
+import { ListView } from '@/components/organisms/ListView'
 import { FilterBar } from '@/components/organisms/FilterBar'
 import { TaskSheet } from '@/components/organisms/TaskSheet'
 import { boardSearchSchema, filterCards, sortCards } from '@/lib/filters'
@@ -42,6 +43,8 @@ function BoardPage() {
       />
       {cards.length === 0 && data.cards.length > 0 ? (
         <NoMatches />
+      ) : search.view === 'list' ? (
+        <ListView columns={data.columns} cards={cards} />
       ) : (
         <Board columns={data.columns} cards={cards} prLink={data.prLink} />
       )}

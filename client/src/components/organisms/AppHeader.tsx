@@ -5,6 +5,7 @@ import { HostIcon } from '@/components/atoms/HostIcon'
 import { Logo } from '@/components/atoms/Logo'
 import { SyncIndicator } from '@/components/molecules/SyncIndicator'
 import { ThemeToggle } from '@/components/molecules/ThemeToggle'
+import { CommandPalette } from '@/components/organisms/CommandPalette'
 import { ProblemsDrawer } from '@/components/organisms/ProblemsDrawer'
 import type { BoardData } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -81,6 +82,7 @@ export function AppHeader({ board }: { board?: BoardData }) {
         </Link>
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+        <CommandPalette />
         {board && <ProblemsDrawer problems={board.problems} />}
         {board && <SyncIndicator sync={board.sync} />}
         <ThemeToggle />
