@@ -1,6 +1,8 @@
 package board
 
 import (
+	"slices"
+	"strings"
 	"time"
 
 	"fuda/internal/taskfiles"
@@ -42,6 +44,7 @@ type Card struct {
 	References       []string `json:"references"`
 	ReferencedBy     []string `json:"referencedBy"`
 	InProd           bool     `json:"inProd"`
+	NewInPR          bool     `json:"newInPr"`
 	ArchiveCandidate bool     `json:"archiveCandidate"`
 	Path             string   `json:"path"`
 }
@@ -67,6 +70,7 @@ type Inputs struct {
 	Develop      taskfiles.Result
 	Main         *taskfiles.Result
 	OpenPRs      map[string][]int
+	AddedInPRs   []taskfiles.Task
 	ArchiveDates map[string]time.Time
 	ArchiveAfter time.Duration
 	Now          time.Time
@@ -109,6 +113,34 @@ func Build(in Inputs) Board {
 			ArchiveCandidate: inProd && reached && in.Now.Sub(first) >= in.ArchiveAfter,
 			Path:             t.Path,
 		})
+	}
+
+	if columns.review != "" {
+		added := slices.Clone(in.AddedInPRs)
+		slices.SortFunc(added, func(a, b taskfiles.Task) int { return strings.Compare(a.ID, b.ID) })
+		for _, t := range added {
+			cards = append(cards, Card{
+				ID:           t.ID,
+				Title:        t.Title,
+				Status:       t.Status,
+				Column:       columns.review,
+				Owners:       people.canonical(t.Owners),
+				Testers:      people.canonical(t.Testers),
+				Labels:       labelStrings(t.Labels),
+				Prefix:       idPrefix(t.ID),
+				Added:        t.Added,
+				Claimed:      t.Claimed,
+				PRs:          orEmpty(t.PRs),
+				OpenPRs:      orEmpty(in.OpenPRs[t.ID]),
+				BlockedBy:    t.BlockedBy,
+				BlockedByIDs: []string{},
+				Blocks:       []string{},
+				References:   []string{},
+				ReferencedBy: []string{},
+				NewInPR:      true,
+				Path:         t.Path,
+			})
+		}
 	}
 
 	return Board{

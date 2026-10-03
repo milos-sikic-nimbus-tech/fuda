@@ -21,6 +21,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
     references: [],
     referencedBy: [],
     inProd: false,
+    newInPr: false,
     archiveCandidate: false,
     path: `docs/board/tasks/${id}.md`,
     ...overrides,

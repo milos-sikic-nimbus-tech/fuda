@@ -27,6 +27,7 @@ export type Card = {
   references: string[]
   referencedBy: string[]
   inProd: boolean
+  newInPr: boolean
   archiveCandidate: boolean
   path: string
 }
@@ -53,6 +54,7 @@ export type SyncStatus = {
 
 export type BoardData = {
   title: string
+  prLink?: string
   columns: Column[]
   cards: Card[]
   facets: Facets
@@ -92,4 +94,8 @@ export const api = {
   archive: () => request<Card[]>('/api/archive'),
   doc: (path: string) => request<DocDetail>(`/api/docs?path=${encodeURIComponent(path)}`),
   sync: () => request<void>('/api/sync', { method: 'POST' }),
+}
+
+export function prHref(template: string | undefined, n: number): string | undefined {
+  return template?.replace('{n}', String(n))
 }

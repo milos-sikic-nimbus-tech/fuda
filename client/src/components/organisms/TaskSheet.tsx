@@ -15,6 +15,7 @@ import {
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import { listOf } from '@/lib/filters'
 import { useTask } from '@/lib/queries'
+import { prHref } from '@/lib/api'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -33,7 +34,7 @@ function Ids({ ids }: { ids: string[] }) {
   return ids.map((id) => <TaskLink key={id} id={id} />)
 }
 
-export function TaskSheet({ taskIds }: { taskIds: string[] }) {
+export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: string }) {
   const { search, toggle, openTask } = useBoardSearch()
   const { data: task, isError } = useTask(search.task)
   const labels = listOf(search.label)
@@ -101,10 +102,16 @@ export function TaskSheet({ taskIds }: { taskIds: string[] }) {
               {(task.prs.length > 0 || task.prRef || task.openPrs.length > 0) && (
                 <Field label="PR">
                   {[...new Set([...task.prs, ...task.openPrs])].map((n) => (
-                    <span key={n} className="inline-flex items-center gap-1 text-xs">
+                    <a
+                      key={n}
+                      href={prHref(prLink, n)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
                       <GitPullRequest className="size-3.5" />#{n}
                       {task.openPrs.includes(n) && <span className="text-violet-700">open</span>}
-                    </span>
+                    </a>
                   ))}
                   {task.prRef && <span className="font-mono text-xs">{task.prRef}</span>}
                 </Field>

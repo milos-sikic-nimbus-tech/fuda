@@ -1,15 +1,23 @@
-import { Ban, GitPullRequest, Rocket, Archive } from 'lucide-react'
+import { Archive, Ban, GitPullRequest, Rocket, Sparkles } from 'lucide-react'
 import { LabelChip } from '@/components/atoms/LabelChip'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusDot } from '@/components/atoms/StatusDot'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import type { Card, Column } from '@/lib/api'
+import { type Card, type Column, prHref } from '@/lib/api'
 import { listOf } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 
 const maxLabels = 3
 
-export function TaskCard({ card, column }: { card: Card; column: Column }) {
+export function TaskCard({
+  card,
+  column,
+  prLink,
+}: {
+  card: Card
+  column: Column
+  prLink?: string
+}) {
   const { search, toggle, openTask } = useBoardSearch()
   const selectedLabels = listOf(search.label)
   const showStatus = column.statuses.length > 1 || column.prOpen
@@ -38,7 +46,11 @@ export function TaskCard({ card, column }: { card: Card; column: Column }) {
         </span>
       </div>
       <p className="text-sm leading-snug text-card-foreground">{card.title}</p>
-      {(card.labels.length > 0 || card.blockedBy || card.openPrs.length > 0 || card.inProd) && (
+      {(card.labels.length > 0 ||
+        card.blockedBy ||
+        card.openPrs.length > 0 ||
+        card.inProd ||
+        card.newInPr) && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {card.blockedBy && (
             <span
@@ -49,13 +61,26 @@ export function TaskCard({ card, column }: { card: Card; column: Column }) {
               <span className="truncate">{card.blockedBy}</span>
             </span>
           )}
-          {card.openPrs.map((n) => (
+          {card.newInPr && (
             <span
+              title="This task file is new in the open PR; it is not on develop yet"
+              className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-700"
+            >
+              <Sparkles className="size-3" />
+              new in PR
+            </span>
+          )}
+          {card.openPrs.map((n) => (
+            <a
               key={n}
-              className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-1.5 py-0.5 text-[11px] text-violet-800"
+              href={prHref(prLink, n)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-1.5 py-0.5 text-[11px] text-violet-800 hover:bg-violet-200"
             >
               <GitPullRequest className="size-3" />#{n}
-            </span>
+            </a>
           ))}
           {card.inProd && (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-800">

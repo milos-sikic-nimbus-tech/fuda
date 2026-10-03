@@ -14,6 +14,7 @@ import (
 	"fuda/internal/board"
 	"fuda/internal/config"
 	"fuda/internal/httpapi"
+	"fuda/internal/source/github"
 	"fuda/internal/source/local"
 	"fuda/internal/web"
 )
@@ -33,11 +34,20 @@ const (
 	prodBranch = "main"
 )
 
-func newSource(cfg config.Config) (board.Source, error) {
-	if cfg.Source == config.SourceLocal {
-		return local.New(cfg.LocalPath, docsRoot, workBranch), nil
+type hostLinks struct {
+	code func(string) string
+	pr   string
+}
+
+func newSource(cfg config.Config) (board.Source, hostLinks, error) {
+	switch cfg.Source {
+	case config.SourceLocal:
+		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{}, nil
+	case config.SourceGitHub:
+		gh := github.New(cfg.GitHubRepo, cfg.GitHubToken, docsRoot)
+		return gh, hostLinks{code: gh.CodeURL(workBranch), pr: gh.PRLink()}, nil
 	}
-	return nil, fmt.Errorf("source %q is not available yet", cfg.Source)
+	return nil, hostLinks{}, fmt.Errorf("source %q is not available yet", cfg.Source)
 }
 
 func run(log *slog.Logger) error {
@@ -49,7 +59,7 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	source, err := newSource(cfg)
+	source, links, err := newSource(cfg)
 	if err != nil {
 		return err
 	}
@@ -62,10 +72,13 @@ func run(log *slog.Logger) error {
 		WatchMain:    cfg.WatchMain,
 		ArchiveAfter: time.Duration(cfg.ArchiveAfterDays) * 24 * time.Hour,
 		Cooldown:     cfg.SyncCooldown,
+		CodeURL:      links.code,
+		PRLink:       links.pr,
 	})
 	if err := service.Sync(ctx); err != nil {
 		log.Error("first sync failed; serving without data until a sync succeeds", "error", err)
 	}
+	go service.Run(ctx, cfg.SyncInterval)
 
 	server := &http.Server{
 		Addr:              cfg.Addr,

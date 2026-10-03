@@ -117,6 +117,27 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 	}
 }
 
+func TestTaskAddedInAPRShowsInReview(t *testing.T) {
+	added := task("SS-111", "merged", func(t *taskfiles.Task) { t.PRs = []int{134} })
+	b := Build(Inputs{
+		Develop:    taskfiles.Result{Tasks: []taskfiles.Task{task("SS-1", "backlog")}},
+		OpenPRs:    map[string][]int{"SS-111": {134}},
+		AddedInPRs: []taskfiles.Task{added},
+	})
+	c := card(b, "SS-111")
+	if c.Column != "in-review" || !c.NewInPR || len(c.OpenPRs) != 1 {
+		t.Fatalf("card: %+v", c)
+	}
+
+	noReview := Build(Inputs{
+		Develop:    taskfiles.Result{Config: taskfiles.Config{Stages: []taskfiles.Stage{{Name: "Todo", Statuses: []string{"backlog"}}}}},
+		AddedInPRs: []taskfiles.Task{added},
+	})
+	if len(noReview.Cards) != 0 {
+		t.Error("without an In review stage a PR-only task has nowhere to go")
+	}
+}
+
 func TestClaimedTaskStaysInItsStatus(t *testing.T) {
 	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "backlog", owners("Ana"))}}})
 	if columnOf(b, "A1") != "backlog" || len(b.Problems) != 0 {

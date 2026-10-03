@@ -38,6 +38,7 @@ type Options struct {
 	ArchiveAfter time.Duration
 	Cooldown     time.Duration
 	CodeURL      func(repoPath string) string
+	PRLink       string
 }
 
 type Service struct {
@@ -71,6 +72,8 @@ type snapshot struct {
 	board   Board
 	develop taskfiles.Result
 	main    *taskfiles.Result
+	files   map[string][]byte
+	reviews reviews
 	docs    map[string][]byte
 	links   markdown.Links
 	byID    map[string]taskfiles.Task
@@ -134,6 +137,15 @@ func (s *Service) load(ctx context.Context) error {
 
 	current := s.snapshot.Load()
 	if current != nil && maps.Equal(current.heads, heads) {
+		found, err := s.openReviews(ctx, current.develop)
+		if err != nil {
+			s.markSynced(heads, current)
+			return fmt.Errorf("open pull requests: %w", err)
+		}
+		if !sameReviews(current.reviews, found) {
+			current = s.build(current.develop, current.main, current.files, heads, found)
+			s.snapshot.Store(current)
+		}
 		s.markSynced(heads, current)
 		return nil
 	}
@@ -157,13 +169,20 @@ func (s *Service) load(ctx context.Context) error {
 		}
 	}
 
-	next := s.build(develop, main, developFiles, heads)
+	found, reviewErr := s.openReviews(ctx, develop)
+	if reviewErr != nil {
+		found = reviews{}
+	}
+	next := s.build(develop, main, developFiles, heads, found)
 	s.snapshot.Store(next)
 	s.markSynced(heads, next)
+	if reviewErr != nil {
+		return fmt.Errorf("open pull requests: %w", reviewErr)
+	}
 	return nil
 }
 
-func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string) *snapshot {
+func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string, found reviews) *snapshot {
 	docs := map[string][]byte{}
 	docSet := map[string]bool{}
 	for p, content := range files {
@@ -178,16 +197,25 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 		byID[t.ID] = t
 		taskPaths[t.Path] = t.ID
 	}
+	for id, t := range found.added {
+		if _, exists := byID[id]; !exists {
+			byID[id] = t
+		}
+	}
 
 	return &snapshot{
 		board: Build(Inputs{
 			Develop:      develop,
 			Main:         main,
+			OpenPRs:      found.open,
+			AddedInPRs:   slices.Collect(maps.Values(found.added)),
 			ArchiveAfter: s.opts.ArchiveAfter,
 			Now:          s.now(),
 		}),
 		develop: develop,
 		main:    main,
+		files:   files,
+		reviews: found,
 		docs:    docs,
 		byID:    byID,
 		heads:   heads,
@@ -214,16 +242,17 @@ func (s *Service) markSynced(heads map[string]string, snap *snapshot) {
 
 type BoardView struct {
 	Board
-	Title string     `json:"title"`
-	Sync  SyncStatus `json:"sync"`
+	Title  string     `json:"title"`
+	PRLink string     `json:"prLink,omitempty"`
+	Sync   SyncStatus `json:"sync"`
 }
 
 func (s *Service) Board() (BoardView, bool) {
 	snap := s.snapshot.Load()
 	if snap == nil {
-		return BoardView{Title: s.opts.Title, Sync: s.Status()}, false
+		return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Sync: s.Status()}, false
 	}
-	return BoardView{Title: s.opts.Title, Board: snap.board, Sync: s.Status()}, true
+	return BoardView{Title: s.opts.Title, PRLink: s.opts.PRLink, Board: snap.board, Sync: s.Status()}, true
 }
 
 func (s *Service) Status() SyncStatus {
