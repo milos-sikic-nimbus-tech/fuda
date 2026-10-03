@@ -2,6 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -48,7 +51,7 @@ func TestAPISmoke(t *testing.T) {
 	if err := service.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), service, fstest.MapFS{}, Credentials{}))
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), service, fstest.MapFS{}, Credentials{}, ""))
 	defer server.Close()
 
 	var b struct {
@@ -146,5 +149,37 @@ func TestBasicAuth(t *testing.T) {
 		if rec.Code != c.want {
 			t.Errorf("%s as %q: got %d, want %d", c.path, c.user, rec.Code, c.want)
 		}
+	}
+}
+
+func TestWebhookSignature(t *testing.T) {
+	sign := func(body, secret string) string {
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(body))
+		return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	}
+	cases := []struct {
+		name, host, header, value string
+		want                      bool
+	}{
+		{"github signed", "github", "X-Hub-Signature-256", sign(`{"a":1}`, "s3cret"), true},
+		{"github wrong secret", "github", "X-Hub-Signature-256", sign(`{"a":1}`, "other"), false},
+		{"github unsigned", "github", "", "", false},
+		{"azure header", "azure", "X-Fuda-Secret", "s3cret", true},
+		{"azure wrong", "azure", "X-Fuda-Secret", "nope", false},
+		{"unknown host", "gitlab", "", "", false},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodPost, "/api/webhooks/"+c.host, strings.NewReader(`{"a":1}`))
+		req.SetPathValue("host", c.host)
+		if c.header != "" {
+			req.Header.Set(c.header, c.value)
+		}
+		if got := validWebhook(req, "s3cret"); got != c.want {
+			t.Errorf("%s: got %v", c.name, got)
+		}
+	}
+	if !validWebhook(httptest.NewRequest(http.MethodPost, "/api/webhooks/github", nil), "") {
+		t.Error("without a secret every webhook is accepted")
 	}
 }

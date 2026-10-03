@@ -33,7 +33,12 @@ function BoardPage() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <FilterBar facets={data.facets} shown={cards.length} total={data.cards.length} />
+      <FilterBar
+        facets={data.facets}
+        columns={data.columns}
+        shown={cards.length}
+        total={data.cards.length}
+      />
       <Board columns={data.columns} cards={cards} prLink={data.prLink} />
       <TaskSheet taskIds={taskIds} prLink={data.prLink} />
     </main>

@@ -22,6 +22,8 @@ type Config struct {
 	AuthUser     string `env:"FUDA_AUTH_USER" envDefault:"fuda"`
 	AuthPassword string `env:"FUDA_AUTH_PASSWORD"`
 
+	WebhookSecret string `env:"FUDA_WEBHOOK_SECRET"`
+
 	Source    Source `env:"FUDA_SOURCE" envDefault:"local"`
 	LocalPath string `env:"FUDA_LOCAL_PATH"`
 

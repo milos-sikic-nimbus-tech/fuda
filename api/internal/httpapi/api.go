@@ -10,8 +10,9 @@ import (
 )
 
 type api struct {
-	log     *slog.Logger
-	service *board.Service
+	log           *slog.Logger
+	service       *board.Service
+	webhookSecret string
 }
 
 func (a api) routes(mux *http.ServeMux) {
@@ -21,7 +22,7 @@ func (a api) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/archive", a.archive)
 	mux.HandleFunc("GET /api/docs", a.doc)
 	mux.HandleFunc("POST /api/sync", a.sync)
-	mux.HandleFunc("POST /api/webhooks/{host}", a.sync)
+	mux.HandleFunc("POST /api/webhooks/{host}", a.webhook)
 }
 
 func (a api) board(w http.ResponseWriter, _ *http.Request) {
@@ -56,6 +57,15 @@ func (a api) sync(w http.ResponseWriter, r *http.Request) {
 		a.json(w, http.StatusTooManyRequests, map[string]string{"error": "a sync ran moments ago; try again shortly"})
 		return
 	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (a api) webhook(w http.ResponseWriter, r *http.Request) {
+	if !validWebhook(r, a.webhookSecret) {
+		a.json(w, http.StatusUnauthorized, map[string]string{"error": "invalid webhook signature"})
+		return
+	}
+	a.service.NotifyChange(r.Context())
 	w.WriteHeader(http.StatusAccepted)
 }
 

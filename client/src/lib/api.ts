@@ -37,6 +37,7 @@ export type LabelGroup = { name: string; values: string[] }
 export type Facets = {
   statuses: string[]
   people: string[]
+  testers: string[]
   labelGroups: LabelGroup[]
   prefixes: string[]
 }

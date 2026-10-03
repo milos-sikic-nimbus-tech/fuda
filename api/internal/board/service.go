@@ -51,6 +51,7 @@ type Service struct {
 
 	mu          sync.Mutex
 	lastRequest time.Time
+	pending     bool
 	status      SyncStatus
 }
 
@@ -103,6 +104,30 @@ func (s *Service) RequestSync(ctx context.Context) bool {
 
 	go func() { _ = s.Sync(context.WithoutCancel(ctx)) }()
 	return true
+}
+
+func (s *Service) NotifyChange(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pending {
+		return
+	}
+	background := context.WithoutCancel(ctx)
+	now := s.now()
+	wait := s.opts.Cooldown - now.Sub(s.lastRequest)
+	if s.lastRequest.IsZero() || wait <= 0 {
+		s.lastRequest = now
+		go func() { _ = s.Sync(background) }()
+		return
+	}
+	s.pending = true
+	time.AfterFunc(wait, func() {
+		s.mu.Lock()
+		s.pending = false
+		s.lastRequest = s.now()
+		s.mu.Unlock()
+		_ = s.Sync(background)
+	})
 }
 
 func (s *Service) sync(ctx context.Context) error {

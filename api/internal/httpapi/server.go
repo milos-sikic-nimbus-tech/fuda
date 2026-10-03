@@ -18,9 +18,9 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 	return h
 }
 
-func NewHandler(log *slog.Logger, service *board.Service, spa fs.FS, creds Credentials) http.Handler {
+func NewHandler(log *slog.Logger, service *board.Service, spa fs.FS, creds Credentials, webhookSecret string) http.Handler {
 	mux := http.NewServeMux()
-	api{log: log, service: service}.routes(mux)
+	api{log: log, service: service, webhookSecret: webhookSecret}.routes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

@@ -7,7 +7,7 @@ import { SearchInput } from '@/components/molecules/SearchInput'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import type { Facets } from '@/lib/api'
+import type { Column, Facets } from '@/lib/api'
 import { activeFilterCount, listOf } from '@/lib/filters'
 
 const groupTitles: Record<string, string> = {
@@ -40,13 +40,16 @@ function Toggle({
 
 export function FilterBar({
   facets,
+  columns,
   shown,
   total,
 }: {
   facets: Facets
+  columns: Column[]
   shown: number
   total: number
 }) {
+  const statuses = columns.some((c) => c.statuses.length > 1 || c.unknown) ? facets.statuses : []
   const { search, update, toggle, clear } = useBoardSearch()
   const labels = listOf(search.label)
   const people = facets.people.map((p) => ({
@@ -70,7 +73,7 @@ export function FilterBar({
       />
       <FilterSelect
         title="Status"
-        options={facets.statuses.map((s) => ({
+        options={statuses.map((s) => ({
           value: s,
           label: (
             <span className="inline-flex items-center gap-2">
@@ -91,7 +94,7 @@ export function FilterBar({
       />
       <FilterSelect
         title="Tester"
-        options={people}
+        options={people.filter((p) => facets.testers.includes(p.value))}
         selected={listOf(search.tester)}
         onToggle={(v) => toggle('tester', v)}
       />

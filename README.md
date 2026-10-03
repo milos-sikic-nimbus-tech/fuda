@@ -39,6 +39,13 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 All settings are in [`.env.example`](.env.example).
 
+### Webhooks
+
+Point your git host at `POST /api/webhooks/github` or `POST /api/webhooks/azure` (pushes and pull requests).
+A webhook means "re-read now"; fuda never trusts the payload. Without webhooks fuda still checks every
+`FUDA_SYNC_INTERVAL` (3 min). Set `FUDA_WEBHOOK_SECRET` to require GitHub's signature or Azure's
+`X-Fuda-Secret` header.
+
 ## Layout
 
 ```

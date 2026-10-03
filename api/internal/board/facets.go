@@ -19,9 +19,23 @@ func buildFacets(develop taskfiles.Result, p *people) Facets {
 	return Facets{
 		Statuses:    statuses(develop.Tasks),
 		People:      orEmpty(p.listed),
+		Testers:     testers(develop.Tasks, p),
 		LabelGroups: labelGroups(develop.Config.LabelGroups, develop.Tasks),
 		Prefixes:    prefixes(develop.Tasks),
 	}
+}
+
+func testers(tasks []taskfiles.Task, p *people) []string {
+	var out []string
+	for _, t := range tasks {
+		for _, name := range p.canonical(t.Testers) {
+			if !slices.Contains(out, name) {
+				out = append(out, name)
+			}
+		}
+	}
+	slices.Sort(out)
+	return orEmpty(out)
 }
 
 func statuses(tasks []taskfiles.Task) []string {
