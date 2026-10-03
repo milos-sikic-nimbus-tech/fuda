@@ -22,6 +22,7 @@ func (a api) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/search", a.search)
 	mux.HandleFunc("GET /api/archive", a.archive)
 	mux.HandleFunc("GET /api/docs", a.doc)
+	mux.HandleFunc("GET /api/files", a.file)
 	mux.HandleFunc("GET /api/guide", a.guideList)
 	mux.HandleFunc("GET /api/guide/{slug}", a.guidePage)
 	mux.HandleFunc("POST /api/sync", a.sync)
@@ -53,6 +54,19 @@ func (a api) archive(w http.ResponseWriter, _ *http.Request) {
 func (a api) doc(w http.ResponseWriter, r *http.Request) {
 	view, err := a.service.Doc(r.URL.Query().Get("path"))
 	a.result(w, view, err)
+}
+
+func (a api) file(w http.ResponseWriter, r *http.Request) {
+	content, contentType, err := a.service.Asset(r.URL.Query().Get("path"))
+	if err != nil {
+		a.result(w, nil, err)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	_, _ = w.Write(content)
 }
 
 func (a api) guideList(w http.ResponseWriter, _ *http.Request) {

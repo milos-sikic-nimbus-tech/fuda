@@ -16,6 +16,7 @@ import (
 type Links struct {
 	DocsRoot  string
 	Docs      map[string]bool
+	Assets    map[string]bool
 	TaskPaths map[string]string
 	CodeURL   func(repoPath string) string
 }
@@ -29,12 +30,22 @@ func Render(source []byte, docPath string, links Links) (string, error) {
 	doc := engine.Parser().Parse(text.NewReader(source))
 
 	var found []*ast.Link
+	var images []*ast.Image
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		if link, ok := n.(*ast.Link); ok && entering {
-			found = append(found, link)
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch node := n.(type) {
+		case *ast.Link:
+			found = append(found, node)
+		case *ast.Image:
+			images = append(images, node)
 		}
 		return ast.WalkContinue, nil
 	})
+	for _, image := range images {
+		image.Destination = []byte(links.imageSource(string(image.Destination), path.Dir(docPath)))
+	}
 	for _, link := range found {
 		target, keep := links.resolve(string(link.Destination), path.Dir(docPath))
 		if !keep {
@@ -78,6 +89,9 @@ func (l Links) resolve(dest, dir string) (string, bool) {
 	if id, ok := l.TaskPaths[repoPath]; ok {
 		return "/?task=" + url.QueryEscape(id), true
 	}
+	if l.Assets[repoPath] {
+		return assetURL(repoPath), true
+	}
 	if strings.HasSuffix(repoPath, ".md") {
 		if !l.Docs[repoPath] {
 			return "", false
@@ -95,6 +109,30 @@ func (l Links) resolve(dest, dir string) (string, bool) {
 		return href, true
 	}
 	return "", false
+}
+
+func (l Links) imageSource(dest, dir string) string {
+	if isExternal(dest) || strings.HasPrefix(dest, "data:") || strings.HasPrefix(dest, "/") {
+		return dest
+	}
+	repoPath := l.repoPath(dest, dir)
+	if l.Assets[repoPath] {
+		return assetURL(repoPath)
+	}
+	return ""
+}
+
+func (l Links) repoPath(dest, dir string) string {
+	target, _, _ := strings.Cut(dest, "#")
+	repoPath := path.Clean(path.Join(dir, target))
+	if decoded, err := url.PathUnescape(repoPath); err == nil {
+		return decoded
+	}
+	return repoPath
+}
+
+func assetURL(repoPath string) string {
+	return "/api/files?path=" + url.QueryEscape(repoPath)
 }
 
 func isExternal(dest string) bool {

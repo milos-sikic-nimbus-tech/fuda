@@ -55,7 +55,7 @@ func (s *Source) Files(ctx context.Context, branch string) (map[string][]byte, e
 	if err != nil {
 		return nil, err
 	}
-	return markdownFromTar(archive)
+	return docsFromTar(archive)
 }
 
 func (s *Source) resolve(ctx context.Context, branch string) (string, error) {
@@ -87,8 +87,12 @@ func (s *Source) walkDocs(visit func(rel string, d fs.DirEntry) error) error {
 			}
 			return err
 		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+		if d.IsDir() {
 			return nil
+		}
+		info, err := d.Info()
+		if err != nil || !board.WantedFile(d.Name(), info.Size()) {
+			return err
 		}
 		rel, err := filepath.Rel(s.root, p)
 		if err != nil {
@@ -121,7 +125,7 @@ func (s *Source) workingTreeFiles() (map[string][]byte, error) {
 	return files, err
 }
 
-func markdownFromTar(archive []byte) (map[string][]byte, error) {
+func docsFromTar(archive []byte) (map[string][]byte, error) {
 	files := map[string][]byte{}
 	r := tar.NewReader(bytes.NewReader(archive))
 	for {
@@ -132,7 +136,7 @@ func markdownFromTar(archive []byte) (map[string][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if h.Typeflag != tar.TypeReg || !strings.HasSuffix(h.Name, ".md") {
+		if h.Typeflag != tar.TypeReg || !board.WantedFile(h.Name, h.Size) {
 			continue
 		}
 		content, err := io.ReadAll(r)

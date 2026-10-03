@@ -69,3 +69,23 @@ func TestTitle(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestRenderImages(t *testing.T) {
+	links := Links{DocsRoot: "docs", Assets: map[string]bool{"docs/board/assets/flow.png": true}}
+	html, err := Render([]byte("![flow](../assets/flow.png)\n\n![gone](missing.png)\n\n![web](https://x.test/a.png)\n\n[file](../assets/flow.png)"), "docs/board/tasks/A1.md", links)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`<img src="/api/files?path=docs%2Fboard%2Fassets%2Fflow.png" alt="flow">`,
+		`<img src="https://x.test/a.png" alt="web">`,
+		`<a href="/api/files?path=docs%2Fboard%2Fassets%2Fflow.png">file</a>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("missing %s in\n%s", want, html)
+		}
+	}
+	if strings.Contains(html, "missing.png") {
+		t.Errorf("a missing image must not point anywhere: %s", html)
+	}
+}

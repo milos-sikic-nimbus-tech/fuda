@@ -138,7 +138,7 @@ export function RichContent({
     <div
       ref={ref}
       className={cn(
-        'prose prose-sm max-w-none dark:prose-invert prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-lg prose-a:text-primary prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:[overflow-wrap:anywhere] prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground',
+        'prose prose-sm max-w-none dark:prose-invert prose-headings:scroll-mt-4 prose-h1:text-2xl prose-h2:text-lg prose-a:text-primary prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:[overflow-wrap:anywhere] prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-img:rounded-lg prose-img:border prose-img:border-border prose-img:bg-card',
         className,
       )}
       onClick={(e) => {

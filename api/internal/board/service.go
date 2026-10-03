@@ -83,6 +83,7 @@ type snapshot struct {
 	files   map[string][]byte
 	reviews reviews
 	docs    map[string][]byte
+	assets  map[string][]byte
 	links   markdown.Links
 	byID    map[string]taskfiles.Task
 	heads   map[string]string
@@ -217,10 +218,18 @@ func (s *Service) load(ctx context.Context) error {
 func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string, found reviews) *snapshot {
 	docs := map[string][]byte{}
 	docSet := map[string]bool{}
+	assets := map[string][]byte{}
+	assetSet := map[string]bool{}
 	for p, content := range files {
-		if strings.HasSuffix(p, ".md") && strings.HasPrefix(p, s.opts.DocsRoot+"/") {
+		if !strings.HasPrefix(p, s.opts.DocsRoot+"/") {
+			continue
+		}
+		if strings.HasSuffix(p, ".md") {
 			docs[p] = content
 			docSet[p] = true
+		} else if _, ok := AssetType(p); ok {
+			assets[p] = content
+			assetSet[p] = true
 		}
 	}
 	byID := map[string]taskfiles.Task{}
@@ -249,11 +258,13 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 		files:   files,
 		reviews: found,
 		docs:    docs,
+		assets:  assets,
 		byID:    byID,
 		heads:   heads,
 		links: markdown.Links{
 			DocsRoot:  s.opts.DocsRoot,
 			Docs:      docSet,
+			Assets:    assetSet,
 			TaskPaths: taskPaths,
 			CodeURL:   s.opts.CodeURL,
 		},
@@ -425,4 +436,17 @@ func (s *Service) Doc(relative string) (DocView, error) {
 		HTML:      html,
 		Backlinks: backlinks,
 	}, nil
+}
+
+func (s *Service) Asset(repoPath string) ([]byte, string, error) {
+	snap := s.snapshot.Load()
+	if snap == nil {
+		return nil, "", ErrNotFound
+	}
+	content, ok := snap.assets[path.Clean(repoPath)]
+	if !ok {
+		return nil, "", ErrNotFound
+	}
+	contentType, _ := AssetType(repoPath)
+	return content, contentType, nil
 }

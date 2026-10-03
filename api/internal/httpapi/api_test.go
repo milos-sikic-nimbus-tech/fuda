@@ -43,6 +43,7 @@ func TestAPISmoke(t *testing.T) {
 		"docs/board/tasks/broken.md":     "no frontmatter\n",
 		"docs/board/archive/SS-0.md":     "---\nid: SS-0\ntitle: Old\nstatus: done\ndone: 2026-09-01\n---\n",
 		"docs/board/TASKS.md":            "# Task rules\n\nClaim first.\n",
+		"docs/board/assets/flow.png":     "\x89PNG fake",
 	})
 	service := board.NewService(local.New(root, "docs", "develop"), board.Options{
 		Title: "test", DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
@@ -93,6 +94,16 @@ func TestAPISmoke(t *testing.T) {
 		t.Errorf("doc: %+v", doc)
 	}
 	getJSON(t, server.URL+"/api/docs?path=../../etc/passwd", http.StatusNotFound, nil)
+
+	res, err := http.Get(server.URL + "/api/files?path=docs/board/assets/flow.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/png" {
+		t.Errorf("asset: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	getJSON(t, server.URL+"/api/files?path=docs/board/TASKS.md", http.StatusNotFound, nil)
 
 	for _, want := range []int{http.StatusAccepted, http.StatusTooManyRequests} {
 		res, err := http.Post(server.URL+"/api/sync", "", nil)

@@ -76,7 +76,7 @@ func (s *Source) Files(ctx context.Context, branch string) (map[string][]byte, e
 	files := map[string][]byte{}
 	for _, f := range archive.File {
 		_, rel, found := strings.Cut(f.Name, "/")
-		if !found || f.FileInfo().IsDir() || !strings.HasSuffix(rel, ".md") || !strings.HasPrefix(rel, s.docsRoot+"/") {
+		if !found || f.FileInfo().IsDir() || !strings.HasPrefix(rel, s.docsRoot+"/") || !board.WantedFile(rel, int64(f.UncompressedSize64)) {
 			continue
 		}
 		content, err := readZipFile(f)
