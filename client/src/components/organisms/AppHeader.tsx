@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Archive, BookOpen, FileText, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { Archive, BookOpen, ChartColumn, FileText, LayoutGrid, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HostIcon } from '@/components/atoms/HostIcon'
 import { Logo } from '@/components/atoms/Logo'
@@ -67,6 +67,9 @@ export function AppHeader({ board }: { board?: BoardData }) {
       <nav className="flex h-full min-w-0 items-stretch sm:ml-2">
         <Link to="/" className={tabClass} activeOptions={{ exact: true, includeSearch: false }}>
           <TabLabel icon={LayoutGrid}>Board</TabLabel>
+        </Link>
+        <Link to="/insights" className={tabClass}>
+          <TabLabel icon={ChartColumn}>Insights</TabLabel>
         </Link>
         <Link to="/archive" className={tabClass}>
           <TabLabel icon={Archive}>Archive</TabLabel>

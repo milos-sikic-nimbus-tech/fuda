@@ -8,6 +8,8 @@
 
 @theme static {
   --color-page: var(--page);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
   --color-status-backlog: #94a3b8;
   --color-status-in-progress: #3b82f6;
   --color-status-in-review: #8b5cf6;
@@ -69,6 +71,8 @@
   --input: #dde3df;
   --ring: #10b981;
   --radius: 0.5rem;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 .dark {
@@ -91,6 +95,8 @@
   --border: #252b29;
   --input: #2c3330;
   --ring: #34d399;
+  --series-1: #3987e5;
+  --series-2: #d95926;
 }
 
 @layer base {

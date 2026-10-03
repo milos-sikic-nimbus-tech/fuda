@@ -1,11 +1,7 @@
 import { Hint } from '@/components/atoms/Hint'
+import { labelText } from '@/lib/labels'
 import { useLabelColor } from '@/hooks/useLabelColor'
 import { cn } from '@/lib/utils'
-
-export function labelText(label: string): { group: string; value: string } {
-  const [group, ...rest] = label.split(':')
-  return rest.length ? { group, value: rest.join(':') } : { group: '', value: group }
-}
 
 export function LabelChip({
   label,
