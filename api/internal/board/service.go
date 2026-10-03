@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -317,6 +318,17 @@ func archivedCard(t taskfiles.Task) Card {
 	}
 }
 
+var markdownLink = regexp.MustCompile(`\]\(([^)\s#]+)`)
+
+func linksTo(t taskfiles.Task, repoPath string) bool {
+	for _, m := range markdownLink.FindAllStringSubmatch(t.Body, -1) {
+		if path.Clean(path.Join(path.Dir(t.Path), m[1])) == repoPath {
+			return true
+		}
+	}
+	return false
+}
+
 type DocView struct {
 	Path      string   `json:"path"`
 	Title     string   `json:"title"`
@@ -341,7 +353,7 @@ func (s *Service) Doc(relative string) (DocView, error) {
 	name := path.Base(repoPath)
 	backlinks := []string{}
 	for _, t := range snap.develop.Tasks {
-		if strings.Contains(t.Body, name) {
+		if linksTo(t, repoPath) {
 			backlinks = append(backlinks, t.ID)
 		}
 	}

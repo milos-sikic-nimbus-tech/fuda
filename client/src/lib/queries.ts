@@ -1,0 +1,50 @@
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from './api'
+
+export const keys = {
+  board: ['board'] as const,
+  task: (id: string) => ['task', id] as const,
+  search: (q: string) => ['search', q] as const,
+  archive: ['archive'] as const,
+  doc: (path: string) => ['doc', path] as const,
+}
+
+export function useBoard() {
+  return useQuery({ queryKey: keys.board, queryFn: api.board, refetchInterval: 60_000 })
+}
+
+export function useTask(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.task(id ?? ''),
+    queryFn: () => api.task(id!),
+    enabled: !!id,
+  })
+}
+
+export function useTextSearch(q: string | undefined, enabled: boolean) {
+  const query = q?.trim() ?? ''
+  return useQuery({
+    queryKey: keys.search(query),
+    queryFn: () => api.search(query),
+    enabled: enabled && query.length > 1,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useArchive() {
+  return useQuery({ queryKey: keys.archive, queryFn: api.archive })
+}
+
+export function useDoc(path: string) {
+  return useQuery({ queryKey: keys.doc(path), queryFn: () => api.doc(path) })
+}
+
+export function useSync() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: api.sync,
+    onSuccess: () => {
+      setTimeout(() => void client.invalidateQueries(), 1500)
+    },
+  })
+}

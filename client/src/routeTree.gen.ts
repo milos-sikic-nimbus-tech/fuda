@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ArchiveRouteImport } from './routes/archive'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as GuideSplatRouteImport } from './routes/guide/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArchiveRoute = ArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/docs/$',
+  path: '/docs/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuideSplatRoute = GuideSplatRouteImport.update({
+  id: '/guide/$',
+  path: '/guide/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/guide/$': typeof GuideSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/guide/$': typeof GuideSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/docs/$': typeof DocsSplatRoute
+  '/guide/$': typeof GuideSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/archive' | '/docs/$' | '/guide/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/archive' | '/docs/$' | '/guide/$'
+  id: '__root__' | '/' | '/archive' | '/docs/$' | '/guide/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArchiveRoute: typeof ArchiveRoute
+  DocsSplatRoute: typeof DocsSplatRoute
+  GuideSplatRoute: typeof GuideSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/archive': {
+      id: '/archive'
+      path: '/archive'
+      fullPath: '/archive'
+      preLoaderRoute: typeof ArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/docs/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guide/$': {
+      id: '/guide/$'
+      path: '/guide/$'
+      fullPath: '/guide/$'
+      preLoaderRoute: typeof GuideSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArchiveRoute: ArchiveRoute,
+  DocsSplatRoute: DocsSplatRoute,
+  GuideSplatRoute: GuideSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

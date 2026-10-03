@@ -97,3 +97,15 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .lead-section {
+    @apply mb-6 rounded-lg border border-primary/20 bg-primary/5 px-4 py-1;
+  }
+  .mermaid-diagram {
+    @apply my-4 flex justify-center overflow-x-auto;
+  }
+  .task-ref {
+    @apply font-mono text-[0.9em];
+  }
+}
