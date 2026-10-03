@@ -1,5 +1,5 @@
 import { Hint } from '@/components/atoms/Hint'
-import { typeHue } from '@/lib/colors'
+import { useLabelColor } from '@/hooks/useLabelColor'
 import { cn } from '@/lib/utils'
 
 export function labelText(label: string): { group: string; value: string } {
@@ -19,7 +19,7 @@ export function LabelChip({
   onClick?: () => void
 }) {
   const { group, value } = labelText(label)
-  const isType = group === 'type'
+  const colorOf = useLabelColor()
   return (
     <Hint
       label={`${group ? `${group}: ` : ''}${value} · click to ${active ? 'remove the filter' : 'filter'}`}
@@ -38,13 +38,11 @@ export function LabelChip({
             : 'border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground',
         )}
       >
-        {isType && (
-          <span
-            className="size-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: typeHue(value) }}
-          />
-        )}
-        {showGroup && group && !isType && group !== 'label' && (
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: colorOf(label) }}
+        />
+        {showGroup && group && group !== 'type' && group !== 'label' && (
           <span className="opacity-60">{group}</span>
         )}
         <span className="truncate">{value}</span>

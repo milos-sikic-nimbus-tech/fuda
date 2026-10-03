@@ -39,6 +39,7 @@ export type Facets = {
   people: string[]
   testers: string[]
   labelGroups: LabelGroup[]
+  labelColors: Record<string, string>
   prefixes: string[]
 }
 

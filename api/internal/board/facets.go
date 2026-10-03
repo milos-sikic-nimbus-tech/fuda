@@ -15,14 +15,57 @@ const (
 
 var defaultTypes = []string{"bug", "feat", "impr", "refactor", "test", "chore", "docs", "question"}
 
+var labelPalette = []string{"#6366f1", "#0ea5e9", "#14b8a6", "#22c55e", "#eab308", "#f97316", "#ef4444", "#ec4899", "#a855f7", "#64748b", "#06b6d4", "#84cc16"}
+
+var typeColors = map[string]string{
+	"bug": "#ef4444", "feat": "#3b82f6", "impr": "#14b8a6", "refactor": "#8b5cf6",
+	"test": "#f59e0b", "chore": "#71717a", "docs": "#0ea5e9", "question": "#ec4899",
+}
+
 func buildFacets(develop taskfiles.Result, p *people) Facets {
+	groups := labelGroups(develop.Config.LabelGroups, develop.Tasks)
 	return Facets{
 		Statuses:    statuses(develop.Tasks),
 		People:      orEmpty(p.listed),
 		Testers:     testers(develop.Tasks, p),
-		LabelGroups: labelGroups(develop.Config.LabelGroups, develop.Tasks),
+		LabelGroups: groups,
+		LabelColors: labelColors(groups, develop.Config.LabelColors, develop.Tasks),
 		Prefixes:    prefixes(develop.Tasks),
 	}
+}
+
+func labelColors(groups []LabelGroup, configured map[string]string, tasks []taskfiles.Task) map[string]string {
+	colors := map[string]string{}
+	for label, color := range configured {
+		group, value, _ := strings.Cut(label, ":")
+		colors[groupName(group)+":"+value] = color
+	}
+	assign := func(group string, values []string) {
+		next := 0
+		for _, value := range values {
+			key := group + ":" + value
+			if _, set := colors[key]; set {
+				continue
+			}
+			if c, ok := typeColors[value]; ok && group == "type" {
+				colors[key] = c
+				continue
+			}
+			colors[key] = labelPalette[next%len(labelPalette)]
+			next++
+		}
+	}
+	for _, g := range groups {
+		assign(g.Name, g.Values)
+	}
+	for _, t := range tasks {
+		for _, l := range t.Labels {
+			if _, set := colors[groupName(l.Group)+":"+l.Value]; !set {
+				assign(groupName(l.Group), []string{l.Value})
+			}
+		}
+	}
+	return colors
 }
 
 func testers(tasks []taskfiles.Task, p *people) []string {

@@ -10,7 +10,7 @@ import (
 
 func parseConfig(files map[string][]byte, layout Layout, problems *[]Problem) Config {
 	var c Config
-	load := func(name string, decode func(*yaml.Node) error) {
+	load := func(name string, decode func(map[string]*yaml.Node) error) {
 		p := path.Join(layout.BoardDir, name)
 		content, ok := files[p]
 		if !ok {
@@ -20,13 +20,34 @@ func parseConfig(files map[string][]byte, layout Layout, problems *[]Problem) Co
 			*problems = append(*problems, Problem{Path: p, Reason: err.Error() + "; ignored, derived from the tasks instead"})
 		}
 	}
-	load("stages.md", func(n *yaml.Node) error { return decodeStages(n, &c.Stages) })
-	load("labels.md", func(n *yaml.Node) error { return decodeLabelGroups(n, &c.LabelGroups) })
-	load("people.md", func(n *yaml.Node) error { return decodePeople(n, &c.People) })
+	load("stages.md", func(keys map[string]*yaml.Node) error {
+		return decodeStages(required(keys, "stages"), &c.Stages)
+	})
+	load("labels.md", func(keys map[string]*yaml.Node) error {
+		if err := decodeLabelGroups(required(keys, "groups"), &c.LabelGroups); err != nil {
+			return err
+		}
+		if colors, ok := keys["colors"]; ok {
+			return colors.Decode(&c.LabelColors)
+		}
+		return nil
+	})
+	load("people.md", func(keys map[string]*yaml.Node) error {
+		return decodePeople(required(keys, "people"), &c.People)
+	})
 	return c
 }
 
-func decodeConfig(content []byte, decode func(*yaml.Node) error) error {
+var missingKey = &yaml.Node{}
+
+func required(keys map[string]*yaml.Node, key string) *yaml.Node {
+	if n, ok := keys[key]; ok {
+		return n
+	}
+	return missingKey
+}
+
+func decodeConfig(content []byte, decode func(map[string]*yaml.Node) error) error {
 	front, _, err := splitFrontmatter(content)
 	if err != nil {
 		return err
@@ -39,10 +60,11 @@ func decodeConfig(content []byte, decode func(*yaml.Node) error) error {
 	if err != nil {
 		return err
 	}
-	if len(pairs) != 1 {
-		return errors.New("the frontmatter must hold exactly one top-level key")
+	keys := map[string]*yaml.Node{}
+	for _, p := range pairs {
+		keys[p.key] = p.value
 	}
-	return decode(pairs[0].value)
+	return decode(keys)
 }
 
 type stageEntry struct {
@@ -52,6 +74,9 @@ type stageEntry struct {
 }
 
 func decodeStages(n *yaml.Node, dst *[]Stage) error {
+	if n == missingKey {
+		return errors.New("stages: missing the stages key")
+	}
 	var entries []stageEntry
 	if err := n.Decode(&entries); err != nil {
 		return fmt.Errorf("stages: %w", err)
@@ -77,6 +102,9 @@ func decodeStages(n *yaml.Node, dst *[]Stage) error {
 }
 
 func decodeLabelGroups(n *yaml.Node, dst *[]LabelGroup) error {
+	if n == missingKey {
+		return errors.New("groups: missing the groups key")
+	}
 	if n.Kind != yaml.MappingNode {
 		return errors.New("groups: expected a mapping of group names to value lists")
 	}
@@ -98,6 +126,9 @@ type personEntry struct {
 }
 
 func decodePeople(n *yaml.Node, dst *[]Person) error {
+	if n == missingKey {
+		return errors.New("people: missing the people key")
+	}
 	var entries []personEntry
 	if err := n.Decode(&entries); err != nil {
 		return fmt.Errorf("people: %w", err)

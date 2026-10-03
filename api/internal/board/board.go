@@ -50,11 +50,12 @@ type Card struct {
 }
 
 type Facets struct {
-	Statuses    []string     `json:"statuses"`
-	People      []string     `json:"people"`
-	Testers     []string     `json:"testers"`
-	LabelGroups []LabelGroup `json:"labelGroups"`
-	Prefixes    []string     `json:"prefixes"`
+	Statuses    []string          `json:"statuses"`
+	People      []string          `json:"people"`
+	Testers     []string          `json:"testers"`
+	LabelGroups []LabelGroup      `json:"labelGroups"`
+	LabelColors map[string]string `json:"labelColors"`
+	Prefixes    []string          `json:"prefixes"`
 }
 
 type LabelGroup struct {

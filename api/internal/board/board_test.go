@@ -275,3 +275,25 @@ func check(t *testing.T, what string, got, want any) {
 		t.Errorf("%s:\n got  %#v\n want %#v", what, got, want)
 	}
 }
+
+func TestLabelColorsAreDistinctWithinAGroupAndConfigurable(t *testing.T) {
+	b := Build(Inputs{Develop: taskfiles.Result{
+		Tasks: []taskfiles.Task{task("A1", "backlog", labels(
+			taskfiles.Label{Group: "epic", Value: "one"},
+			taskfiles.Label{Group: "epic", Value: "two"},
+			taskfiles.Label{Group: "type", Value: "bug"},
+			taskfiles.Label{Group: "theme", Value: "three"},
+		))},
+		Config: taskfiles.Config{LabelColors: map[string]string{"theme:three": "#123456"}},
+	}})
+	c := b.Facets.LabelColors
+	if c["epic:one"] == c["epic:two"] {
+		t.Errorf("values in one group share a color: %v", c)
+	}
+	if c["type:bug"] != "#ef4444" {
+		t.Errorf("type bug keeps its default color, got %q", c["type:bug"])
+	}
+	if c["epic:three"] != "#123456" {
+		t.Errorf("configured color (theme folds into epic) wins, got %q", c["epic:three"])
+	}
+}

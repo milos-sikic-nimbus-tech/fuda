@@ -134,6 +134,8 @@ stages:
 groups:
   type: [bug, feat]
   epic: []
+colors:
+  "type:bug": "#ff0000"
 ---
 `),
 		"docs/board/people.md": []byte(`---
@@ -157,6 +159,7 @@ people:
 		{Name: "type", Values: []string{"bug", "feat"}},
 		{Name: "epic", Values: []string{}},
 	})
+	checkDeep(t, "label colors", r.Config.LabelColors, map[string]string{"type:bug": "#ff0000"})
 	checkDeep(t, "people", r.Config.People, []Person{{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}}})
 }
 

@@ -24,45 +24,42 @@ export function DateRange({ from, to, onChange }: Range & { onChange: (range: Ra
   const selected: DayRange | undefined = active ? { from: toDay(from), to: toDay(to) } : undefined
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">Added</p>
-      <div className="flex items-center gap-1">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                'h-8 flex-1 justify-start gap-2 bg-card font-normal shadow-xs',
-                !active && 'text-muted-foreground',
-              )}
-            >
-              <CalendarDays className="size-3.5" />
-              {describe({ from, to })}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              numberOfMonths={2}
-              selected={selected}
-              defaultMonth={selected?.from}
-              onSelect={(range) => onChange({ from: toValue(range?.from), to: toValue(range?.to) })}
-            />
-          </PopoverContent>
-        </Popover>
-        {active && (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
           <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label="Clear dates"
-            onClick={() => onChange({})}
+            variant="outline"
+            size="sm"
+            className={cn(
+              'h-8 flex-1 justify-start gap-2 bg-card font-normal shadow-xs',
+              !active && 'text-muted-foreground',
+            )}
           >
-            <X className="size-3.5" />
+            <CalendarDays className="size-3.5" />
+            {describe({ from, to })}
           </Button>
-        )}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="range"
+            numberOfMonths={2}
+            selected={selected}
+            defaultMonth={selected?.from}
+            onSelect={(range) => onChange({ from: toValue(range?.from), to: toValue(range?.to) })}
+          />
+        </PopoverContent>
+      </Popover>
+      {active && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          aria-label="Clear dates"
+          onClick={() => onChange({})}
+        >
+          <X className="size-3.5" />
+        </Button>
+      )}
     </div>
   )
 }

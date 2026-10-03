@@ -61,6 +61,7 @@ type Person struct {
 type Config struct {
 	Stages      []Stage
 	LabelGroups []LabelGroup
+	LabelColors map[string]string
 	People      []Person
 }
 

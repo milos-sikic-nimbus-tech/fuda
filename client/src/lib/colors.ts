@@ -7,7 +7,6 @@ const knownStatuses = [
   'validated',
   'done',
 ]
-const knownTypes = ['bug', 'feat', 'impr', 'refactor', 'test', 'chore', 'docs', 'question']
 
 function token(prefix: string, known: string[], value: string): string {
   const key = value.trim().toLowerCase()
@@ -15,8 +14,6 @@ function token(prefix: string, known: string[], value: string): string {
 }
 
 export const statusHue = (status: string) => token('status', knownStatuses, status)
-
-export const typeHue = (type: string) => token('type', knownTypes, type)
 
 const personHues = [
   '#10b981',

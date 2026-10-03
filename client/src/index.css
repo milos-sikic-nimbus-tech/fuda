@@ -16,16 +16,6 @@
   --color-status-validated: #059669;
   --color-status-done: #065f46;
   --color-status-other: #a1a1aa;
-
-  --color-type-bug: #ef4444;
-  --color-type-feat: #3b82f6;
-  --color-type-impr: #14b8a6;
-  --color-type-refactor: #8b5cf6;
-  --color-type-test: #f59e0b;
-  --color-type-chore: #71717a;
-  --color-type-docs: #0ea5e9;
-  --color-type-question: #ec4899;
-  --color-type-other: #a1a1aa;
 }
 
 @theme inline {
