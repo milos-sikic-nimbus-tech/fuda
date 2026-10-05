@@ -1,22 +1,24 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { parseISO, subWeeks } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
+import { DateRange } from '@/components/molecules/DateRange'
 import { StatTile } from '@/components/molecules/StatTile'
 import { RankedBars } from '@/components/organisms/insights/RankedBars'
-import { WeeklyChart } from '@/components/organisms/insights/WeeklyChart'
+import { ActivityChart } from '@/components/organisms/insights/ActivityChart'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useLabelColor } from '@/hooks/useLabelColor'
 import {
+  activity,
   countBy,
   insightsSearchSchema,
   isOpen,
   labelsOf,
+  periodOf,
   type RangeKey,
-  ranges,
+  rangeKeys,
   topSlices,
-  weeklyActivity,
+  within,
 } from '@/lib/insights'
 import { useArchive, useBoard } from '@/lib/queries'
 
@@ -26,25 +28,25 @@ export const Route = createFileRoute('/insights')({
 })
 
 function InsightsPage() {
-  const { range = '12w' } = Route.useSearch()
+  const search = Route.useSearch()
   const navigate = useNavigate({ from: '/insights' })
   const toBoard = useNavigate()
   const { data } = useBoard()
   const { data: archive = [] } = useArchive()
   const colorOf = useLabelColor()
-  const weeks = ranges[range]
   const [today] = useState(() => new Date())
 
   const view = useMemo(() => {
     const cards = data?.cards ?? []
-    const since = subWeeks(today, weeks)
-    const within = (date: string) => date !== '' && parseISO(date) >= since
+    const period = periodOf(search, today)
+    const inPeriod = (date: string) => within(period, date)
     const open = cards.filter(isOpen)
     return {
-      weekly: weeklyActivity(cards, weeks, today),
-      created: cards.filter((c) => within(c.added)).length,
-      claimed: cards.filter((c) => within(c.claimed)).length,
-      done: archive.filter((c) => within(c.done ?? '')).length,
+      period,
+      activity: activity(cards, period),
+      created: cards.filter((c) => inPeriod(c.added)).length,
+      claimed: cards.filter((c) => inPeriod(c.claimed)).length,
+      done: archive.filter((c) => inPeriod(c.done ?? '')).length,
       open: open.length,
       inProgress: cards.filter((c) => c.status.trim().toLowerCase() === 'in progress').length,
       blocked: cards.filter((c) => c.blockedBy).length,
@@ -62,7 +64,7 @@ function InsightsPage() {
         ),
       ),
     }
-  }, [data, archive, weeks, today])
+  }, [data, archive, search, today])
 
   if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
 
@@ -77,32 +79,40 @@ function InsightsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-lg font-semibold tracking-tight">Insights</h1>
           <Tabs
-            value={range}
+            value={search.from ? '' : (search.range ?? '12w')}
             onValueChange={(v) =>
               void navigate({ search: { range: v as RangeKey }, replace: true })
             }
             className="ml-auto"
           >
             <TabsList>
-              {Object.keys(ranges).map((key) => (
+              {rangeKeys.map((key) => (
                 <TabsTrigger key={key} value={key} className="px-3 text-xs">
                   {key}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
+          <DateRange
+            from={search.from}
+            to={search.to}
+            emptyLabel="Custom"
+            onChange={({ from, to }) =>
+              void navigate({ search: from ? { from, to } : {}, replace: true })
+            }
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <StatTile label="Created" value={view.created} hint={`last ${weeks} weeks`} />
-          <StatTile label="Claimed" value={view.claimed} hint={`last ${weeks} weeks`} />
-          <StatTile label="Archived as done" value={view.done} hint={`last ${weeks} weeks`} />
+          <StatTile label="Created" value={view.created} hint={view.period.label} />
+          <StatTile label="Claimed" value={view.claimed} hint={view.period.label} />
+          <StatTile label="Archived as done" value={view.done} hint={view.period.label} />
           <StatTile label="Open now" value={view.open} hint="before merged" />
           <StatTile label="In progress now" value={view.inProgress} />
           <StatTile label="Blocked now" value={view.blocked} />
         </div>
 
-        <WeeklyChart weeks={view.weekly} />
+        <ActivityChart unit={view.activity.unit} buckets={view.activity.buckets} />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <RankedBars

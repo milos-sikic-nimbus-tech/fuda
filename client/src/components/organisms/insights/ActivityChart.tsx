@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChartCard, LegendItem } from '@/components/organisms/insights/ChartCard'
 import { useElementWidth } from '@/hooks/useElementWidth'
-import type { WeekBucket } from '@/lib/insights'
+import type { Bucket, BucketUnit } from '@/lib/insights'
 
 const height = 200
 const padding = { top: 12, right: 8, bottom: 24, left: 32 }
@@ -16,22 +16,23 @@ function niceMax(value: number): number {
   return Math.ceil(value / step) * step
 }
 
-export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
+export function ActivityChart({ unit, buckets }: { unit: BucketUnit; buckets: Bucket[] }) {
   const { ref, width } = useElementWidth<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
-  const max = niceMax(Math.max(1, ...weeks.flatMap((w) => [w.created, w.claimed])))
+  const max = niceMax(Math.max(1, ...buckets.flatMap((b) => [b.created, b.claimed])))
   const plotWidth = Math.max(0, width - padding.left - padding.right)
   const plotHeight = height - padding.top - padding.bottom
-  const band = weeks.length ? plotWidth / weeks.length : 0
+  const band = buckets.length ? plotWidth / buckets.length : 0
   const barWidth = Math.max(2, Math.min(18, (band - 6) / 2 - 1))
   const y = (v: number) => padding.top + plotHeight - (v / max) * plotHeight
   const ticks = [0, max / 2, max]
-  const labelEvery = Math.ceil(weeks.length / Math.max(1, Math.floor(plotWidth / 56)))
-  const active = hover === null ? null : weeks[hover]
+  const labelEvery = Math.ceil(buckets.length / Math.max(1, Math.floor(plotWidth / 56)))
+  const active = hover === null ? null : buckets[hover]
+  const periodName = unit === 'day' ? 'Day' : 'Week of'
 
   return (
     <ChartCard
-      title="Created vs claimed, per week"
+      title={`Created vs claimed, per ${unit}`}
       description="From each task's added and claimed dates."
       legend={
         <div className="flex items-center gap-3">
@@ -45,13 +46,13 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
           <table className="w-full">
             <thead className="text-muted-foreground">
               <tr>
-                <th className="py-1 text-left font-medium">Week of</th>
+                <th className="py-1 text-left font-medium">{periodName}</th>
                 <th className="py-1 text-right font-medium">Created</th>
                 <th className="py-1 text-right font-medium">Claimed</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
-              {weeks.map((w) => (
+              {buckets.map((w) => (
                 <tr key={w.start} className="border-t border-border">
                   <td className="py-1">{w.label}</td>
                   <td className="py-1 text-right">{w.created}</td>
@@ -69,7 +70,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
             width={width}
             height={height}
             role="img"
-            aria-label="Tasks created and claimed per week"
+            aria-label={`Tasks created and claimed per ${unit}`}
           >
             {ticks.map((t) => (
               <g key={t}>
@@ -92,7 +93,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
                 </text>
               </g>
             ))}
-            {weeks.map((w, i) => {
+            {buckets.map((w, i) => {
               const x0 = padding.left + i * band + band / 2 - barWidth - 1
               return (
                 <g key={w.start} onMouseEnter={() => setHover(i)}>
@@ -137,7 +138,9 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
               left: Math.min(width - 140, Math.max(0, padding.left + hover * band + band / 2 - 70)),
             }}
           >
-            <p className="mb-1 font-medium">Week of {active.label}</p>
+            <p className="mb-1 font-medium">
+              {unit === 'day' ? active.label : `Week of ${active.label}`}
+            </p>
             {series.map((s) => (
               <p
                 key={s.key}

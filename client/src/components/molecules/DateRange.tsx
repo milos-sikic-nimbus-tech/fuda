@@ -11,15 +11,20 @@ type Range = { from?: string; to?: string }
 const toDay = (value?: string) => (value ? parseISO(value) : undefined)
 const toValue = (day?: Date) => (day ? format(day, 'yyyy-MM-dd') : undefined)
 
-function describe({ from, to }: Range): string {
+function describe({ from, to }: Range, emptyLabel: string): string {
   const label = (value: string) => format(parseISO(value), 'd MMM yyyy')
   if (from && to) return from === to ? label(from) : `${label(from)} – ${label(to)}`
   if (from) return `from ${label(from)}`
   if (to) return `until ${label(to)}`
-  return 'any time'
+  return emptyLabel
 }
 
-export function DateRange({ from, to, onChange }: Range & { onChange: (range: Range) => void }) {
+export function DateRange({
+  from,
+  to,
+  onChange,
+  emptyLabel = 'any time',
+}: Range & { onChange: (range: Range) => void; emptyLabel?: string }) {
   const active = Boolean(from || to)
   const selected: DayRange | undefined = active ? { from: toDay(from), to: toDay(to) } : undefined
 
@@ -36,7 +41,7 @@ export function DateRange({ from, to, onChange }: Range & { onChange: (range: Ra
             )}
           >
             <CalendarDays className="size-3.5" />
-            {describe({ from, to })}
+            {describe({ from, to }, emptyLabel)}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

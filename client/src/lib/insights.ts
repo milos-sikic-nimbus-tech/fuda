@@ -2,27 +2,74 @@ import {
   addDays,
   differenceInCalendarDays,
   format,
+  isValid,
   parseISO,
+  startOfDay,
   startOfISOWeek,
+  subDays,
   subWeeks,
 } from 'date-fns'
 import { z } from 'zod'
 import type { Card } from './api'
 import { labelText } from '@/lib/labels'
 
-export const ranges = { '4w': 4, '12w': 12, '26w': 26, '52w': 52 } as const
-export type RangeKey = keyof typeof ranges
+export const rangeKeys = ['7d', '4w', '12w', '26w', '52w'] as const
+export type RangeKey = (typeof rangeKeys)[number]
+
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => isValid(parseISO(value)))
+  .optional()
+  .catch(undefined)
 
 export const insightsSearchSchema = z.object({
-  range: z.enum(['4w', '12w', '26w', '52w']).optional().catch(undefined),
+  range: z.enum(rangeKeys).optional().catch(undefined),
+  from: isoDate,
+  to: isoDate,
 })
 
-export type WeekBucket = { start: string; label: string; created: number; claimed: number }
+export type InsightsSearch = z.infer<typeof insightsSearchSchema>
 
-export function weeklyActivity(cards: Card[], weeks: number, today = new Date()): WeekBucket[] {
-  const first = subWeeks(startOfISOWeek(today), weeks - 1)
-  const buckets: WeekBucket[] = Array.from({ length: weeks }, (_, i) => {
-    const start = addDays(first, i * 7)
+export type Period = { start: Date; end: Date; label: string }
+
+const dayLabel = (day: Date) => format(day, 'd MMM yyyy')
+
+export function periodOf({ range = '12w', from, to }: InsightsSearch, today = new Date()): Period {
+  const end = startOfDay(today)
+  if (from) {
+    const start = parseISO(from)
+    const last = to ? parseISO(to) : end
+    return {
+      start,
+      end: last,
+      label: from === to ? dayLabel(start) : `${dayLabel(start)} – ${dayLabel(last)}`,
+    }
+  }
+  if (range === '7d') return { start: subDays(end, 6), end, label: 'last 7 days' }
+  const weeks = Number.parseInt(range)
+  return { start: subWeeks(startOfISOWeek(end), weeks - 1), end, label: `last ${weeks} weeks` }
+}
+
+export function within(period: Period, date: string): boolean {
+  if (!date) return false
+  const day = parseISO(date)
+  return day >= period.start && day <= period.end
+}
+
+export type BucketUnit = 'day' | 'week'
+export type Bucket = { start: string; label: string; created: number; claimed: number }
+
+const maxDailyBuckets = 14
+
+export function activity(cards: Card[], period: Period): { unit: BucketUnit; buckets: Bucket[] } {
+  const days = differenceInCalendarDays(period.end, period.start) + 1
+  const unit: BucketUnit = days <= maxDailyBuckets ? 'day' : 'week'
+  const step = unit === 'day' ? 1 : 7
+  const first = unit === 'day' ? period.start : startOfISOWeek(period.start)
+  const count = Math.max(0, Math.floor(differenceInCalendarDays(period.end, first) / step) + 1)
+  const buckets: Bucket[] = Array.from({ length: count }, (_, i) => {
+    const start = addDays(first, i * step)
     return {
       start: format(start, 'yyyy-MM-dd'),
       label: format(start, 'd MMM'),
@@ -31,17 +78,14 @@ export function weeklyActivity(cards: Card[], weeks: number, today = new Date())
     }
   })
   const place = (date: string, key: 'created' | 'claimed') => {
-    if (!date) return
-    const offset = differenceInCalendarDays(parseISO(date), first)
-    if (offset < 0) return
-    const index = Math.floor(offset / 7)
-    if (index < buckets.length) buckets[index][key]++
+    if (!within(period, date)) return
+    buckets[Math.floor(differenceInCalendarDays(parseISO(date), first) / step)][key]++
   }
   for (const card of cards) {
     place(card.added, 'created')
     place(card.claimed, 'claimed')
   }
-  return buckets
+  return { unit, buckets }
 }
 
 export type Slice = { key: string; count: number }
