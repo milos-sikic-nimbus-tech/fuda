@@ -15,6 +15,7 @@ import (
 	"fuda/internal/board"
 	"fuda/internal/config"
 	"fuda/internal/httpapi"
+	"fuda/internal/source/azure"
 	"fuda/internal/source/github"
 	"fuda/internal/source/local"
 	"fuda/internal/web"
@@ -51,6 +52,17 @@ func newSource(cfg config.Config) (board.Source, hostLinks, error) {
 			code:   gh.CodeURL(workBranch),
 			pr:     gh.PRLink(),
 			origin: board.Origin{Host: "github", Repo: cfg.GitHubRepo, URL: "https://github.com/" + cfg.GitHubRepo},
+		}, nil
+	case config.SourceAzure:
+		repo := azure.Repo{Org: cfg.AzureOrg, Project: cfg.AzureProject, Name: cfg.AzureRepo}
+		az := azure.WithPAT(repo, cfg.AzurePAT, docsRoot)
+		if cfg.AzurePAT == "" {
+			az = azure.WithBearer(repo, cfg.AzureBearer, docsRoot)
+		}
+		return az, hostLinks{
+			code:   az.CodeURL(workBranch),
+			pr:     az.PRLink(),
+			origin: board.Origin{Host: "azure", Repo: cfg.AzureRepo, URL: repo.WebURL()},
 		}, nil
 	}
 	return nil, hostLinks{}, fmt.Errorf("source %q is not available yet", cfg.Source)
