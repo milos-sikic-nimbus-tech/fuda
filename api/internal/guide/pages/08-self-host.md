@@ -24,7 +24,7 @@ docker run -p 8080:8080 -v fuda-data:/data \
 | `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs; webhooks inside it are deferred |
 | `FUDA_AUTH_USER`, `FUDA_AUTH_PASSWORD` | `fuda`, empty | Built-in basic auth, off while the password is empty |
 | `FUDA_WEBHOOK_SECRET` | empty | Require GitHub's signature or Azure's `X-Fuda-Secret` header |
-| `FUDA_CACHE_DIR` | `/data` in the image | Where the last copy is kept |
+| `FUDA_CACHE_DIR` | `/data` in the image | Where the last synced copy is kept; served at startup until the first sync |
 
 `/healthz` and `/api/webhooks/*` never ask for basic auth. If your proxy offers authentication,
 prefer it and leave `FUDA_AUTH_PASSWORD` empty.

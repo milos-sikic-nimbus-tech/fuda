@@ -6,10 +6,12 @@ A read-only kanban board and doc reader over a git repo's markdown task files
 ## Layout
 
 - `api/` — Go module. `cmd/fuda` wires config and server; packages in `internal/` by responsibility:
-  `config`, `board` (service, rules, `Source` interface), `taskfiles` (parses a repo's task and
-  board-config files), `source/{azure,github,local}`, `markdown`, `syncer`, `httpapi`, `web` (embedded
+  `config`, `board` (service, sync, cache, rules, `Source` interface), `taskfiles` (parses a repo's
+  task and board-config files), `source/{azure,github,local}`, `markdown`, `httpapi`, `web` (embedded
   SPA), `guide` (embedded Guide pages).
 - `client/` — Vite + React + TypeScript app. Builds into `api/internal/web/dist`; never contains Go.
+- `docs/` — `architecture.md` (how it works, with diagrams) and `decisions.md` (why, plus TBD items
+  with proposals). Read them before structural changes. `CONTRIBUTING.md` — setup, rules, PRs.
 
 ## Commands
 
@@ -25,7 +27,9 @@ A read-only kanban board and doc reader over a git repo's markdown task files
 - No speculative abstractions. Unit tests where the logic is; small fixtures in `testdata/`.
 - Repo content never breaks fuda: invalid files become Problems, a failed sync keeps the last snapshot.
 - The Makefile uses only `go`, `pnpm` and `docker`.
-- Update docs (README, Guide pages) in the same change as the behaviour they describe.
+- Update docs (README, Guide pages, `docs/architecture.md`, `docs/decisions.md`) in the same change
+  as the behaviour they describe. `docs/` states only what is true in the code; decided-but-unbuilt
+  items go under TBD in `decisions.md`, with a proposal.
 
 ## Personal overrides
 

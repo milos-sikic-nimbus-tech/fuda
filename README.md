@@ -7,52 +7,22 @@ fuda reads them from GitHub, Azure DevOps or a local checkout, and shows them as
 a task reader and the repo's docs. It never writes to the repo: people (and their AI agents) move
 tasks with ordinary commits.
 
-> Status: early development. The Guide inside the app (coming) explains how to set up a repo.
+> Status: early development, in use on two repositories.
 
-## Develop
+## Documentation
 
-Prerequisites: Go 1.27+, Node 24+, pnpm 10 (`corepack enable`), golangci-lint v2, Docker (for images).
+- **Using fuda on your repository:** the Guide inside the app, or
+  [`api/internal/guide/pages`](api/internal/guide/pages): set up a repo, task format, board
+  config, workflow, the agent guide, self-hosting.
+- **How it works:** [docs/architecture.md](docs/architecture.md).
+- **Why it works that way:** [docs/decisions.md](docs/decisions.md).
+- **Changing fuda:** [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Quick start
 
 ```sh
 cp .env.example .env      # point FUDA_LOCAL_PATH at any checkout that has docs/board/tasks
 make dev                  # API on :8080 and the app on http://localhost:5173
-```
-
-`make dev` runs two processes: the Go API (`make dev-api`) and Vite (`make dev-client`, proxying
-`/api` to :8080). Run them in separate terminals if you prefer.
-
-| Command | Does |
-|---|---|
-| `make check` | Go lint + tests, client lint + format check + types + tests. Run before committing. |
-| `make fmt` | Formats Go and client code. |
-| `make build` | Builds the client into `api/internal/web/dist`, then the binary `bin/fuda`. |
-| `make docker` | Builds the image (`fuda`). |
-| `make clean` | Removes build output and the local cache. |
-
-### Sources
-
-| `FUDA_SOURCE` | Needs |
-|---|---|
-| `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. |
-| `github` | `FUDA_GITHUB_REPO` (`owner/repo`), `FUDA_GITHUB_TOKEN` (fine-grained: Contents + Pull requests, read). Locally: `FUDA_GITHUB_TOKEN=$(gh auth token)`. |
-| `azure` | `FUDA_AZURE_ORG`, `FUDA_AZURE_PROJECT`, `FUDA_AZURE_REPO`, and `FUDA_AZURE_PAT` (Code: Read). Locally you can use `FUDA_AZURE_BEARER` from `az account get-access-token`. |
-
-All settings are in [`.env.example`](.env.example).
-
-### Webhooks
-
-Point your git host at `POST /api/webhooks/github` or `POST /api/webhooks/azure` (pushes and pull requests).
-A webhook means "re-read now"; fuda never trusts the payload. Locally, `make webhook` (or
-`make webhook HOST=azure`) simulates one against the running dev API, signed if `FUDA_WEBHOOK_SECRET` is set.
-With the local source you can also set `FUDA_SYNC_INTERVAL=5s` so task edits show up on their own. Without webhooks fuda still checks every
-`FUDA_SYNC_INTERVAL` (3 min). Set `FUDA_WEBHOOK_SECRET` to require GitHub's signature or Azure's
-`X-Fuda-Secret` header.
-
-## Layout
-
-```
-api/      Go module: cmd/fuda (entry) and internal/ packages; serves the API and the built app
-client/   Vite + React + TypeScript app; builds into api/internal/web/dist
 ```
 
 ## Run the image
