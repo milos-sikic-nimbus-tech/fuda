@@ -6,7 +6,6 @@ import (
 	"maps"
 	"path"
 	"slices"
-	"time"
 
 	"fuda/internal/taskfiles"
 )
@@ -81,22 +80,4 @@ func sameReviews(a, b reviews) bool {
 	return maps.EqualFunc(a.open, b.open, slices.Equal[[]int]) && maps.EqualFunc(a.added, b.added, func(x, y taskfiles.Task) bool {
 		return x.Path == y.Path && x.Title == y.Title && x.Status == y.Status
 	})
-}
-
-func (s *Service) Run(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.mu.Lock()
-			recent := !s.lastRequest.IsZero() && s.now().Sub(s.lastRequest) < interval
-			s.mu.Unlock()
-			if !recent {
-				_ = s.Sync(ctx)
-			}
-		}
-	}
 }

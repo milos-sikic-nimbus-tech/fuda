@@ -82,21 +82,25 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	service := board.NewService(source, board.Options{
-		Title:        cfg.Title,
-		DocsRoot:     docsRoot,
-		BoardDir:     boardDir,
-		WorkBranch:   workBranch,
-		ProdBranch:   prodBranch,
-		WatchMain:    cfg.WatchMain,
-		ArchiveAfter: time.Duration(cfg.ArchiveAfterDays) * 24 * time.Hour,
-		Cooldown:     cfg.SyncCooldown,
-		CodeURL:      links.code,
-		PRLink:       links.pr,
-		Origin:       links.origin,
+		Title:      cfg.Title,
+		DocsRoot:   docsRoot,
+		BoardDir:   boardDir,
+		WorkBranch: workBranch,
+		ProdBranch: prodBranch,
+		WatchMain:  cfg.WatchMain,
+		Cooldown:   cfg.SyncCooldown,
+		CacheDir:   cfg.CacheDir,
+		Logger:     log,
+		CodeURL:    links.code,
+		PRLink:     links.pr,
+		Origin:     links.origin,
 	})
+	if err := service.Restore(); err != nil {
+		log.Warn("the disk cache could not be read; starting empty", "error", err)
+	}
 	go func() {
 		if err := service.Sync(ctx); err != nil {
-			log.Error("first sync failed; serving without data until a sync succeeds", "error", err)
+			log.Error("first sync failed; serving the cached copy, if any, until a sync succeeds", "error", err)
 		}
 		service.Run(ctx, cfg.SyncInterval)
 	}()
@@ -105,6 +109,8 @@ func run(log *slog.Logger) error {
 		Addr:              cfg.Addr,
 		Handler:           httpapi.NewHandler(log, service, web.Dist(), httpapi.Credentials{User: cfg.AuthUser, Password: cfg.AuthPassword}, cfg.WebhookSecret),
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
 
 	errs := make(chan error, 1)
