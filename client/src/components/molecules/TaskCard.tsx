@@ -1,4 +1,4 @@
-import { Archive, Ban, GitPullRequest, Rocket, Sparkles } from 'lucide-react'
+import { Ban, GitPullRequest, Rocket, Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Hint } from '@/components/atoms/Hint'
 import { LabelChip } from '@/components/atoms/LabelChip'
@@ -80,14 +80,6 @@ function CardSignals({ card, prLink }: { card: Card; prLink?: string }) {
           icon={<Rocket className="size-3 text-emerald-600" />}
         >
           prod
-        </Signal>
-      )}
-      {card.archiveCandidate && (
-        <Signal
-          hint="In prod long enough to move to the archive"
-          icon={<Archive className="size-3" />}
-        >
-          archive
         </Signal>
       )}
     </>

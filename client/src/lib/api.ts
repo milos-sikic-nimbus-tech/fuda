@@ -28,7 +28,6 @@ export type Card = {
   referencedBy: string[]
   inProd: boolean
   newInPr: boolean
-  archiveCandidate: boolean
   path: string
 }
 

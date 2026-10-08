@@ -31,7 +31,7 @@ environment.
 ```
 
 The tasks folder is flat: no sub-folders, grouping is done with labels. The board reads
-`develop`; watching `main` is optional and adds the "in prod" badge and archive candidates.
+`develop`; watching `main` is optional and adds the "in prod" badge.
 
 ## Checklist
 

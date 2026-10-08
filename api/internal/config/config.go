@@ -36,11 +36,10 @@ type Config struct {
 	AzurePAT     string `env:"FUDA_AZURE_PAT"`
 	AzureBearer  string `env:"FUDA_AZURE_BEARER"`
 
-	WatchMain        bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
-	ArchiveAfterDays int           `env:"FUDA_ARCHIVE_AFTER_DAYS" envDefault:"15"`
-	SyncInterval     time.Duration `env:"FUDA_SYNC_INTERVAL" envDefault:"3m"`
-	SyncCooldown     time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
-	CacheDir         string        `env:"FUDA_CACHE_DIR" envDefault:"./.fuda-cache"`
+	WatchMain    bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
+	SyncInterval time.Duration `env:"FUDA_SYNC_INTERVAL" envDefault:"3m"`
+	SyncCooldown time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
+	CacheDir     string        `env:"FUDA_CACHE_DIR" envDefault:"./.fuda-cache"`
 }
 
 func Load() (Config, error) {

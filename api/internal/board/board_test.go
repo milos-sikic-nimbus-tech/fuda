@@ -3,7 +3,6 @@ package board
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"fuda/internal/taskfiles"
 )
@@ -145,21 +144,16 @@ func TestClaimedTaskStaysInItsStatus(t *testing.T) {
 	}
 }
 
-func TestInProdAndArchiveCandidate(t *testing.T) {
-	now := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
+func TestInProd(t *testing.T) {
 	main := taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}}
 	b := Build(Inputs{
-		Develop:      taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}},
-		Main:         &main,
-		ArchiveDates: map[string]time.Time{"A1": now.AddDate(0, 0, -15), "A2": now.AddDate(0, 0, -3)},
-		ArchiveAfter: 15 * 24 * time.Hour,
-		Now:          now,
+		Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}},
+		Main:    &main,
 	})
-	if c := card(b, "A1"); !c.InProd || !c.ArchiveCandidate {
-		t.Errorf("A1: %+v", c)
-	}
-	if c := card(b, "A2"); !c.InProd || c.ArchiveCandidate {
-		t.Errorf("A2 is in prod but too recent: %+v", c)
+	for _, id := range []string{"A1", "A2"} {
+		if !card(b, id).InProd {
+			t.Errorf("%s is merged or later on main", id)
+		}
 	}
 	if c := card(b, "A3"); c.InProd {
 		t.Error("in progress on main is not in prod")

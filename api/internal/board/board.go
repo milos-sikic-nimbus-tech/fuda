@@ -3,7 +3,6 @@ package board
 import (
 	"slices"
 	"strings"
-	"time"
 
 	"fuda/internal/taskfiles"
 )
@@ -24,29 +23,28 @@ type Column struct {
 }
 
 type Card struct {
-	ID               string   `json:"id"`
-	Title            string   `json:"title"`
-	Status           string   `json:"status"`
-	Column           string   `json:"column"`
-	Owners           []string `json:"owners"`
-	Testers          []string `json:"testers"`
-	Labels           []string `json:"labels"`
-	Prefix           string   `json:"prefix"`
-	Added            string   `json:"added"`
-	Claimed          string   `json:"claimed"`
-	Done             string   `json:"done,omitempty"`
-	PRs              []int    `json:"prs"`
-	PRRef            string   `json:"prRef,omitempty"`
-	OpenPRs          []int    `json:"openPrs"`
-	BlockedBy        string   `json:"blockedBy,omitempty"`
-	BlockedByIDs     []string `json:"blockedByIds"`
-	Blocks           []string `json:"blocks"`
-	References       []string `json:"references"`
-	ReferencedBy     []string `json:"referencedBy"`
-	InProd           bool     `json:"inProd"`
-	NewInPR          bool     `json:"newInPr"`
-	ArchiveCandidate bool     `json:"archiveCandidate"`
-	Path             string   `json:"path"`
+	ID           string   `json:"id"`
+	Title        string   `json:"title"`
+	Status       string   `json:"status"`
+	Column       string   `json:"column"`
+	Owners       []string `json:"owners"`
+	Testers      []string `json:"testers"`
+	Labels       []string `json:"labels"`
+	Prefix       string   `json:"prefix"`
+	Added        string   `json:"added"`
+	Claimed      string   `json:"claimed"`
+	Done         string   `json:"done,omitempty"`
+	PRs          []int    `json:"prs"`
+	PRRef        string   `json:"prRef,omitempty"`
+	OpenPRs      []int    `json:"openPrs"`
+	BlockedBy    string   `json:"blockedBy,omitempty"`
+	BlockedByIDs []string `json:"blockedByIds"`
+	Blocks       []string `json:"blocks"`
+	References   []string `json:"references"`
+	ReferencedBy []string `json:"referencedBy"`
+	InProd       bool     `json:"inProd"`
+	NewInPR      bool     `json:"newInPr"`
+	Path         string   `json:"path"`
 }
 
 type Facets struct {
@@ -69,13 +67,10 @@ type Problem struct {
 }
 
 type Inputs struct {
-	Develop      taskfiles.Result
-	Main         *taskfiles.Result
-	OpenPRs      map[string][]int
-	AddedInPRs   []taskfiles.Task
-	ArchiveDates map[string]time.Time
-	ArchiveAfter time.Duration
-	Now          time.Time
+	Develop    taskfiles.Result
+	Main       *taskfiles.Result
+	OpenPRs    map[string][]int
+	AddedInPRs []taskfiles.Task
 }
 
 var inProdStatuses = map[string]bool{"merged": true, "testing": true, "validated": true}
@@ -91,29 +86,27 @@ func Build(in Inputs) Board {
 	for _, t := range tasks {
 		openPRs := in.OpenPRs[t.ID]
 		inProd := inProdStatuses[normalizeStatus(prodStatus[t.ID])]
-		first, reached := in.ArchiveDates[t.ID]
 		cards = append(cards, Card{
-			ID:               t.ID,
-			Title:            t.Title,
-			Status:           t.Status,
-			Column:           columns.place(t.Status, len(openPRs) > 0),
-			Owners:           people.canonical(t.Owners),
-			Testers:          people.canonical(t.Testers),
-			Labels:           labelStrings(t.Labels),
-			Prefix:           idPrefix(t.ID),
-			Added:            t.Added,
-			Claimed:          t.Claimed,
-			PRs:              orEmpty(t.PRs),
-			PRRef:            t.PRRef,
-			OpenPRs:          orEmpty(openPRs),
-			BlockedBy:        t.BlockedBy,
-			BlockedByIDs:     refs.blockedBy[t.ID],
-			Blocks:           refs.blocks[t.ID],
-			References:       refs.mentions[t.ID],
-			ReferencedBy:     refs.mentionedBy[t.ID],
-			InProd:           inProd,
-			ArchiveCandidate: inProd && reached && in.Now.Sub(first) >= in.ArchiveAfter,
-			Path:             t.Path,
+			ID:           t.ID,
+			Title:        t.Title,
+			Status:       t.Status,
+			Column:       columns.place(t.Status, len(openPRs) > 0),
+			Owners:       people.canonical(t.Owners),
+			Testers:      people.canonical(t.Testers),
+			Labels:       labelStrings(t.Labels),
+			Prefix:       idPrefix(t.ID),
+			Added:        t.Added,
+			Claimed:      t.Claimed,
+			PRs:          orEmpty(t.PRs),
+			PRRef:        t.PRRef,
+			OpenPRs:      orEmpty(openPRs),
+			BlockedBy:    t.BlockedBy,
+			BlockedByIDs: refs.blockedBy[t.ID],
+			Blocks:       refs.blocks[t.ID],
+			References:   refs.mentions[t.ID],
+			ReferencedBy: refs.mentionedBy[t.ID],
+			InProd:       inProd,
+			Path:         t.Path,
 		})
 	}
 

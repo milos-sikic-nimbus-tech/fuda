@@ -121,9 +121,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               {task.added && <Field label="Added">{task.added}</Field>}
               {task.claimed && <Field label="Claimed">{task.claimed}</Field>}
               {task.done && <Field label="Done">{task.done}</Field>}
-              {task.inProd && (
-                <Field label="Prod">in prod{task.archiveCandidate && ' · ready to archive'}</Field>
-              )}
+              {task.inProd && <Field label="Prod">in prod</Field>}
               {task.custom.map((f) => (
                 <Field key={f.key} label={f.key}>
                   <span className="text-muted-foreground">{f.value || '—'}</span>

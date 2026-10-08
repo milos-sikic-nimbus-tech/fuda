@@ -19,8 +19,7 @@ docker run -p 8080:8080 -v fuda-data:/data \
 | `FUDA_GITHUB_REPO`, `FUDA_GITHUB_TOKEN` | | GitHub repository and token |
 | `FUDA_AZURE_ORG`, `_PROJECT`, `_REPO`, `_PAT` | | Azure DevOps repository and personal access token |
 | `FUDA_TITLE` | repository name | Shown in the header |
-| `FUDA_WATCH_MAIN` | `false` | Also read `main` for "in prod" and archive candidates |
-| `FUDA_ARCHIVE_AFTER_DAYS` | `15` | When a task in prod becomes an archive candidate |
+| `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |
 | `FUDA_SYNC_INTERVAL` | `3m` | How often fuda checks the repository when no webhook arrived |
 | `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs; webhooks inside it are deferred |
 | `FUDA_AUTH_USER`, `FUDA_AUTH_PASSWORD` | `fuda`, empty | Built-in basic auth, off while the password is empty |

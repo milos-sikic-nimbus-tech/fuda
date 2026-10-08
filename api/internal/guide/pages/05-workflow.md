@@ -11,7 +11,7 @@ reviews) in `WORKFLOW.md`.
 | Retest | `status: "testing"` (and `tester`), then `"validated"`; on failure back to `"in progress"` with what failed | Small commits on `develop` |
 | Blocked | Set or clear `blocked_by` | A small commit |
 | Abandon | `status: "backlog"`, clear `owner` and `claimed`, the reason in `## Evidence` | A small commit |
-| Archive | Move to `archive/`, `status: "done"`, `done` = the date | A small commit, when fuda shows "archive candidate" |
+| Archive | Move to `archive/`, `status: "done"`, `done` = the date | A small commit, once the task has been in prod for a while |
 
 ```mermaid
 stateDiagram-v2
