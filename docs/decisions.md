@@ -7,13 +7,15 @@ with a proposal.
 ## Product
 
 - **Read-only.** fuda never writes to a repository. Every change is an ordinary commit by a person
-  or their agent, so git stays the single source of truth and fuda needs only read access.
+  or their agent, so git stays the single source of truth and fuda needs only read access. Planned to change:
+  see [Moves and Assigns from the app](#moves-and-assigns-from-the-app).
 - **develop is the board.** Columns and filters come from develop. Claims are committed to develop
   so everyone sees them. main is optional and only adds the "in prod" badge; it never moves a
   card, because anything on main is on develop too.
 - **In review comes from open PRs, matched by content.** A PR delivers a task when its version of
   the task file sets `merged` or adds the PR's number. Branch names are never used: they are
-  conventions, the diff is a fact.
+  conventions, the diff is a fact. Planned to change with the tasks repository: see
+  [Moves and Assigns from the app](#moves-and-assigns-from-the-app).
 - **The repository decides its board.** Columns come from an optional `stages.md`, label groups
   from `labels.md`, people from `people.md`. Without them fuda derives everything from the tasks,
   so a repo works on day one.
@@ -63,6 +65,52 @@ with a proposal.
 Decided as a direction, not built. Each has a proposal; a PR that builds one moves it above and
 updates [architecture.md](architecture.md).
 
+### Moves and Assigns from the app
+
+- **Settled:** fuda will write a Move (`status`) and an Assign (`owner`), and nothing else, as
+  one-line commits through the host's web API, on GitHub and Azure DevOps. Task files stay the
+  only source of truth; no database, no realtime service. See ADRs
+  [0001](adr/0001-fuda-writes-moves-and-assigns.md),
+  [0002](adr/0002-tasks-in-their-own-repository.md),
+  [0003](adr/0003-users-read-and-write-with-their-own-token.md) and
+  [0004](adr/0004-desktop-app-with-wails.md). This replaces "Read-only", "develop is the board"
+  and "In review ... matched by content" above.
+- **Open:** nothing to decide. Ready for a spec.
+- **Proposal:**
+  - **Boards.** A Board is a tasks repository whose name starts with `fuda-`, mounted in its code
+    repository as a submodule at `docs/board`. fuda finds Boards from the user's login and lists
+    them in a picker in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
+    `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
+    with default Stages and a hint.
+  - **Login.** Per host, both at once. GitHub App user tokens (web flow with PKCE on the web,
+    device flow on desktop); Microsoft Entra ID for Azure DevOps (confidential client on the web,
+    MSAL device code on desktop). Tokens in an encrypted cookie on the web, the OS keychain on
+    desktop. Read and write with the user's token. Read-only board if the user cannot write.
+  - **Move.** Sets `status`. The first time a Task leaves the first Stage, also sets `claimed` to
+    today, once. **Assign** writes `owner` in the file's own style (comma text or YAML list) with
+    short names from `people.md`. Only the changed line changes; no card order is stored.
+  - **Write and conflicts.** One compare-and-swap commit per change, never a force-push. If
+    other lines changed first, fuda applies the edit again and retries silently. If the same
+    field changed first, the first write wins: the card goes back with a short message.
+  - **In the UI.** The card moves at once with a saving dot and cannot be dragged again until
+    the save ends. On failure it goes back with the reason. The browser warns on leaving
+    mid-save. Others see the change by polling every 5 seconds.
+  - **In review.** Code repositories are listed in the board config (`code_repos: [org/app]`).
+    An open PR in any of them, on any base, puts every Task whose id is in its title or branch
+    name In review. Such cards cannot be dragged. When the PR closes the card returns to its
+    `status` Stage; a person Moves it to Merged. Archived Tasks are read-only in the app.
+  - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
+    write the file on disk and the person commits. fuda polls the folder; same conflict rule.
+  - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
+    UI. The web shell is self-hosted at the host's own cost. Desktop releases on GitHub Releases
+    with the Wails updater.
+  - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
+    `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
+    submodule) and a short section on `git submodule update --remote docs/board`. The code
+    repository's agent rules say to update the submodule before reading Tasks.
+  - **Removed.** The server's host token, `FUDA_AUTH_USER`/`FUDA_AUTH_PASSWORD`, and matching PRs
+    by their version of the Task file.
+
 ### History-based dates and insights
 
 - **Settled:** fuda only knows the dates written in frontmatter (`added`, `claimed`, `done`).
@@ -95,5 +143,5 @@ updates [architecture.md](architecture.md).
 - **Settled:** the client refetches the board every minute, on window focus, and shortly after
   the Sync button.
 - **Open:** whether a push channel is worth its complexity.
-- **Proposal:** a server-sent events endpoint that emits the snapshot's head SHAs after each
-  swap; the client refetches when they change. No change to the data model.
+- **Proposal:** replaced by 5-second polling in
+  [Moves and Assigns from the app](#moves-and-assigns-from-the-app).
