@@ -44,7 +44,7 @@ describe('canDrag', () => {
     expect(canDrag(card('A-1'), true, false)).toBe(false)
   })
   it('refuses a card locked by an open PR', () => {
-    expect(canDrag(card('A-1', { openPrs: [7] }), false, false)).toBe(false)
+    expect(canDrag(card('A-1', { openPrs: [{ number: 7, url: 'u' }] }), false, false)).toBe(false)
   })
   it('refuses every card on a read-only board', () => {
     expect(canDrag(card('A-1'), false, true)).toBe(false)

@@ -16,7 +16,6 @@ function columnStatus(column: ColumnData): string {
 export function Column({
   column,
   cards,
-  prLink,
   saving,
   dropAllowed,
   isDraggable,
@@ -28,7 +27,6 @@ export function Column({
 }: {
   column: ColumnData
   cards: Card[]
-  prLink?: string
   saving: Set<string>
   dropAllowed: boolean
   isDraggable: (card: Card) => boolean
@@ -112,7 +110,6 @@ export function Column({
               key={c.id}
               card={c}
               column={column}
-              prLink={prLink}
               saving={saving.has(c.id)}
               draggable={isDraggable(c)}
               onDragStart={() => onDragStart(c)}

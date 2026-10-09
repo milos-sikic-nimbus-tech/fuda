@@ -200,7 +200,7 @@ func archivedCard(t taskfiles.Task) Card {
 		Done:         t.Done,
 		PRs:          orEmpty(t.PRs),
 		PRRef:        t.PRRef,
-		OpenPRs:      []int{},
+		OpenPRs:      []OpenPR{},
 		BlockedBy:    t.BlockedBy,
 		BlockedByIDs: []string{},
 		Blocks:       []string{},

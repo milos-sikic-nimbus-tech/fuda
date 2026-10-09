@@ -183,18 +183,12 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 		byID[t.ID] = t
 		taskPaths[t.Path] = t.ID
 	}
-	for id, t := range found.added {
-		if _, exists := byID[id]; !exists {
-			byID[id] = t
-		}
-	}
 
 	return &snapshot{
 		board: Build(Inputs{
-			Develop:    develop,
-			Main:       main,
-			OpenPRs:    found.open,
-			AddedInPRs: slices.Collect(maps.Values(found.added)),
+			Develop: develop,
+			Main:    main,
+			OpenPRs: found,
 		}),
 		develop: develop,
 		main:    main,

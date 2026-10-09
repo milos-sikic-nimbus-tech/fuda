@@ -22,16 +22,17 @@ export type Card = {
   done?: string
   prs: number[]
   prRef?: string
-  openPrs: number[]
+  openPrs: OpenPr[]
   blockedBy?: string
   blockedByIds: string[]
   blocks: string[]
   references: string[]
   referencedBy: string[]
   inProd: boolean
-  newInPr: boolean
   path: string
 }
+
+export type OpenPr = { number: number; url: string }
 
 export type LabelGroup = { name: string; values: string[] }
 

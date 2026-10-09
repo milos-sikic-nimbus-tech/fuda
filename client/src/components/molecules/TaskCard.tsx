@@ -1,4 +1,4 @@
-import { Ban, GitPullRequest, Rocket, Sparkles } from 'lucide-react'
+import { Ban, GitPullRequest, Rocket } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Hint } from '@/components/atoms/Hint'
 import { LabelChip } from '@/components/atoms/LabelChip'
@@ -6,7 +6,7 @@ import { labelText } from '@/lib/labels'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import { type Card, type Column, prHref } from '@/lib/api'
+import type { Card, Column } from '@/lib/api'
 import { listOf } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 
@@ -42,7 +42,7 @@ function Signal({
   )
 }
 
-function CardSignals({ card, prLink }: { card: Card; prLink?: string }) {
+function CardSignals({ card }: { card: Card }) {
   return (
     <>
       {card.blockedBy && (
@@ -53,24 +53,16 @@ function CardSignals({ card, prLink }: { card: Card; prLink?: string }) {
           <span className="block max-w-36 truncate">{card.blockedBy}</span>
         </Signal>
       )}
-      {card.newInPr && (
-        <Signal
-          hint="The task file is new in an open PR and not on develop yet"
-          icon={<Sparkles className="size-3 text-violet-500" />}
-        >
-          new
-        </Signal>
-      )}
-      {card.openPrs.map((n) => (
-        <Hint key={n} label={`Open pull request #${n} delivers this task`}>
+      {card.openPrs.map((pr) => (
+        <Hint key={pr.url} label={`Open pull request #${pr.number} names this task`}>
           <a
-            href={prHref(prLink, n)}
+            href={pr.url}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
             className={cn(chipClass, 'hover:border-violet-400 hover:text-foreground')}
           >
-            <GitPullRequest className="size-3 text-violet-500" />#{n}
+            <GitPullRequest className="size-3 text-violet-500" />#{pr.number}
           </a>
         </Hint>
       ))}
@@ -89,7 +81,6 @@ function CardSignals({ card, prLink }: { card: Card; prLink?: string }) {
 export function TaskCard({
   card,
   column,
-  prLink,
   saving,
   draggable,
   onDragStart,
@@ -97,7 +88,6 @@ export function TaskCard({
 }: {
   card: Card
   column: Column
-  prLink?: string
   saving: boolean
   draggable: boolean
   onDragStart: () => void
@@ -164,7 +154,7 @@ export function TaskCard({
       </div>
       <p className="mt-1 text-[13px] leading-snug text-card-foreground">{card.title}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1 empty:hidden">
-        <CardSignals card={card} prLink={prLink} />
+        <CardSignals card={card} />
         {ranked.slice(0, visibleLabels).map((label) => (
           <LabelChip
             key={label}

@@ -26,10 +26,13 @@ with a proposal.
 - **develop is the board.** Columns and filters come from develop. Claims are committed to develop
   so everyone sees them. main is optional and only adds the "in prod" badge; it never moves a
   card, because anything on main is on develop too.
-- **In review comes from open PRs, matched by content.** A PR delivers a task when its version of
-  the task file sets `merged` or adds the PR's number. Branch names are never used: they are
-  conventions, the diff is a fact. Planned to change with the tasks repository: see
-  [Moves and Assigns from the app](#moves-and-assigns-from-the-app).
+- **In review comes from open PRs that name the task.** The board lists its code repositories in
+  `repos.md` (`code_repos: [org/app]`). An open PR in any of them, on any base branch, puts every
+  task whose id is in its title or branch name In review. Such a card is locked: it cannot be
+  dragged, a Move is refused, and nothing is dropped into that Stage by hand. When the PR closes
+  the card returns to its `status` Stage; fuda never sets `merged`. A person who cannot see a code
+  repository still gets the Board, without that repository's In review. Ids are matched whole,
+  case-insensitively: `T-1` does not match `T-12`.
 - **The repository decides its board.** Columns come from an optional `stages.md`, label groups
   from `labels.md`, people from `people.md`. Without them fuda derives everything from the tasks,
   so a repo works on day one.
@@ -97,7 +100,7 @@ updates [architecture.md](architecture.md).
   [0002](adr/0002-tasks-in-their-own-repository.md),
   [0003](adr/0003-users-read-and-write-with-their-own-token.md) and
   [0004](adr/0004-desktop-app-with-wails.md). "Read-only" is already replaced above. This will
-  also replace "develop is the board" and "In review ... matched by content".
+  also replace "develop is the board".
 - **Open:** nothing to decide. Ready for a spec.
 - **Proposal:**
   - **Boards.** A Board is a tasks repository whose name starts with `fuda-`, mounted in its code
@@ -114,11 +117,6 @@ updates [architecture.md](architecture.md).
     whether the account can push, keeps the answer for a minute, and refuses Move and Assign
     for read-only accounts. The board shows a note and no card drags. Still to build: Azure
     DevOps and Local Boards. No card order is stored.
-  - **In review.** Code repositories are listed in the board config (`code_repos: [org/app]`).
-    An open PR in any of them, on any base, puts every Task whose id is in its title or branch
-    name In review. Such cards cannot be dragged. When the PR closes the card returns to its
-    `status` Stage; a person Moves it to Merged. The lock and the refusal to drop into the
-    PR-derived Stage are built; the PR match by id is not.
   - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
     write the file on disk and the person commits. fuda polls the folder; same conflict rule.
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
@@ -129,8 +127,8 @@ updates [architecture.md](architecture.md).
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code
     repository's agent rules say to update the submodule before reading Tasks.
-  - **Removed (rest).** Matching PRs by their version of the Task file. The server's host token,
-    `FUDA_AUTH_USER`/`FUDA_AUTH_PASSWORD` and webhooks are already gone.
+  - **Removed.** Nothing left to remove. The server's host token, `FUDA_AUTH_USER`/
+    `FUDA_AUTH_PASSWORD`, webhooks and matching PRs by their version of the Task file are gone.
 
 ### History-based dates and insights
 

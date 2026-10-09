@@ -44,7 +44,7 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 	if !ok {
 		return ErrNotFound
 	}
-	if task.Archived {
+	if task.Archived || len(snap.reviews[task.ID]) > 0 {
 		return ErrLocked
 	}
 	target, ok := snap.column(req.Column)

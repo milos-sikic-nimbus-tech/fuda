@@ -134,43 +134,27 @@ func readZipFile(f *zip.File) ([]byte, error) {
 	return io.ReadAll(r)
 }
 
-func (s *Source) OpenPRs(ctx context.Context, base string) ([]board.PullRequest, error) {
+func (s *Source) OpenPRs(ctx context.Context, repo string) ([]board.PullRequest, error) {
 	var pulls []struct {
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
+		Title   string `json:"title"`
 		Head    struct {
-			SHA string `json:"sha"`
+			Ref string `json:"ref"`
 		} `json:"head"`
 	}
-	if err := s.getJSON(ctx, "/repos/"+s.repo+"/pulls?state=open&per_page=100&base="+url.QueryEscape(base), &pulls); err != nil {
-		return nil, err
-	}
-	out := make([]board.PullRequest, 0, len(pulls))
-	for _, p := range pulls {
-		var files []struct {
-			Filename string `json:"filename"`
-			Status   string `json:"status"`
-		}
-		if err := s.getJSON(ctx, fmt.Sprintf("/repos/%s/pulls/%d/files?per_page=100", s.repo, p.Number), &files); err != nil {
-			return nil, err
-		}
-		pr := board.PullRequest{Number: p.Number, URL: p.HTMLURL, HeadSHA: p.Head.SHA}
-		for _, f := range files {
-			if f.Status != "removed" {
-				pr.ChangedPaths = append(pr.ChangedPaths, f.Filename)
-			}
-		}
-		out = append(out, pr)
-	}
-	return out, nil
-}
-
-func (s *Source) FileAt(ctx context.Context, repoPath, ref string) ([]byte, error) {
-	content, err := s.get(ctx, "/repos/"+s.repo+"/contents/"+escapePath(repoPath)+"?ref="+url.QueryEscape(ref), "application/vnd.github.raw+json")
+	err := s.getJSON(ctx, "/repos/"+escapePath(repo)+"/pulls?state=open&per_page=100", &pulls)
 	if errors.Is(err, errNotFound) {
 		return nil, board.ErrNotFound
 	}
-	return content, err
+	if err != nil {
+		return nil, err
+	}
+	out := make([]board.PullRequest, len(pulls))
+	for i, p := range pulls {
+		out[i] = board.PullRequest{Number: p.Number, URL: p.HTMLURL, Title: p.Title, Branch: p.Head.Ref}
+	}
+	return out, nil
 }
 
 func escapePath(p string) string {

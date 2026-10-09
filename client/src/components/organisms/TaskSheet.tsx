@@ -115,18 +115,31 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               )}
               {(task.prs.length > 0 || task.prRef || task.openPrs.length > 0) && (
                 <Field label="PR">
-                  {[...new Set([...task.prs, ...task.openPrs])].map((n) => (
+                  {task.openPrs.map((pr) => (
                     <a
-                      key={n}
-                      href={prHref(prLink, n)}
+                      key={pr.url}
+                      href={pr.url}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
-                      <GitPullRequest className="size-3.5" />#{n}
-                      {task.openPrs.includes(n) && <span className="text-violet-700">open</span>}
+                      <GitPullRequest className="size-3.5" />#{pr.number}
+                      <span className="text-violet-700">open</span>
                     </a>
                   ))}
+                  {task.prs
+                    .filter((n) => !task.openPrs.some((pr) => pr.number === n))
+                    .map((n) => (
+                      <a
+                        key={n}
+                        href={prHref(prLink, n)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <GitPullRequest className="size-3.5" />#{n}
+                      </a>
+                    ))}
                   {task.prRef && <span className="font-mono text-xs">{task.prRef}</span>}
                 </Field>
               )}

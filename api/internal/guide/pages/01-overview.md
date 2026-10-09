@@ -39,8 +39,9 @@ flowchart LR
 
 - **Columns** come from `docs/board/stages.md`, or from the statuses found in the tasks. A status
   that no column lists gets its own column, marked unknown, so nothing is ever hidden.
-- **In review** is the one derived column: a task that an open pull request delivers, meaning the
-  PR sets it to `merged` or adds its number to `pr`.
+- **In review** is the one derived column: a task whose id is in the title or branch name of an
+  open pull request in a repository listed in `repos.md`. Such a card is locked. When the pull
+  request closes, the card goes back to its `status` column; fuda never sets `merged`.
 - **In prod** appears when fuda also watches `main` and the task's file there is merged, testing
   or validated.
 - **Problems** lists files fuda could not read. They are left off the board and the rest still

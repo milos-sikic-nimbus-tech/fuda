@@ -57,7 +57,7 @@ function BoardPage() {
       ) : search.view === 'list' ? (
         <ListView columns={data.columns} cards={cards} />
       ) : (
-        <Board columns={data.columns} cards={cards} prLink={data.prLink} readOnly={data.readOnly} />
+        <Board columns={data.columns} cards={cards} readOnly={data.readOnly} />
       )}
       <TaskSheet taskIds={taskIds} prLink={data.prLink} />
     </main>

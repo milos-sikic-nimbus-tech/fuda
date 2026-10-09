@@ -4,11 +4,11 @@
 
 **Blocked by:** 03: Move on GitHub
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Board service tests: id in title, id in branch, two ids, any base, PR closed returns card
-- [ ] Locked card refuses Move (test) and does not drag (UI)
-- [ ] A user who cannot see a code repo still sees the Board, without its In review
-- [ ] `docs/decisions.md` In review rule and `docs/architecture.md` updated
+- [x] Board service tests: id in title, id in branch, two ids, any base, PR closed returns card
+- [x] Locked card refuses Move (test) and does not drag (UI)
+- [x] A user who cannot see a code repo still sees the Board, without its In review
+- [x] `docs/decisions.md` In review rule and `docs/architecture.md` updated
 
 Spec: `.scratch/fuda-writes/spec.md`.

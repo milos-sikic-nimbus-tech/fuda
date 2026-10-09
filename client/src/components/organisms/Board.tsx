@@ -9,12 +9,10 @@ import { useMove, usePendingMoves } from '@/lib/queries'
 export function Board({
   columns,
   cards,
-  prLink,
   readOnly,
 }: {
   columns: ColumnData[]
   cards: Card[]
-  prLink?: string
   readOnly: boolean
 }) {
   const { isCollapsed, toggle } = useCollapsedColumns()
@@ -29,7 +27,6 @@ export function Board({
           key={column.id}
           column={column}
           cards={cards.filter((c) => c.column === column.id)}
-          prLink={prLink}
           saving={saving}
           dropAllowed={dragging !== null && canDrop(dragging, column)}
           isDraggable={(card) => canDrag(card, saving.has(card.id), readOnly)}

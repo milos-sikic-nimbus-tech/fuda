@@ -18,13 +18,13 @@ flowchart LR
   subgraph repo["the repository"]
     T["docs/board/tasks/*.md"]
     A["docs/board/archive/*.md"]
-    C["docs/board/stages.md · labels.md · people.md<br/>(optional)"]
+    C["docs/board/stages.md · labels.md · people.md · repos.md<br/>(optional)"]
     D["docs/** (other md + images)"]
   end
   subgraph host["git host or local checkout"]
     DEV["develop: the board"]
     MAIN["main: optional, 'in prod'"]
-    PR["open PRs into develop: In review"]
+    PR["open PRs in the code repos: In review"]
   end
   subgraph fuda["fuda (one container)"]
     SRC["source: github · azure · local"]
@@ -52,8 +52,8 @@ declared where they are used.
 |---|---|
 | `cmd/fuda` | Reads config, picks the source, wires the service and the HTTP server, graceful shutdown. |
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
-| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
-| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
+| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
+| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
 | `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
@@ -130,7 +130,7 @@ builds a new snapshot and swaps it in. A snapshot contains:
 - the parsed develop result (tasks, archive, config, problems) and, when watched, main;
 - the built `Board` (columns, cards, facets, problems), computed once per sync;
 - docs (`*.md`) and images under `docs/`, kept as bytes (images up to 5 MB each);
-- the open-PR result (In review, tasks that only exist in a PR);
+- the open-PR result (which open PRs name each task: In review);
 - the head SHA per branch it was built from.
 
 Task bodies and docs are rendered to HTML per request; the board itself is pre-built.
@@ -167,7 +167,7 @@ flowchart TD
 flowchart TD
   F["task file in docs/board/tasks/"] --> V{"valid?"}
   V -- no --> PB["Problems"]
-  V -- yes --> PRQ{"an open PR delivers it,<br/>and a stage has when: pr-open?"}
+  V -- yes --> PRQ{"an open PR names it,<br/>and a stage has when: pr-open?"}
   PRQ -- yes --> IR["In review"]
   PRQ -- no --> ST{"stages.md?"}
   ST -- yes --> M{"status listed in a stage?"}
@@ -176,9 +176,12 @@ flowchart TD
   ST -- no --> DEF["default stages: Backlog, In progress, In review,<br/>Merged, Testing, Validated; other statuses flagged unknown"]
 ```
 
-- **Delivers:** the PR's version of the task file sets `status` to `merged`, or adds the PR's
-  number to `pr`, compared with develop. Branch names are never used.
-- **A task that exists only in a PR** shows in In review, marked "new in PR".
+- **Names:** the task's id appears, as a whole word and in any case, in the title or branch name
+  of an open PR in a repository listed in `repos.md`, on any base branch. One PR can name several
+  tasks. A card held in In review this way is locked: a Move is refused. Closing the PR returns the
+  card to its `status` Stage; fuda never sets `merged`.
+- **A repository the caller cannot see** is skipped, so the Board loads without its In review. Any
+  other failure keeps the board, drops In review and is reported as the sync error.
 - **Statuses compare** case-insensitively with whitespace collapsed.
 - **main** never moves a card. When watched, a card whose main copy is merged, testing or validated
   gets the "in prod" badge.
@@ -192,7 +195,7 @@ flowchart TD
 - `status: done` outside the archive.
 - A duplicate id (the first file by path wins).
 - A task file in a sub-folder of `tasks/` or `archive/`.
-- An invalid `stages.md`, `labels.md` or `people.md`: the file is ignored and the board is derived
+- An invalid `stages.md`, `labels.md`, `people.md` or `repos.md`: the file is ignored and the board is derived
   from the tasks instead.
 
 ### Facets (what the filters offer)
@@ -218,7 +221,7 @@ sequenceDiagram
   Dev->>Develop: claim SS-12 (status in progress, owner, claimed)
   Develop-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in In progress
-  Dev->>Fuda: opens a PR (code + SS-12 set to merged, pr)
+  Dev->>Fuda: opens a PR whose title or branch names SS-12
   Note over Fuda: SS-12 in In review, PR #n
   Dev->>Develop: PR completes
   Develop-->>Fuda: poll sees a new head
