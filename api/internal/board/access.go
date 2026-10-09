@@ -2,6 +2,8 @@ package board
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 )
 
@@ -24,7 +26,8 @@ func (s *Service) CanWrite(ctx context.Context) (bool, error) {
 	if !ok {
 		return true, nil
 	}
-	token := TokenFrom(ctx)
+	sum := sha256.Sum256([]byte(TokenFrom(ctx)))
+	token := hex.EncodeToString(sum[:])
 	s.mu.Lock()
 	known, found := s.access[token]
 	s.mu.Unlock()
@@ -36,6 +39,11 @@ func (s *Service) CanWrite(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	s.mu.Lock()
+	for key, entry := range s.access {
+		if s.now().Sub(entry.checked) >= accessTTL {
+			delete(s.access, key)
+		}
+	}
 	s.access[token] = knownAccess{canWrite: canWrite, checked: s.now()}
 	s.mu.Unlock()
 	return canWrite, nil

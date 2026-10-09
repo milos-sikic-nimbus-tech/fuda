@@ -123,9 +123,12 @@ func (a api) board(w http.ResponseWriter, r *http.Request, service *board.Servic
 		return
 	}
 	canWrite, err := service.CanWrite(r.Context())
-	if err != nil {
+	if errors.Is(err, board.ErrUnauthorized) {
 		a.result(w, nil, err)
 		return
+	}
+	if err != nil {
+		a.log.Warn("write access could not be checked; showing a read-only board", "error", err)
 	}
 	view.ReadOnly = !canWrite
 	a.json(w, http.StatusOK, view)

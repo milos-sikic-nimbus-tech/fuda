@@ -297,3 +297,39 @@ func TestServiceReportsWriteAccess(t *testing.T) {
 		check(t, fmt.Sprintf("can write when readOnly=%v", readOnly), can, !readOnly)
 	}
 }
+
+type countingHost struct {
+	*fakeHost
+	calls int
+}
+
+func (c *countingHost) CanWrite(ctx context.Context) (bool, error) {
+	c.calls++
+	return c.fakeHost.CanWrite(ctx)
+}
+
+func TestWriteAccessIsKeptForAMinutePerToken(t *testing.T) {
+	host := &countingHost{fakeHost: newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})}
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+	ctx := WithToken(context.Background(), "ann")
+
+	for range 3 {
+		if _, err := s.CanWrite(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(t, "checks within a minute", host.calls, 1)
+
+	if _, err := s.CanWrite(WithToken(context.Background(), "ben")); err != nil {
+		t.Fatal(err)
+	}
+	check(t, "a second token is checked on its own", host.calls, 2)
+
+	now = now.Add(2 * time.Minute)
+	if _, err := s.CanWrite(ctx); err != nil {
+		t.Fatal(err)
+	}
+	check(t, "checks after a minute", host.calls, 3)
+}
