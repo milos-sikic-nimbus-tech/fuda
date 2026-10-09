@@ -271,13 +271,19 @@ func (m *movableSource) Files(context.Context, string) (map[string][]byte, error
 	return map[string][]byte{"docs/board/tasks/A-1.md": []byte(m.content)}, nil
 }
 
-func (m *movableSource) ReadFile(context.Context, string, string) ([]byte, string, error) {
+func (m *movableSource) ReadFile(ctx context.Context, _, _ string) ([]byte, string, error) {
+	if board.TokenFrom(ctx) == "" {
+		return nil, "", board.ErrUnauthorized
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return []byte(m.content), strconv.Itoa(m.version), nil
 }
 
-func (m *movableSource) WriteFile(_ context.Context, _, _ string, content []byte, version, _ string) error {
+func (m *movableSource) WriteFile(ctx context.Context, _, _ string, content []byte, version, _ string) error {
+	if board.TokenFrom(ctx) == "" {
+		return board.ErrUnauthorized
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if version != strconv.Itoa(m.version) {

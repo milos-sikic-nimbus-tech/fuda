@@ -74,7 +74,7 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 			a.result(w, nil, err)
 			return
 		}
-		handler(w, r, service)
+		handler(w, r.WithContext(ctx), service)
 	}
 }
 
