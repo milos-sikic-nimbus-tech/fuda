@@ -55,7 +55,7 @@ source the same poll picks up edits to your working tree.
 ## Start a new Board
 
 Create a repository named `fuda-<something>` and install the fuda GitHub App on it. Open it in fuda:
-with no Task files it shows an empty Board with the default Stages and the hint "No Tasks yet: add
+with no Task files, or no `develop` branch yet, it shows an empty Board with the default Stages and the hint "No Tasks yet: add
 files in `tasks/`". Add Task files under `docs/board/tasks/` and they appear on the next sync.
 
 ## Desktop app

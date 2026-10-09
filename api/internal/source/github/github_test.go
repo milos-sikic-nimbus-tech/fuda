@@ -103,3 +103,33 @@ func TestHeadAsksWithTheLastETag(t *testing.T) {
 		t.Errorf("calls: %d", calls)
 	}
 }
+
+func repositoryWithoutBranch(exists bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/repos/o/fuda-x" && exists {
+			_, _ = w.Write([]byte(`{"full_name":"o/fuda-x"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}
+}
+
+func TestMissingBranchOnAReadableRepositoryIsAnEmptyBoard(t *testing.T) {
+	s := serve(t, repositoryWithoutBranch(true))
+	ctx := board.WithToken(context.Background(), "t")
+	if _, err := s.Head(ctx, "develop"); err != nil {
+		t.Fatalf("head: %v", err)
+	}
+	files, err := s.Files(ctx, "develop")
+	if err != nil || len(files) != 0 {
+		t.Fatalf("files: %v, %v", files, err)
+	}
+}
+
+func TestMissingRepositoryStaysMissing(t *testing.T) {
+	s := serve(t, repositoryWithoutBranch(false))
+	ctx := board.WithToken(context.Background(), "t")
+	if _, err := s.Head(ctx, "develop"); !errors.Is(err, board.ErrBranchMissing) {
+		t.Fatalf("head: %v", err)
+	}
+}

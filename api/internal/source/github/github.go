@@ -66,7 +66,7 @@ func (s *Source) Head(ctx context.Context, branch string) (string, error) {
 	case res.status == http.StatusNotModified:
 		return cached.sha, nil
 	case res.status == http.StatusNotFound:
-		return "", board.ErrBranchMissing
+		return "", s.missingBranch(ctx)
 	case res.status >= 300:
 		return "", res.failure()
 	}
@@ -84,8 +84,25 @@ func (s *Source) Head(ctx context.Context, branch string) (string, error) {
 	return out.Commit.SHA, nil
 }
 
+func (s *Source) missingBranch(ctx context.Context) error {
+	_, err := s.get(ctx, "/repos/"+s.repo, "application/vnd.github+json")
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errNotFound):
+		return board.ErrBranchMissing
+	}
+	return err
+}
+
 func (s *Source) Files(ctx context.Context, branch string) (map[string][]byte, error) {
 	body, err := s.get(ctx, "/repos/"+s.repo+"/zipball/"+url.PathEscape(branch), "")
+	if errors.Is(err, errNotFound) {
+		if err := s.missingBranch(ctx); err != nil {
+			return nil, err
+		}
+		return map[string][]byte{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
