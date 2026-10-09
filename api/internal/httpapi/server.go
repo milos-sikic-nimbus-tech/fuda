@@ -21,7 +21,7 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 type Login interface {
 	Host() string
 	Token(w http.ResponseWriter, r *http.Request) (string, error)
-	Logout(w http.ResponseWriter)
+	Logout(w http.ResponseWriter, r *http.Request)
 	Routes(mux *http.ServeMux)
 }
 
@@ -31,9 +31,9 @@ func NewHandler(log *slog.Logger, boards *board.Boards, spa fs.FS, logins ...Log
 	for _, login := range logins {
 		login.Routes(mux)
 	}
-	mux.HandleFunc("POST /auth/logout", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /auth/logout", func(w http.ResponseWriter, r *http.Request) {
 		for _, login := range logins {
-			login.Logout(w)
+			login.Logout(w, r)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})

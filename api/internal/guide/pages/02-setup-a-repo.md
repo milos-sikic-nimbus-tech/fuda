@@ -7,7 +7,7 @@
 | Your repo: task files (required) | `docs/board/tasks/*.md`, `docs/board/archive/*.md` | fuda and people |
 | Your repo: board config (optional) | `docs/board/stages.md`, `labels.md`, `people.md`, `repos.md` | fuda and people |
 | Your repo: instructions | `TASKS.md`, `WORKFLOW.md`, the agent guide, a pointer in `CLAUDE.md` / `AGENTS.md` | people and agents, never fuda |
-| fuda's environment | GitHub App, public URL, cookie secret, whether to watch `main` | fuda only |
+| fuda's environment | GitHub App client id, whether to watch `main` | fuda only |
 | GitHub | who may read the repository: each person logs in with their own account | GitHub |
 
 What the board looks like belongs to your repository. How fuda reaches it belongs to fuda's

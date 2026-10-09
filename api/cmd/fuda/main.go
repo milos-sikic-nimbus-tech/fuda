@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -29,9 +30,11 @@ func main() {
 func newLogins(log *slog.Logger, cfg config.Config) ([]httpapi.Login, error) {
 	var logins []httpapi.Login
 	if cfg.Has(config.SourceGitHub) {
-		github, err := login.NewGitHub(log, login.Config{
-			ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL,
-		})
+		key, err := login.LoadOrCreateKey(filepath.Join(cfg.CacheDir, "cookie.key"))
+		if err != nil {
+			return nil, fmt.Errorf("cookie key: %w", err)
+		}
+		github, err := login.NewWebDevice(log, login.WebDeviceConfig{ClientID: cfg.GitHubClientID, Key: key})
 		if err != nil {
 			return nil, err
 		}
@@ -58,6 +61,9 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if ignored := cfg.IgnoredVars(); len(ignored) > 0 {
+		log.Warn("these settings are ignored", "vars", ignored)
+	}
 	logins, err := newLogins(log, cfg)
 	if err != nil {
 		return err

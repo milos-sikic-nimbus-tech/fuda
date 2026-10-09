@@ -52,23 +52,13 @@ type flow struct {
 	Return   string `json:"r"`
 }
 
-func NewGitHub(log *slog.Logger, cfg Config) (*Web, error) {
-	return newWeb(log, cfg, newGitHubApp)
-}
-
 func NewAzure(log *slog.Logger, cfg Config) (*Web, error) {
-	return newWeb(log, cfg, func(clientID, clientSecret, redirectURL string) *oauthApp {
-		return newAzureApp(cfg.Tenant, clientID, clientSecret, redirectURL)
-	})
-}
-
-func newWeb(log *slog.Logger, cfg Config, newApp func(clientID, clientSecret, redirectURL string) *oauthApp) (*Web, error) {
 	sealer, err := newSealer(cfg.CookieSecret)
 	if err != nil {
 		return nil, err
 	}
 	base := strings.TrimRight(cfg.BaseURL, "/")
-	app := newApp(cfg.ClientID, cfg.ClientSecret, "")
+	app := newAzureApp(cfg.Tenant, cfg.ClientID, cfg.ClientSecret, "")
 	app.redirectURL = base + "/auth/" + app.name + "/callback"
 	return &Web{
 		session: "fuda_" + app.name,
@@ -167,12 +157,12 @@ func (g *Web) callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, started.Return, http.StatusFound)
 }
 
-func (g *Web) logout(w http.ResponseWriter, _ *http.Request) {
-	g.Logout(w)
+func (g *Web) logout(w http.ResponseWriter, r *http.Request) {
+	g.Logout(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (g *Web) Logout(w http.ResponseWriter) {
+func (g *Web) Logout(w http.ResponseWriter, _ *http.Request) {
 	g.clear(w, g.session, "/")
 }
 

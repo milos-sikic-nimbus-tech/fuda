@@ -3,6 +3,7 @@ package login
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -220,8 +221,120 @@ func TestDeviceLogoutMethodClearsTheStore(t *testing.T) {
 	var opened []string
 	d := newDevice(t, newFakeDeviceGitHub(t), store, &opened)
 
-	d.Logout(httptest.NewRecorder())
+	d.Logout(httptest.NewRecorder(), httptest.NewRequest("POST", "/", nil))
 	if !store.deleted {
 		t.Fatal("token stayed in the store")
 	}
+}
+
+func newWebDevice(t *testing.T, f *fakeDeviceGitHub) *Device {
+	t.Helper()
+	d, err := NewWebDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.app.deviceURL = f.server.URL + "/device"
+	d.app.tokenURL = f.server.URL + "/token"
+	d.app.client = f.server.Client()
+	return d
+}
+
+func webCall(d *Device, method, target, host string, cookies ...*http.Cookie) *http.Response {
+	mux := http.NewServeMux()
+	d.Routes(mux)
+	r := httptest.NewRequest(method, target, nil)
+	r.Host = host
+	for _, c := range cookies {
+		r.AddCookie(c)
+	}
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	return w.Result()
+}
+
+func cookieNamed(res *http.Response, name string) *http.Cookie {
+	for _, c := range res.Cookies() {
+		if c.Name == name && c.MaxAge >= 0 {
+			return c
+		}
+	}
+	return nil
+}
+
+func TestWebDeviceLoginKeepsTheTokenInASealedCookie(t *testing.T) {
+	d := newWebDevice(t, newFakeDeviceGitHub(t))
+
+	page := webCall(d, "GET", "/auth/github/login", "fuda.example.com")
+	pending := cookieNamed(page, "fuda_github_device")
+	if page.StatusCode != http.StatusOK || pending == nil {
+		t.Fatalf("login = %d, pending cookie %v, want the code page and a pending cookie", page.StatusCode, pending)
+	}
+
+	first := webCall(d, "POST", "/auth/github/device/poll", "fuda.example.com", pending)
+	if cookieNamed(first, "fuda_github") != nil {
+		t.Fatal("session cookie set before the person approved")
+	}
+	done := webCall(d, "POST", "/auth/github/device/poll", "fuda.example.com", pending)
+	session := cookieNamed(done, "fuda_github")
+	if session == nil {
+		t.Fatalf("no session cookie after approval")
+	}
+	if !session.HttpOnly || !session.Secure || strings.Contains(session.Value, "user-token") {
+		t.Errorf("session cookie must be http-only, secure and sealed: %+v", session)
+	}
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.AddCookie(session)
+	if token, err := d.Token(httptest.NewRecorder(), r); err != nil || token != "user-token" {
+		t.Fatalf("Token = %q, %v, want user-token", token, err)
+	}
+	other, err := NewWebDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token, err := other.Token(httptest.NewRecorder(), r); err != nil || token != "user-token" {
+		t.Fatalf("a restarted server with the same key: Token = %q, %v", token, err)
+	}
+}
+
+func TestWebDeviceKeepsEachBrowsersLoginApart(t *testing.T) {
+	d := newWebDevice(t, newFakeDeviceGitHub(t))
+	if webCall(d, "GET", "/auth/github/login", "fuda.example.com").StatusCode != http.StatusOK {
+		t.Fatal("login failed")
+	}
+	res := webCall(d, "POST", "/auth/github/device/poll", "fuda.example.com")
+	if !strings.Contains(readBody(res), "failed") {
+		t.Fatal("a browser that never started a login got a poll answer")
+	}
+}
+
+func TestWebDeviceCookiesAreNotSecureOnLocalhost(t *testing.T) {
+	d := newWebDevice(t, newFakeDeviceGitHub(t))
+	for _, host := range []string{"localhost:5173", "127.0.0.1:8080", "[::1]:8080"} {
+		pending := cookieNamed(webCall(d, "GET", "/auth/github/login", host), "fuda_github_device")
+		if pending == nil || pending.Secure {
+			t.Errorf("%s: cookie = %+v, want a non-secure cookie", host, pending)
+		}
+	}
+	if cookie := cookieNamed(webCall(d, "GET", "/auth/github/login", "192.168.1.5:8080"), "fuda_github_device"); cookie == nil || !cookie.Secure {
+		t.Errorf("LAN address: cookie = %+v, want a secure cookie", cookie)
+	}
+}
+
+func TestWebDeviceLogoutClearsBothCookies(t *testing.T) {
+	d := newWebDevice(t, newFakeDeviceGitHub(t))
+	res := webCall(d, "POST", "/auth/github/logout", "fuda.example.com")
+	cleared := map[string]bool{}
+	for _, c := range res.Cookies() {
+		cleared[c.Name] = c.MaxAge < 0
+	}
+	if res.StatusCode != http.StatusNoContent || !cleared["fuda_github"] || !cleared["fuda_github_device"] {
+		t.Errorf("logout = %d, cleared %v", res.StatusCode, cleared)
+	}
+}
+
+func readBody(res *http.Response) string {
+	var b strings.Builder
+	_, _ = io.Copy(&b, res.Body)
+	return b.String()
 }

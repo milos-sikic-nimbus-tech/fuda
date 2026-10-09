@@ -31,7 +31,7 @@ func (l hostLogin) Token(_ http.ResponseWriter, r *http.Request) (string, error)
 
 func (hostLogin) Routes(*http.ServeMux) {}
 
-func (l hostLogin) Logout(http.ResponseWriter) { l.loggedOut.Add(1) }
+func (l hostLogin) Logout(http.ResponseWriter, *http.Request) { l.loggedOut.Add(1) }
 
 type hostsServer struct {
 	url       string

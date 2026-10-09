@@ -185,7 +185,7 @@ func (headerLogin) Token(_ http.ResponseWriter, r *http.Request) (string, error)
 
 func (headerLogin) Routes(*http.ServeMux) {}
 
-func (headerLogin) Logout(http.ResponseWriter) {}
+func (headerLogin) Logout(http.ResponseWriter, *http.Request) {}
 
 func (headerLogin) Host() string { return "github" }
 

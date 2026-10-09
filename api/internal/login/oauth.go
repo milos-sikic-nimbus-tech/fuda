@@ -36,18 +36,15 @@ type oauthApp struct {
 	now          func() time.Time
 }
 
-func newGitHubApp(clientID, clientSecret, redirectURL string) *oauthApp {
+func newGitHubApp(clientID string) *oauthApp {
 	return &oauthApp{
-		name:         "github",
-		label:        "GitHub",
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		redirectURL:  redirectURL,
-		authorizeURL: "https://github.com/login/oauth/authorize",
-		tokenURL:     "https://github.com/login/oauth/access_token",
-		deviceURL:    "https://github.com/login/device/code",
-		client:       &http.Client{Timeout: 30 * time.Second},
-		now:          time.Now,
+		name:      "github",
+		label:     "GitHub",
+		clientID:  clientID,
+		tokenURL:  "https://github.com/login/oauth/access_token",
+		deviceURL: "https://github.com/login/device/code",
+		client:    &http.Client{Timeout: 30 * time.Second},
+		now:       time.Now,
 	}
 }
 

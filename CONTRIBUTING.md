@@ -29,7 +29,7 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 | `FUDA_SOURCE` | Needs |
 |---|---|
-| `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`, plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
+| `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID` only. People log in with device flow; there is no server token. |
 | `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. Moves and Assigns write the file on disk; you commit. A folder with `tasks/` also works. On desktop, File → Open folder… does this. |
 | `azure` | A Microsoft Entra ID app: `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET`, optionally `FUDA_AZURE_TENANT` (default `organizations`), plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
 
@@ -53,14 +53,13 @@ Register an app in Microsoft Entra ID (App registrations) with:
 
 Create a GitHub App (Settings → Developer settings → GitHub Apps) with:
 
-- Callback URL `http://localhost:5173/auth/github/callback`. Vite proxies `/auth` to the API, so the
-  login cookie lands on the page you browse.
-- "Expire user authorization tokens" on, and "Request user authorization (OAuth) during installation" off.
+- "Enable Device Flow" on, "Expire user authorization tokens" off, and "Request user authorization
+  (OAuth) during installation" off. No callback URL and no client secret are needed. Vite proxies
+  `/auth` to the API, so the login cookie lands on the page you browse.
 - Repository permissions: Contents read, Pull requests read, Metadata read.
 - No webhook.
 
-Install it on your `fuda-` repositories, then set `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`,
-`FUDA_BASE_URL=http://localhost:5173` and any `FUDA_COOKIE_SECRET` in `.env`.
+Install it on your `fuda-` repositories, then set `FUDA_GITHUB_CLIENT_ID` in your local env file.
 
 The browser polls the Board about every 5 seconds. The server asks GitHub for the head commit first
 (a conditional request, free when nothing changed) and reads files only when it moved. With the local
@@ -125,8 +124,8 @@ Tasks are the markdown files in `docs/board/tasks/`. `docs/board` is a git submo
 ## Desktop app
 
 Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or
-build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. With no id, the app shows a dialog and quits. For a local run, turn off "Expire user
-authorization tokens" on the App: the app has no client secret, so it cannot refresh a token.
+build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. With no id, the app shows a dialog and quits. The App needs "Expire user
+authorization tokens" off: there is no client secret, so fuda cannot refresh a token.
 
 To release, push a tag such as `v0.1.0`. The `release` workflow builds macOS (arm64, amd64) and
 Windows, and uploads `fuda-desktop_<os>_<arch>` archives to the GitHub Release. Set the repository

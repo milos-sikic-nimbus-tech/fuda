@@ -61,7 +61,7 @@ declared where they are used.
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
 | `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). On macOS it ships as `fuda.app` (`Info.plist`, `icon.icns`); update replaces the binary inside it. |
 | `internal/app` | Builds the set of Boards from config: which source serves which Board. Shared by both shells. |
-| `internal/login` | GitHub App login. `session.go`: web login with PKCE, the encrypted session cookie, token refresh. `device.go`: desktop device flow, token kept in a `TokenStore`. Knows nothing about Boards. |
+| `internal/login` | Login. `device.go`: device flow for GitHub on web and desktop (Azure on desktop), with the token kept in a `TokenStore` (desktop) or a sealed cookie (`cookies.go`, web). `key.go`: the web cookie key. `session.go`: the Azure web login with PKCE and refresh. Knows nothing about Boards. |
 | `internal/keychain` | A `login.TokenStore` in the OS keychain (macOS Keychain, Windows Credential Manager). |
 | `internal/web` | `go:embed` of the built client (`dist/`). |
 | `internal/guide` | `go:embed` of the Guide pages, rendered with `markdown`. |
@@ -92,6 +92,10 @@ Board dropdown's "Local" group.
 
 ## Login
 
+GitHub uses device flow on web and desktop, with only the client id (no client secret, no refresh
+token: the App has "Expire user authorization tokens" off). The web server and the desktop app show
+the same code screen.
+
 ```mermaid
 sequenceDiagram
   actor U as Person
@@ -100,32 +104,38 @@ sequenceDiagram
   U->>F: GET /api/github/o/fuda-x/board
   F-->>U: 401
   U->>F: GET /auth/github/login?return=…
-  F-->>U: redirect to GitHub (state + PKCE challenge, sealed in a short cookie)
-  U->>G: authorize the fuda GitHub App
-  G-->>U: redirect to /auth/github/callback?code&state
-  U->>F: callback
-  F->>G: exchange code + PKCE verifier + client secret
-  F-->>U: encrypted session cookie, redirect back
+  F->>G: device code request (client id)
+  F-->>U: code screen, device code sealed in a short cookie
+  U->>G: type the code, approve the fuda GitHub App
+  U->>F: POST /auth/github/device/poll (repeats)
+  F->>G: token request with the device code
+  F-->>U: sealed session cookie when approved, then back to the Board
 ```
 
-The session cookie (`fuda_github`) is AES-GCM sealed with a key derived from `FUDA_COOKIE_SECRET`,
-HTTP-only and `SameSite=Lax`. It holds the access token, the refresh token and the expiry. A token
-that expires within a minute is refreshed on the way in; GitHub refresh tokens work once, so one
-refresh at a time runs and its result is remembered for a minute for requests still carrying the old
-cookie. If refresh fails the cookie is cleared and the API answers 401. The client then goes to
-`/auth/<host>/login`, so one expired host never logs the person out of another. Each host has its own
-cookie (`fuda_github`, `fuda_azure`), so logging out of one leaves the other alone.
+On the web the session cookie (`fuda_github`) and the pending-login cookie (`fuda_github_device`)
+are AES-GCM sealed and HTTP-only, `SameSite=Lax`. The key is made on first start and saved in
+`cookie.key` in `FUDA_CACHE_DIR` with mode 0600, so the cache dir must persist or every restart
+logs everyone out (the image declares it as a volume). Cookies are `Secure` except on `localhost`,
+`127.0.0.1` and `::1`; on a plain-HTTP LAN address the browser drops them and login does not work.
+`FUDA_COOKIE_SECRET`, `FUDA_BASE_URL` and `FUDA_GITHUB_CLIENT_SECRET` are not read for GitHub; fuda
+logs one warning if they are set. If the API answers 401, the client goes to `/auth/<host>/login`,
+so one expired host never logs the person out of another. Each host has its own cookie
+(`fuda_github`, `fuda_azure`), so logging out of one leaves the other alone.
 
-### Login on desktop
+On desktop `GET /auth/github/login` also opens GitHub's device page in the system browser. The
+token goes to the OS keychain; nothing is written to disk. Each host has its own keychain entry
+(`fuda` / `github`, `fuda` / `azure`). The app serves every host whose client id is set
+(`FUDA_GITHUB_CLIENT_ID`, `FUDA_AZURE_CLIENT_ID`, or the built-in ones).
 
-The desktop app has no cookie and no client secret. `GET /auth/github/login` starts GitHub device
-flow: fuda asks GitHub for a user code, opens GitHub's device page in the system browser and shows
-the code. The page polls `POST /auth/github/device/poll` until the person approves. The token then
-goes to the OS keychain; nothing is written to disk. A token that expires within a minute is
-refreshed if there is a refresh token, otherwise it is forgotten and the API answers 401, as on the
-web. Each host has its own keychain entry (`fuda` / `github`, `fuda` / `azure`). The app serves every
-host whose client id is set (`FUDA_GITHUB_CLIENT_ID`, `FUDA_AZURE_CLIENT_ID`, or the built-in ones). A refresh needs the client secret, which a desktop binary cannot keep, so turn off "Expire user
-authorization tokens" on the App or log in again every 8 hours.
+### Azure DevOps on the web
+
+Azure keeps the redirect flow with PKCE and a client secret. `/auth/azure/login` redirects to
+Microsoft, the callback exchanges the code, and the session cookie (`fuda_azure`) is sealed with a
+key derived from `FUDA_COOKIE_SECRET`. It holds the access token, the refresh token and the expiry.
+A token that expires within a minute is refreshed; one refresh at a time runs and its result is
+remembered for a minute for requests still carrying the old cookie. If refresh fails the cookie is
+cleared and the API answers 401. On desktop Azure uses device flow with the keychain, and refreshes
+a token that expires within a minute.
 
 ## The snapshot
 

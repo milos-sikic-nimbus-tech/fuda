@@ -26,8 +26,8 @@ type Config struct {
 	Sources   []Source `env:"FUDA_SOURCE" envDefault:"github"`
 	LocalPath string   `env:"FUDA_LOCAL_PATH"`
 
-	GitHubClientID     string `env:"FUDA_GITHUB_CLIENT_ID"`
-	GitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
+	GitHubClientID            string `env:"FUDA_GITHUB_CLIENT_ID"`
+	IgnoredGitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
 
 	AzureTenant       string `env:"FUDA_AZURE_TENANT" envDefault:"organizations"`
 	AzureClientID     string `env:"FUDA_AZURE_CLIENT_ID"`
@@ -46,6 +46,22 @@ func Load() (Config, error) {
 	return cfg, cfg.validate()
 }
 
+func (c Config) IgnoredVars() []string {
+	var ignored []string
+	if c.IgnoredGitHubClientSecret != "" {
+		ignored = append(ignored, "FUDA_GITHUB_CLIENT_SECRET")
+	}
+	if !c.Has(SourceAzure) {
+		if c.CookieSecret != "" {
+			ignored = append(ignored, "FUDA_COOKIE_SECRET")
+		}
+		if c.BaseURL != "" {
+			ignored = append(ignored, "FUDA_BASE_URL")
+		}
+	}
+	return ignored
+}
+
 func (c Config) Has(source Source) bool {
 	return slices.Contains(c.Sources, source)
 }
@@ -61,8 +77,8 @@ func (c Config) validate() error {
 				return fmt.Errorf("FUDA_SOURCE=local needs FUDA_LOCAL_PATH")
 			}
 		case SourceGitHub:
-			if c.GitHubClientID == "" || c.GitHubClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
-				return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID, FUDA_GITHUB_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
+			if c.GitHubClientID == "" {
+				return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID")
 			}
 		case SourceAzure:
 			if c.AzureClientID == "" || c.AzureClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {

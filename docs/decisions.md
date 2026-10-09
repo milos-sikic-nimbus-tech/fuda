@@ -51,12 +51,21 @@ with a proposal.
   seconds. Each request first compares the branch head SHA (on GitHub a conditional request, which
   costs no rate limit when nothing changed) and downloads files only when it moved. Pull requests
   are re-read at most every `FUDA_SYNC_COOLDOWN`. Updates reach everyone within about 10 seconds.
-- **Each person reads with their own token.** On GitHub they log in with the fuda GitHub App (web
-  flow with PKCE); the token and its refresh token live in an encrypted cookie
-  (`FUDA_COOKIE_SECRET`), so the server stores no user secret. Every request checks the head with
-  that person's token, so a cached Board is never shown to someone GitHub would refuse. An
-  expired token is refreshed; if that fails the person goes back to login. See
+- **Each person reads with their own token.** On GitHub they log in with the fuda GitHub App
+  (device flow); the token lives in a sealed cookie, so the server stores no user secret. Every
+  request checks the head with that person's token, so a cached Board is never shown to someone
+  GitHub would refuse. On Azure DevOps an expired token is refreshed; if that fails the person goes
+  back to login. See
   [ADR 0003](adr/0003-users-read-and-write-with-their-own-token.md).
+- **One device-flow login for GitHub.** GitHub login uses device flow on web and desktop, with
+  only the client id. The GitHub App has "Expire user authorization tokens" turned off, so there is
+  no refresh and no client secret. Desktop keeps the token in the OS keychain. Web keeps it in a
+  sealed HttpOnly cookie; the server makes its own key on first start and saves it as `cookie.key`
+  in `FUDA_CACHE_DIR` (mode 0600), so the cache dir must persist: the Docker image declares it as a
+  volume, and the self-host Guide page says so. Cookies are `Secure` except on localhost, so a
+  plain-HTTP LAN address has no working login. The Sign in button in the app bar starts login; there
+  is no automatic login screen. `FUDA_GITHUB_CLIENT_SECRET`, and for GitHub `FUDA_COOKIE_SECRET` and
+  `FUDA_BASE_URL`, are ignored with one warning. Azure keeps its redirect login.
 - **A Board is a `fuda-` repository the person can read.** The Board dropdown lists them from
   `GET /user/repos`, which only returns repositories the app is installed on. `/` opens the only
   Board or lists them.
@@ -107,7 +116,7 @@ updates [architecture.md](architecture.md).
     them in the Board button's dropdown in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
     `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
     with default Stages and a hint.
-  - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built. So is Microsoft
+  - **Login (rest).** GitHub device flow (web: sealed cookie; desktop: OS keychain) is built. So is Microsoft
     Entra ID for Azure DevOps: a confidential client on the web, the OAuth device code on desktop
     (plain HTTP, no MSAL library), scope `user_impersonation`. One process serves
     both hosts at once (`FUDA_SOURCE=github,azure`), with one cookie or keychain entry per host,
@@ -169,15 +178,3 @@ updates [architecture.md](architecture.md).
 - **Open:** which host is next.
 - **Proposal:** GitLab, when someone needs it: project archive for `docs/`, merge requests and
   their changes for In review.
-
-### One device-flow login for GitHub
-
-- **Settled:** GitHub login uses device flow on web and desktop, with only the client id. The
-  GitHub App has "Expire user authorization tokens" turned off, so there is no refresh and no
-  client secret. Desktop keeps the token in the OS keychain. Web keeps it in a sealed HttpOnly
-  cookie, and the server makes its own cookie key. Azure keeps its current login.
-- **Open:** the web server saves the cookie key in its cache dir (`FUDA_CACHE_DIR`). If that
-  dir is not persistent, every restart makes a new key and logs everyone out. The Docker image
-  must declare the dir as a volume.
-- **Proposal:** declare `VOLUME` for the cache dir in the Dockerfile, say so in the self-host
-  Guide page, and write the key file with mode 0600. The cookie is `Secure` except on localhost.

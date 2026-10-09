@@ -1,7 +1,6 @@
 package login
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -20,44 +19,66 @@ type TokenStore interface {
 }
 
 type DeviceConfig struct {
-	Host         string
-	Tenant       string
-	ClientID     string
-	ClientSecret string
-	Store        TokenStore
-	Open         func(url string) error
-}
-
-type Device struct {
-	app   *oauthApp
-	store TokenStore
-	open  func(string) error
-	log   *slog.Logger
-	now   func() time.Time
-
-	mu      sync.Mutex
-	token   Token
-	pending *pendingDevice
+	Host     string
+	Tenant   string
+	ClientID string
+	Store    TokenStore
+	Open     func(url string) error
 }
 
 type pendingDevice struct {
-	code     string
-	interval time.Duration
-	expires  time.Time
+	Code     string    `json:"c"`
+	Interval int       `json:"i"`
+	Expires  time.Time `json:"x"`
+}
+
+type sessions interface {
+	token(r *http.Request) (Token, bool)
+	save(w http.ResponseWriter, r *http.Request, token Token)
+	forget(w http.ResponseWriter, r *http.Request)
+	pending(r *http.Request) *pendingDevice
+	setPending(w http.ResponseWriter, r *http.Request, pending *pendingDevice)
+}
+
+type Device struct {
+	app      *oauthApp
+	sessions sessions
+	open     func(string) error
+	log      *slog.Logger
+	now      func() time.Time
 }
 
 func NewDevice(log *slog.Logger, cfg DeviceConfig) *Device {
-	app := newGitHubApp(cfg.ClientID, cfg.ClientSecret, "")
+	app := newGitHubApp(cfg.ClientID)
 	if cfg.Host == "azure" {
-		app = newAzureApp(cfg.Tenant, cfg.ClientID, cfg.ClientSecret, "")
+		app = newAzureApp(cfg.Tenant, cfg.ClientID, "", "")
 	}
 	return &Device{
-		app:   app,
-		store: cfg.Store,
-		open:  cfg.Open,
-		log:   log,
-		now:   time.Now,
+		app:      app,
+		sessions: &storeSessions{name: app.name, store: cfg.Store, log: log},
+		open:     cfg.Open,
+		log:      log,
+		now:      time.Now,
 	}
+}
+
+type WebDeviceConfig struct {
+	ClientID string
+	Key      string
+}
+
+func NewWebDevice(log *slog.Logger, cfg WebDeviceConfig) (*Device, error) {
+	sealer, err := newSealer(cfg.Key)
+	if err != nil {
+		return nil, err
+	}
+	app := newGitHubApp(cfg.ClientID)
+	return &Device{
+		app:      app,
+		sessions: &cookieSessions{session: "fuda_" + app.name, device: "fuda_" + app.name + "_device", path: "/auth/" + app.name, sealer: sealer},
+		log:      log,
+		now:      time.Now,
+	}, nil
 }
 
 func (d *Device) Routes(mux *http.ServeMux) {
@@ -66,51 +87,27 @@ func (d *Device) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/"+d.app.name+"/logout", d.logout)
 }
 
-func (d *Device) Token(_ http.ResponseWriter, r *http.Request) (string, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.token.Access == "" {
-		stored, err := d.store.Load()
-		if err != nil {
-			if !errors.Is(err, ErrNoStoredToken) {
-				d.log.Warn("read stored "+d.app.name+" token", "error", err)
-			}
-			return "", ErrNotLoggedIn
-		}
-		d.token = stored
-	}
-	if d.token.Expires.IsZero() || d.token.Expires.After(d.now().Add(refreshMargin)) {
-		return d.token.Access, nil
-	}
-	next, err := d.refresh(r.Context())
-	if err != nil {
-		d.log.Info(d.app.name+" login expired and could not be refreshed", "error", err)
-		d.forget()
+func (d *Device) Token(w http.ResponseWriter, r *http.Request) (string, error) {
+	token, ok := d.sessions.token(r)
+	if !ok {
 		return "", ErrNotLoggedIn
 	}
-	d.save(next)
+	if token.Expires.IsZero() || token.Expires.After(d.now().Add(refreshMargin)) {
+		return token.Access, nil
+	}
+	if token.Refresh == "" {
+		d.log.Info(d.app.name + " login expired and cannot be refreshed")
+		d.sessions.forget(w, r)
+		return "", ErrNotLoggedIn
+	}
+	next, err := d.app.refresh(r.Context(), token.Refresh)
+	if err != nil {
+		d.log.Info(d.app.name+" login expired and could not be refreshed", "error", err)
+		d.sessions.forget(w, r)
+		return "", ErrNotLoggedIn
+	}
+	d.sessions.save(w, r, next)
 	return next.Access, nil
-}
-
-func (d *Device) refresh(ctx context.Context) (Token, error) {
-	if d.token.Refresh == "" {
-		return Token{}, errors.New("no refresh token")
-	}
-	return d.app.refresh(ctx, d.token.Refresh)
-}
-
-func (d *Device) save(token Token) {
-	d.token = token
-	if err := d.store.Save(token); err != nil {
-		d.log.Error("store "+d.app.name+" token", "error", err)
-	}
-}
-
-func (d *Device) forget() {
-	d.token = Token{}
-	if err := d.store.Delete(); err != nil {
-		d.log.Error("delete stored "+d.app.name+" token", "error", err)
-	}
 }
 
 type loginPage struct {
@@ -155,9 +152,7 @@ func (d *Device) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	interval := max(code.Interval, 5)
-	d.mu.Lock()
-	d.pending = &pendingDevice{code: code.DeviceCode, interval: time.Duration(interval) * time.Second, expires: d.now().Add(15 * time.Minute)}
-	d.mu.Unlock()
+	d.sessions.setPending(w, r, &pendingDevice{Code: code.DeviceCode, Interval: interval, Expires: d.now().Add(deviceLifetime)})
 
 	if d.open != nil {
 		if err := d.open(code.VerificationURI); err != nil {
@@ -176,40 +171,39 @@ func (d *Device) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Device) poll(w http.ResponseWriter, r *http.Request) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.pending == nil || d.now().After(d.pending.expires) {
-		d.pending = nil
+	pending := d.sessions.pending(r)
+	if pending == nil || d.now().After(pending.Expires) {
+		d.sessions.setPending(w, r, nil)
 		writeStatus(w, map[string]any{"status": "failed", "error": "The login ran out of time. Go back and try again."})
 		return
 	}
-	token, err := d.app.pollDevice(r.Context(), d.pending.code)
+	token, err := d.app.pollDevice(r.Context(), pending.Code)
 	switch {
 	case errors.Is(err, errAuthorizationPending):
-		writeStatus(w, map[string]any{"status": "pending", "interval": d.pending.interval.Seconds()})
+		writeStatus(w, map[string]any{"status": "pending", "interval": pending.Interval})
 	case errors.Is(err, errSlowDown):
-		d.pending.interval += 5 * time.Second
-		writeStatus(w, map[string]any{"status": "pending", "interval": d.pending.interval.Seconds()})
+		pending.Interval += 5
+		d.sessions.setPending(w, r, pending)
+		writeStatus(w, map[string]any{"status": "pending", "interval": pending.Interval})
 	case err != nil:
 		d.log.Warn(d.app.name+" device login failed", "error", err)
-		d.pending = nil
+		d.sessions.setPending(w, r, nil)
 		writeStatus(w, map[string]any{"status": "failed", "error": d.app.label + " did not let you in. Go back and try again."})
 	default:
-		d.pending = nil
-		d.save(token)
+		d.sessions.setPending(w, r, nil)
+		d.sessions.save(w, r, token)
 		writeStatus(w, map[string]any{"status": "done"})
 	}
 }
 
-func (d *Device) logout(w http.ResponseWriter, _ *http.Request) {
-	d.Logout(w)
+func (d *Device) logout(w http.ResponseWriter, r *http.Request) {
+	d.Logout(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (d *Device) Logout(http.ResponseWriter) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.forget()
+func (d *Device) Logout(w http.ResponseWriter, r *http.Request) {
+	d.sessions.forget(w, r)
+	d.sessions.setPending(w, r, nil)
 }
 
 func writeStatus(w http.ResponseWriter, body map[string]any) {
@@ -218,3 +212,59 @@ func writeStatus(w http.ResponseWriter, body map[string]any) {
 }
 
 func (d *Device) Host() string { return d.app.name }
+
+type storeSessions struct {
+	name  string
+	store TokenStore
+	log   *slog.Logger
+
+	mu      sync.Mutex
+	current Token
+	waiting *pendingDevice
+}
+
+func (s *storeSessions) token(*http.Request) (Token, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current.Access == "" {
+		stored, err := s.store.Load()
+		if err != nil {
+			if !errors.Is(err, ErrNoStoredToken) {
+				s.log.Warn("read stored "+s.name+" token", "error", err)
+			}
+			return Token{}, false
+		}
+		s.current = stored
+	}
+	return s.current, true
+}
+
+func (s *storeSessions) save(_ http.ResponseWriter, _ *http.Request, token Token) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.current = token
+	if err := s.store.Save(token); err != nil {
+		s.log.Error("store "+s.name+" token", "error", err)
+	}
+}
+
+func (s *storeSessions) forget(http.ResponseWriter, *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.current = Token{}
+	if err := s.store.Delete(); err != nil {
+		s.log.Error("delete stored "+s.name+" token", "error", err)
+	}
+}
+
+func (s *storeSessions) pending(*http.Request) *pendingDevice {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.waiting
+}
+
+func (s *storeSessions) setPending(_ http.ResponseWriter, _ *http.Request, pending *pendingDevice) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.waiting = pending
+}

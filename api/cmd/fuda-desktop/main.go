@@ -61,9 +61,8 @@ func run(log *slog.Logger) error {
 	var logins []httpapi.Login
 	for _, hostConfig := range []login.DeviceConfig{
 		{
-			Host:         "github",
-			ClientID:     cmp.Or(os.Getenv("FUDA_GITHUB_CLIENT_ID"), githubClientID),
-			ClientSecret: os.Getenv("FUDA_GITHUB_CLIENT_SECRET"),
+			Host:     "github",
+			ClientID: cmp.Or(os.Getenv("FUDA_GITHUB_CLIENT_ID"), githubClientID),
 		},
 		{
 			Host:     "azure",

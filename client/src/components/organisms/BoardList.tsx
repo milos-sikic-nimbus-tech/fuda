@@ -2,25 +2,23 @@ import { useEffect } from 'react'
 import { HostIcon } from '@/components/atoms/HostIcon'
 import { Button } from '@/components/ui/button'
 import { loginPath } from '@/lib/boardPath'
-import { hostLabel, loginRedirect, logOut, onlyBoard } from '@/lib/hosts'
+import { hostLabel, logOut, onlyBoard } from '@/lib/hosts'
 import { useBoardListing } from '@/lib/queries'
 
 export function BoardList() {
   const { data, error } = useBoardListing()
   const only = data && onlyBoard(data)
-  const redirect = data && loginRedirect(data)
 
   useEffect(() => {
     if (only) window.location.replace(only.path)
-    else if (redirect) window.location.replace(loginPath('/', redirect))
-  }, [only, redirect])
+  }, [only])
 
   if (error) {
     return (
       <p className="p-6 text-sm text-muted-foreground">Could not list Boards: {error.message}</p>
     )
   }
-  if (!data || only || redirect) {
+  if (!data || only) {
     return <p className="p-6 text-sm text-muted-foreground">Loading Boards…</p>
   }
   const { boards, hosts } = data

@@ -12,11 +12,6 @@ export function hostLabel(host: HostName): string {
   return labels[host]
 }
 
-export function loginRedirect({ hosts }: BoardListData): string | undefined {
-  const [only] = hosts
-  return hosts.length === 1 && !only?.loggedIn ? only?.login : undefined
-}
-
 export function onlyBoard({ boards, hosts }: BoardListData): BoardListing | undefined {
   return boards.length === 1 && hosts.every((host) => host.loggedIn) ? boards[0] : undefined
 }
