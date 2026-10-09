@@ -2,10 +2,12 @@ package main
 
 import (
 	"cmp"
+	_ "embed"
 	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -23,6 +25,12 @@ var (
 	githubClientID = ""
 	azureClientID  = ""
 )
+
+//go:embed icon.png
+var icon []byte
+
+//go:embed icon-macos.png
+var iconMacOS []byte
 
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -77,6 +85,7 @@ func run(log *slog.Logger) error {
 	}
 	desktop = application.New(application.Options{
 		Name: "fuda",
+		Icon: appIcon(),
 		Assets: application.AssetOptions{
 			Handler: httpapi.NewHandler(log, app.NewBoards(log, cfg, folders), web.Dist(), logins...),
 		},
@@ -107,4 +116,11 @@ func run(log *slog.Logger) error {
 	})
 	go checkForUpdates(desktop, log, false)
 	return desktop.Run()
+}
+
+func appIcon() []byte {
+	if runtime.GOOS == "darwin" {
+		return iconMacOS
+	}
+	return icon
 }

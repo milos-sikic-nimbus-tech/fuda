@@ -133,6 +133,23 @@ Windows, and uploads `fuda-desktop_<os>_<arch>` archives to the GitHub Release. 
 variable `FUDA_GITHUB_CLIENT_ID` first. The app checks the latest release on start and from
 Help → Check for updates…, then replaces its own binary. A build made with `VERSION=dev` never updates.
 
+### Desktop icon
+
+The master art is `client/public/favicon.svg`. After you change it, remake the files in
+`api/cmd/fuda-desktop/` and commit them. The build needs no extra tools. Run from the repository root
+on a Mac with Python's Pillow (`pip install pillow`):
+
+```bash
+cd api/cmd/fuda-desktop
+sips -s format png -z 1024 1024 ../../../client/public/favicon.svg --out icon.png
+sips -s format png -z 824 824 ../../../client/public/favicon.svg --out /tmp/art.png
+python3 -c "from PIL import Image; a=Image.open('/tmp/art.png').convert('RGBA'); c=Image.new('RGBA',(1024,1024),(0,0,0,0)); c.paste(a,(100,100),a); c.save('icon-macos.png')"
+go run github.com/tc-hib/go-winres@v0.3.3 simply --icon icon.png --arch amd64,arm64 --out rsrc
+```
+
+`icon.png` is for the window and Windows. `icon-macos.png` has a transparent margin, for the Dock.
+The `rsrc_windows_*.syso` files put the icon in `fuda-desktop.exe`; Go links them on its own.
+
 ## Layout
 
 ```
