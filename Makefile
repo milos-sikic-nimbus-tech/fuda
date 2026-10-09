@@ -5,8 +5,10 @@ ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 VERSION ?= dev
 GITHUB_CLIENT_ID ?=
+AZURE_CLIENT_ID ?=
 ARCH ?= $(shell go env GOARCH)
-DESKTOP_LDFLAGS := -X main.version=$(VERSION) -X main.githubClientID=$(GITHUB_CLIENT_ID)
+DESKTOP_IDS := $(ENV) github_id="$(GITHUB_CLIENT_ID)"; azure_id="$(AZURE_CLIENT_ID)";
+DESKTOP_LDFLAGS := -X main.version=$(VERSION) -X main.githubClientID=$${github_id:-$$FUDA_GITHUB_CLIENT_ID} -X main.azureClientID=$${azure_id:-$$FUDA_AZURE_CLIENT_ID}
 
 dev:
 	$(MAKE) -j2 dev-api dev-client
@@ -42,6 +44,7 @@ build: client
 desktop: desktop-macos desktop-windows
 
 desktop-macos: client
+	$(DESKTOP_IDS) \
 	CGO_ENABLED=1 GOOS=darwin GOARCH=$(ARCH) MACOSX_DEPLOYMENT_TARGET=13.0 CGO_LDFLAGS=-mmacosx-version-min=13.0 \
 		go -C api build -trimpath -ldflags="-s -w $(DESKTOP_LDFLAGS)" -o ../bin/fuda.app/Contents/MacOS/fuda-desktop ./cmd/fuda-desktop
 	mkdir -p bin/fuda.app/Contents/Resources
@@ -49,6 +52,7 @@ desktop-macos: client
 	sed 's/@VERSION@/$(VERSION)/' api/cmd/fuda-desktop/Info.plist > bin/fuda.app/Contents/Info.plist
 
 desktop-windows: client
+	$(DESKTOP_IDS) \
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
 		go -C api build -trimpath -ldflags="-s -w -H=windowsgui $(DESKTOP_LDFLAGS)" -o ../bin/fuda-desktop.exe ./cmd/fuda-desktop
 

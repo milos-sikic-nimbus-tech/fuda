@@ -125,7 +125,7 @@ Tasks are the markdown files in `docs/board/tasks/`. `docs/board` is a git submo
 ## Desktop app
 
 Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or
-build it in with `make desktop-macos GITHUB_CLIENT_ID=<id>`. For a local run, turn off "Expire user
+build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. With no id, the app shows a dialog and quits. For a local run, turn off "Expire user
 authorization tokens" on the App: the app has no client secret, so it cannot refresh a token.
 
 To release, push a tag such as `v0.1.0`. The `release` workflow builds macOS (arm64, amd64) and

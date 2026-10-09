@@ -32,10 +32,17 @@ var icon []byte
 //go:embed icon-macos.png
 var iconMacOS []byte
 
+var errNoLogin = errors.New("no login is set up")
+
+const noLoginHelp = "No login is set up. Set FUDA_GITHUB_CLIENT_ID or FUDA_AZURE_CLIENT_ID in your local env file and build again with make desktop-macos. Or set one of them in the environment when you start the app."
+
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(log); err != nil {
 		log.Error("fuda stopped", "error", err)
+		if errors.Is(err, errNoLogin) {
+			showStartError(noLoginHelp)
+		}
 		os.Exit(1)
 	}
 }
@@ -73,7 +80,7 @@ func run(log *slog.Logger) error {
 		cfg.Sources = append(cfg.Sources, config.Source(hostConfig.Host))
 	}
 	if len(logins) == 0 {
-		return errors.New("no login is set up: set FUDA_GITHUB_CLIENT_ID or FUDA_AZURE_CLIENT_ID")
+		return errNoLogin
 	}
 	configRoot, err := os.UserConfigDir()
 	if err != nil {
