@@ -18,6 +18,7 @@ the logged-in user, and pick a Task's Owners from the short names in `people.md`
 - **How it works:** [docs/architecture.md](docs/architecture.md).
 - **Why it works that way:** [docs/decisions.md](docs/decisions.md).
 - **Changing fuda:** [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Moving `docs/board` into a `fuda-` repository:** [CONTRIBUTING.md](CONTRIBUTING.md#move-docsboard-into-a-fuda--repository).
 
 ## Quick start
 

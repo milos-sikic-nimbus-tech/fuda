@@ -72,6 +72,56 @@ Create a repository named `fuda-<something>` and install the fuda GitHub App on 
 with no Task files, or no `develop` branch yet, it shows an empty Board with the default Stages and the hint "No Tasks yet: add
 files in `tasks/`". Add Task files under `docs/board/tasks/` and they appear on the next sync.
 
+## Move `docs/board` into a `fuda-` repository
+
+A Board is a `fuda-` repository that the code repository mounts as a submodule at `docs/board`.
+To move an existing `docs/board` there and keep its history:
+
+1. Create an empty repository named `fuda-<something>` and install the fuda GitHub App on it.
+2. In the code repository, split the history of `docs/board` into a branch:
+   ```sh
+   git subtree split --prefix=docs/board -b board-split
+   ```
+3. Push that branch as `main` of the new repository:
+   ```sh
+   git push git@github.com:<owner>/fuda-<something>.git board-split:main
+   ```
+4. Replace the folder with the submodule, tracking `main`:
+   ```sh
+   git rm -r docs/board
+   git commit -m "Move docs/board to fuda-<something>"
+   git submodule add -b main git@github.com:<owner>/fuda-<something>.git docs/board
+   git commit -m "Add docs/board as a submodule"
+   ```
+   `-b main` writes `branch = main` into `.gitmodules`.
+5. Delete the `board-split` branch. Tell the team to run `git submodule update --init`.
+6. Add the agent rule below to the code repository's `CLAUDE.md` or `AGENTS.md`.
+
+### Keep the submodule current
+
+A submodule points at one commit of the Board. Move it to the newest `main`:
+
+```sh
+git submodule update --remote docs/board
+```
+
+Commit the new pointer in the code repository if you want others to get it. fuda itself reads the
+`fuda-` repository, so the Board in fuda is always current.
+
+### Agent rule
+
+Copy this into the code repository's `CLAUDE.md` or `AGENTS.md`:
+
+```md
+## Tasks
+
+Tasks are the markdown files in `docs/board/tasks/`. `docs/board` is a git submodule.
+
+- Before you read Tasks, run `git submodule update --remote docs/board`.
+- Commit Task edits inside `docs/board` and push them there. Commit the new submodule pointer in
+  this repository separately.
+```
+
 ## Desktop app
 
 Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or
