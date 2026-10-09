@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"path"
 	"strings"
 
 	"fuda/internal/board"
@@ -12,9 +14,9 @@ import (
 )
 
 type api struct {
-	log           *slog.Logger
-	boards        *board.Boards
-	webhookSecret string
+	log    *slog.Logger
+	boards *board.Boards
+	github GitHubLogin
 }
 
 type boardHost struct {
@@ -45,13 +47,13 @@ func (a api) routes(mux *http.ServeMux) {
 			"GET /files":      a.file,
 			"POST /sync":      a.sync,
 		} {
-			method, path, _ := strings.Cut(pattern, " ")
-			mux.HandleFunc(method+" "+prefix+path, a.onBoard(host, handler))
+			method, suffix, _ := strings.Cut(pattern, " ")
+			mux.HandleFunc(method+" "+prefix+suffix, a.onBoard(host, handler))
 		}
 	}
+	mux.HandleFunc("GET /api/boards", a.boardList)
 	mux.HandleFunc("GET /api/guide", a.guideList)
 	mux.HandleFunc("GET /api/guide/{slug}", a.guidePage)
-	mux.HandleFunc("POST /api/webhooks/{host}", a.webhook)
 }
 
 func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
@@ -60,13 +62,56 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 		for i, param := range host.params {
 			parts[i] = r.PathValue(param)
 		}
-		service, err := a.boards.Get(board.BoardID{Host: host.name, Repo: strings.Join(parts, "/")})
+		ctx, err := a.withToken(w, r, host.name == "github")
+		if err != nil {
+			a.result(w, nil, err)
+			return
+		}
+		service, err := a.boards.Get(ctx, board.BoardID{Host: host.name, Repo: strings.Join(parts, "/")})
 		if err != nil {
 			a.result(w, nil, err)
 			return
 		}
 		handler(w, r, service)
 	}
+}
+
+func (a api) withToken(w http.ResponseWriter, r *http.Request, needed bool) (context.Context, error) {
+	if !needed {
+		return r.Context(), nil
+	}
+	if a.github == nil {
+		return nil, board.ErrNotFound
+	}
+	token, err := a.github.Token(w, r)
+	if err != nil {
+		return nil, board.ErrUnauthorized
+	}
+	return board.WithToken(r.Context(), token), nil
+}
+
+type boardListing struct {
+	Host  string `json:"host"`
+	Repo  string `json:"repo"`
+	Path  string `json:"path"`
+	Title string `json:"title"`
+}
+
+func (a api) boardList(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if a.github != nil {
+		var err error
+		if ctx, err = a.withToken(w, r, true); err != nil {
+			a.result(w, nil, err)
+			return
+		}
+	}
+	ids, err := a.boards.List(ctx)
+	listing := make([]boardListing, 0, len(ids))
+	for _, id := range ids {
+		listing = append(listing, boardListing{Host: id.Host, Repo: id.Repo, Path: id.Path(), Title: path.Base(id.Repo)})
+	}
+	a.result(w, listing, err)
 }
 
 func (a api) board(w http.ResponseWriter, _ *http.Request, service *board.Service) {
@@ -129,19 +174,14 @@ func (a api) sync(w http.ResponseWriter, r *http.Request, service *board.Service
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (a api) webhook(w http.ResponseWriter, r *http.Request) {
-	if !validWebhook(r, a.webhookSecret) {
-		a.json(w, http.StatusUnauthorized, map[string]string{"error": "invalid webhook signature"})
-		return
-	}
-	a.boards.NotifyHost(r.Context(), r.PathValue("host"))
-	w.WriteHeader(http.StatusAccepted)
-}
-
 func (a api) result(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, board.ErrNotFound):
 		a.json(w, http.StatusNotFound, map[string]string{"error": "not found"})
+	case errors.Is(err, board.ErrUnauthorized):
+		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
+	case errors.Is(err, board.ErrForbidden):
+		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
 	case err != nil:
 		a.log.Error("request failed", "error", err)
 		a.json(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})

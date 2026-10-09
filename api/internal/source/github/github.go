@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"fuda/internal/board"
@@ -22,19 +23,23 @@ var errNotFound = errors.New("github: not found")
 
 type Source struct {
 	repo     string
-	token    string
 	docsRoot string
 	base     string
 	client   *http.Client
+
+	mu    sync.Mutex
+	heads map[string]cachedHead
 }
 
-func New(repo, token, docsRoot string) *Source {
+type cachedHead struct{ etag, sha string }
+
+func New(repo, docsRoot string) *Source {
 	return &Source{
 		repo:     repo,
-		token:    token,
 		docsRoot: docsRoot,
 		base:     apiBase,
 		client:   &http.Client{Timeout: 60 * time.Second},
+		heads:    map[string]cachedHead{},
 	}
 }
 
@@ -49,18 +54,33 @@ func (s *Source) PRLink() string {
 }
 
 func (s *Source) Head(ctx context.Context, branch string) (string, error) {
+	s.mu.Lock()
+	cached := s.heads[branch]
+	s.mu.Unlock()
+
+	res, err := s.send(ctx, "/repos/"+s.repo+"/branches/"+url.PathEscape(branch), "application/vnd.github+json", cached.etag)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case res.status == http.StatusNotModified:
+		return cached.sha, nil
+	case res.status == http.StatusNotFound:
+		return "", board.ErrBranchMissing
+	case res.status >= 300:
+		return "", res.failure()
+	}
 	var out struct {
 		Commit struct {
 			SHA string `json:"sha"`
 		} `json:"commit"`
 	}
-	err := s.getJSON(ctx, "/repos/"+s.repo+"/branches/"+url.PathEscape(branch), &out)
-	if errors.Is(err, errNotFound) {
-		return "", board.ErrBranchMissing
-	}
-	if err != nil {
+	if err := json.Unmarshal(res.body, &out); err != nil {
 		return "", err
 	}
+	s.mu.Lock()
+	s.heads[branch] = cachedHead{etag: res.etag, sha: out.Commit.SHA}
+	s.mu.Unlock()
 	return out.Commit.SHA, nil
 }
 
@@ -152,32 +172,64 @@ func (s *Source) getJSON(ctx context.Context, path string, v any) error {
 	return json.Unmarshal(body, v)
 }
 
+type response struct {
+	path   string
+	status int
+	body   []byte
+	etag   string
+}
+
+func (r response) failure() error {
+	return fmt.Errorf("github %s: status %d: %s", r.path, r.status, truncate(r.body))
+}
+
 func (s *Source) get(ctx context.Context, path, accept string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.base+path, nil)
-	if err != nil {
-		return nil, err
-	}
-	if accept != "" {
-		req.Header.Set("Accept", accept)
-	}
-	req.Header.Set("Authorization", "Bearer "+s.token)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	res, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = res.Body.Close() }()
-	body, err := io.ReadAll(res.Body)
+	res, err := s.send(ctx, path, accept, "")
 	if err != nil {
 		return nil, err
 	}
 	switch {
-	case res.StatusCode == http.StatusNotFound:
+	case res.status == http.StatusNotFound:
 		return nil, errNotFound
-	case res.StatusCode >= 300:
-		return nil, fmt.Errorf("github %s: %s: %s", path, res.Status, truncate(body))
+	case res.status >= 300:
+		return nil, res.failure()
 	}
-	return body, nil
+	return res.body, nil
+}
+
+func (s *Source) send(ctx context.Context, path, accept, ifNoneMatch string) (response, error) {
+	token := board.TokenFrom(ctx)
+	if token == "" {
+		return response{}, board.ErrUnauthorized
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.base+path, nil)
+	if err != nil {
+		return response{}, err
+	}
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+	}
+	if ifNoneMatch != "" {
+		req.Header.Set("If-None-Match", ifNoneMatch)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	res, err := s.client.Do(req)
+	if err != nil {
+		return response{}, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return response{}, err
+	}
+	switch res.StatusCode {
+	case http.StatusUnauthorized:
+		return response{}, board.ErrUnauthorized
+	case http.StatusForbidden:
+		return response{}, board.ErrForbidden
+	}
+	return response{path: path, status: res.StatusCode, body: body, etag: res.Header.Get("ETag")}, nil
 }
 
 func truncate(b []byte) string {

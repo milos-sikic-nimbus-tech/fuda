@@ -19,16 +19,14 @@ type Config struct {
 	Addr  string `env:"FUDA_ADDR" envDefault:":8080"`
 	Title string `env:"FUDA_TITLE"`
 
-	AuthUser     string `env:"FUDA_AUTH_USER" envDefault:"fuda"`
-	AuthPassword string `env:"FUDA_AUTH_PASSWORD"`
+	BaseURL      string `env:"FUDA_BASE_URL"`
+	CookieSecret string `env:"FUDA_COOKIE_SECRET"`
 
-	WebhookSecret string `env:"FUDA_WEBHOOK_SECRET"`
-
-	Source    Source `env:"FUDA_SOURCE" envDefault:"local"`
+	Source    Source `env:"FUDA_SOURCE" envDefault:"github"`
 	LocalPath string `env:"FUDA_LOCAL_PATH"`
 
-	GitHubRepo  string `env:"FUDA_GITHUB_REPO"`
-	GitHubToken string `env:"FUDA_GITHUB_TOKEN"`
+	GitHubClientID     string `env:"FUDA_GITHUB_CLIENT_ID"`
+	GitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
 
 	AzureOrg     string `env:"FUDA_AZURE_ORG"`
 	AzureProject string `env:"FUDA_AZURE_PROJECT"`
@@ -37,7 +35,6 @@ type Config struct {
 	AzureBearer  string `env:"FUDA_AZURE_BEARER"`
 
 	WatchMain    bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
-	SyncInterval time.Duration `env:"FUDA_SYNC_INTERVAL" envDefault:"3m"`
 	SyncCooldown time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
 	CacheDir     string        `env:"FUDA_CACHE_DIR" envDefault:"./.fuda-cache"`
 }
@@ -57,8 +54,8 @@ func (c Config) validate() error {
 			return fmt.Errorf("FUDA_SOURCE=local needs FUDA_LOCAL_PATH")
 		}
 	case SourceGitHub:
-		if c.GitHubRepo == "" || c.GitHubToken == "" {
-			return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_REPO and FUDA_GITHUB_TOKEN")
+		if c.GitHubClientID == "" || c.GitHubClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
+			return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID, FUDA_GITHUB_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
 		}
 	case SourceAzure:
 		if c.AzureOrg == "" || c.AzureProject == "" || c.AzureRepo == "" {

@@ -1,13 +1,26 @@
 # Self-host
 
-fuda is one container. It needs read access to the repository and, optionally, a webhook from it.
+fuda is one container. People log in with a GitHub App, and fuda reads each Board with that
+person's own token. fuda keeps no server token and no shared password. Access is decided by GitHub.
+
+## The GitHub App
+
+Create one app for fuda (Settings → Developer settings → GitHub Apps):
+
+- **Callback URL:** `https://<fuda>/auth/github/callback`
+- **Expire user authorization tokens:** on. fuda renews tokens with the refresh token and sends the
+  person back to login only when that fails.
+- **Webhook:** off.
+- **Repository permissions:** Contents read, Pull requests read, Metadata read.
+
+Install the app on your organisation for the `fuda-` repositories only. fuda then sees only those.
 
 ```sh
 docker run -p 8080:8080 -v fuda-data:/data \
-  -e FUDA_SOURCE=github \
-  -e FUDA_GITHUB_REPO=owner/repo \
-  -e FUDA_GITHUB_TOKEN=… \
-  -e FUDA_AUTH_PASSWORD=… \
+  -e FUDA_BASE_URL=https://<fuda> \
+  -e FUDA_COOKIE_SECRET=<a long random string> \
+  -e FUDA_GITHUB_CLIENT_ID=<client id> \
+  -e FUDA_GITHUB_CLIENT_SECRET=<client secret> \
   fuda
 ```
 
@@ -15,32 +28,30 @@ docker run -p 8080:8080 -v fuda-data:/data \
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FUDA_SOURCE` | `local` | `github`, `azure` or `local` |
-| `FUDA_GITHUB_REPO`, `FUDA_GITHUB_TOKEN` | | GitHub repository and token |
-| `FUDA_AZURE_ORG`, `_PROJECT`, `_REPO`, `_PAT` | | Azure DevOps repository and personal access token |
-| `FUDA_TITLE` | repository name | Shown in the header |
+| `FUDA_SOURCE` | `github` | `github`, `azure` or `local` |
+| `FUDA_BASE_URL` | | Public address of fuda, used for the login callback |
+| `FUDA_COOKIE_SECRET` | | Encrypts the login cookie. Changing it logs everyone out |
+| `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET` | | The GitHub App's client id and secret |
+| `FUDA_AZURE_ORG`, `_PROJECT`, `_REPO`, `_PAT` | | Azure DevOps repository and personal access token (no login yet) |
+| `FUDA_TITLE` | repository name | Shown in the header of the `local` or `azure` Board |
 | `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |
-| `FUDA_SYNC_INTERVAL` | `3m` | How often fuda checks the repository when no webhook arrived |
-| `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs; webhooks inside it are deferred |
-| `FUDA_AUTH_USER`, `FUDA_AUTH_PASSWORD` | `fuda`, empty | Built-in basic auth, off while the password is empty |
-| `FUDA_WEBHOOK_SECRET` | empty | Require GitHub's signature or Azure's `X-Fuda-Secret` header |
-| `FUDA_CACHE_DIR` | `/data` in the image | Where the last synced copy is kept; served at startup until the first sync |
+| `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs and pull-request re-reads |
+| `FUDA_CACHE_DIR` | `/data` in the image | Where the last read copy is kept; served at startup until the next read |
 
-`/healthz` and `/api/webhooks/*` never ask for basic auth. If your proxy offers authentication,
-prefer it and leave `FUDA_AUTH_PASSWORD` empty.
+`/healthz` never asks for a login. The `local` and `azure` sources have no login yet, so keep such
+a server on a private network or behind your proxy's authentication.
 
-## Tokens
+## How people see Boards
 
-- **GitHub:** a fine-grained token for the one repository with **Contents: read** and
-  **Pull requests: read**.
-- **Azure DevOps:** a personal access token scoped to **Code: Read**.
+- Not logged in: every Board page sends you to GitHub to log in, then back.
+- After login the Board picker in the top bar lists the `fuda-` repositories the app is installed
+  on and you can read. `/` opens the only Board, or lists them.
+- No access: the page says so. Check that the app is installed on the repository and that your
+  account can read it.
+- The token lives in an encrypted cookie. fuda stores no user secret.
 
-## Webhooks
+## Updates
 
-| Host | Where | URL | Events |
-|---|---|---|---|
-| GitHub | Repository → Settings → Webhooks | `https://<fuda>/api/webhooks/github`, JSON | Pushes, Pull requests |
-| Azure DevOps | Project settings → Service hooks → Web Hooks | `https://<fuda>/api/webhooks/azure` | Code pushed (develop, main), Pull request created / updated / merged |
-
-A webhook only means "read again now"; fuda never trusts its payload. Without webhooks the
-board still refreshes every `FUDA_SYNC_INTERVAL`.
+The browser asks for changes about every 5 seconds. fuda checks the head commit with a conditional
+request, which costs no rate limit when nothing changed, and reads files only when the head moved.
+There are no webhooks.

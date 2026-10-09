@@ -6,13 +6,13 @@ those files from GitHub, Azure DevOps or a local checkout and shows them as a bo
 view, an archive and a reader for the repository's docs.
 
 fuda never writes to the repository. People, and their AI agents, move tasks with ordinary
-commits. The board follows within seconds when a webhook is set up, and within a few minutes
-otherwise.
+commits. The browser asks for changes about every 5 seconds, so the board follows a push within
+about 10 seconds.
 
 ```mermaid
 flowchart LR
   dev[Developer or agent] -- commit --> repo[(Repository<br/>docs/board/tasks)]
-  repo -- webhook or periodic read --> fuda[fuda]
+  repo -- read with the user's own login --> fuda[fuda]
   fuda --> board[Board · Insights · Archive · Docs]
 ```
 

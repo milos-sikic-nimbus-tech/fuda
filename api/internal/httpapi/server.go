@@ -18,19 +18,22 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 	return h
 }
 
-func NewHandler(log *slog.Logger, boards *board.Boards, defaultBoard string, spa fs.FS, creds Credentials, webhookSecret string) http.Handler {
+type GitHubLogin interface {
+	Token(w http.ResponseWriter, r *http.Request) (string, error)
+	Routes(mux *http.ServeMux)
+}
+
+func NewHandler(log *slog.Logger, boards *board.Boards, spa fs.FS, github GitHubLogin) http.Handler {
 	mux := http.NewServeMux()
-	api{log: log, boards: boards, webhookSecret: webhookSecret}.routes(mux)
+	api{log: log, boards: boards, github: github}.routes(mux)
+	if github != nil {
+		github.Routes(mux)
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	if defaultBoard != "" {
-		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, defaultBoard, http.StatusFound)
-		})
-	}
 	mux.Handle("/", spaHandler(spa))
-	return chain(mux, recoverPanics(log), logRequests(log), basicAuth(creds))
+	return chain(mux, recoverPanics(log), logRequests(log))
 }
 
 func logRequests(log *slog.Logger) middleware {

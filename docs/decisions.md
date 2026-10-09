@@ -27,14 +27,22 @@ with a proposal.
 ## Architecture
 
 - **One binary, one container; one Board per repository path.** The API and the built client ship together
-  (`go:embed`). One process serves many Boards, each with its own snapshot, cache and sync loop.
+  (`go:embed`). One process serves many Boards, each with its own snapshot, cache and sync.
 - **No database.** The files are the data. A parsed snapshot lives in memory and a copy on disk
   (`FUDA_CACHE_DIR`) so a restart serves the last board at once.
-- **Webhooks plus a fallback interval.** A webhook means "read again now" and its payload is never
-  trusted. Without webhooks the repository is checked every `FUDA_SYNC_INTERVAL`. A cooldown stops
-  bursts; webhooks inside it are deferred, never dropped.
-- **Cheap change detection.** A sync first compares branch head SHAs and downloads files only when
-  they changed.
+- **The client polls; there are no webhooks.** The browser asks for the Board about every 5
+  seconds. Each request first compares the branch head SHA (on GitHub a conditional request, which
+  costs no rate limit when nothing changed) and downloads files only when it moved. Pull requests
+  are re-read at most every `FUDA_SYNC_COOLDOWN`. Updates reach everyone within about 10 seconds.
+- **Each person reads with their own token.** On GitHub they log in with the fuda GitHub App (web
+  flow with PKCE); the token and its refresh token live in an encrypted cookie
+  (`FUDA_COOKIE_SECRET`), so the server stores no user secret. Every request checks the head with
+  that person's token, so a cached Board is never shown to someone GitHub would refuse. An
+  expired token is refreshed; if that fails the person goes back to login. See
+  [ADR 0003](adr/0003-users-read-and-write-with-their-own-token.md).
+- **A Board is a `fuda-` repository the person can read.** The picker lists them from
+  `GET /user/repos`, which only returns repositories the app is installed on. `/` opens the only
+  Board or lists them.
 - **Plain Go packages by responsibility.** No ports-and-adapters layering. `board` holds the
   behaviour and declares the small interfaces it needs; sources satisfy them implicitly. Handlers
   stay thin.
@@ -43,8 +51,9 @@ with a proposal.
   goldmark, singleflight.
 - **Filtering runs in the browser.** The board payload carries frontmatter only, and every filter
   is a URL parameter, so views are shareable and the server stays simple.
-- **Optional built-in basic auth.** One user and password from the environment for hosts without
-  proxy auth. `/healthz` and webhooks stay open; webhooks can require a secret instead.
+- **No shared password and no server host token.** Access to a GitHub Board is decided by GitHub.
+  The `local` and `azure` sources still use the server's own access and have no login until the
+  tickets for them land; keep such a server on a private network.
 - **Configuration is environment only.** Typed and validated at start; no config files for fuda
   itself.
 
@@ -82,10 +91,10 @@ updates [architecture.md](architecture.md).
     them in a picker in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
     `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
     with default Stages and a hint.
-  - **Login.** Per host, both at once. GitHub App user tokens (web flow with PKCE on the web,
-    device flow on desktop); Microsoft Entra ID for Azure DevOps (confidential client on the web,
-    MSAL device code on desktop). Tokens in an encrypted cookie on the web, the OS keychain on
-    desktop. Read and write with the user's token. Read-only board if the user cannot write.
+  - **Login (rest).** GitHub web login is built. Still to build: Microsoft Entra ID for Azure
+    DevOps (confidential client on the web, MSAL device code on desktop), device flow and the OS
+    keychain on desktop, logging in to both hosts at once, per-host logout, and writing with the
+    user's token. Read-only board if the user cannot write.
   - **Move.** Sets `status`. The first time a Task leaves the first Stage, also sets `claimed` to
     today, once. **Assign** writes `owner` in the file's own style (comma text or YAML list) with
     short names from `people.md`. Only the changed line changes; no card order is stored.
@@ -94,7 +103,7 @@ updates [architecture.md](architecture.md).
     field changed first, the first write wins: the card goes back with a short message.
   - **In the UI.** The card moves at once with a saving dot and cannot be dragged again until
     the save ends. On failure it goes back with the reason. The browser warns on leaving
-    mid-save. Others see the change by polling every 5 seconds.
+    mid-save. Others see the change by polling (built).
   - **In review.** Code repositories are listed in the board config (`code_repos: [org/app]`).
     An open PR in any of them, on any base, puts every Task whose id is in its title or branch
     name In review. Such cards cannot be dragged. When the PR closes the card returns to its
@@ -108,8 +117,8 @@ updates [architecture.md](architecture.md).
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code
     repository's agent rules say to update the submodule before reading Tasks.
-  - **Removed.** The server's host token, `FUDA_AUTH_USER`/`FUDA_AUTH_PASSWORD`, and matching PRs
-    by their version of the Task file.
+  - **Removed (rest).** Matching PRs by their version of the Task file. The server's host token,
+    `FUDA_AUTH_USER`/`FUDA_AUTH_PASSWORD` and webhooks are already gone.
 
 ### History-based dates and insights
 
@@ -137,11 +146,3 @@ updates [architecture.md](architecture.md).
 - **Open:** which host is next.
 - **Proposal:** GitLab, when someone needs it: project archive for `docs/`, merge requests and
   their changes for In review.
-
-### Live updates
-
-- **Settled:** the client refetches the board every minute, on window focus, and shortly after
-  the Sync button.
-- **Open:** whether a push channel is worth its complexity.
-- **Proposal:** replaced by 5-second polling in
-  [Moves and Assigns from the app](#moves-and-assigns-from-the-app).

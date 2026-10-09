@@ -14,11 +14,10 @@ checkout has `origin/main` and `FUDA_WATCH_MAIN=true`, "in prod" works too.
 
 | Setting | Use |
 |---|---|
-| `FUDA_SOURCE=local`, `FUDA_LOCAL_PATH=…` | Read a checkout |
-| `FUDA_SOURCE=github`, `FUDA_GITHUB_REPO`, `FUDA_GITHUB_TOKEN=$(gh auth token)` | Read GitHub with your own login |
-| `FUDA_SYNC_INTERVAL=5s` | Pick up local edits on their own |
+| `FUDA_SOURCE=local`, `FUDA_LOCAL_PATH=…` | Read a checkout; no login |
+| `FUDA_SOURCE=github` and the GitHub App settings | Log in with GitHub, as in production |
 
-`make webhook` (or `make webhook HOST=azure`) sends a simulated webhook to the running API,
-signed when `FUDA_WEBHOOK_SECRET` is set.
+The browser polls the Board about every 5 seconds, so edits to the working tree show up on their
+own. The [Self-host guide](/guide/self-host) shows how to create the GitHub App.
 
 Prerequisites: Go 1.27+, Node 24+ and pnpm 10. `make check` runs every lint and test.

@@ -3,6 +3,7 @@ import { Archive, BookOpen, ChartColumn, FileText, LayoutGrid, type LucideIcon }
 import type { ReactNode } from 'react'
 import { HostIcon } from '@/components/atoms/HostIcon'
 import { Logo } from '@/components/atoms/Logo'
+import { BoardPicker } from '@/components/molecules/BoardPicker'
 import { SyncIndicator } from '@/components/molecules/SyncIndicator'
 import { ThemeToggle } from '@/components/molecules/ThemeToggle'
 import { CommandPalette } from '@/components/organisms/CommandPalette'
@@ -62,6 +63,7 @@ export function AppHeader({ board }: { board?: BoardData }) {
         <>
           <span className="hidden text-border sm:inline">/</span>
           <OriginPill board={board} />
+          <BoardPicker />
         </>
       )}
       <nav className="flex h-full min-w-0 items-stretch sm:ml-2">

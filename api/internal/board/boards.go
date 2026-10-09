@@ -2,13 +2,11 @@ package board
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/singleflight"
 )
@@ -37,26 +35,26 @@ func (id BoardID) valid() bool {
 }
 
 type Boards struct {
-	ctx      context.Context
-	interval time.Duration
-	open     func(BoardID) (*Service, error)
-	log      *slog.Logger
+	open func(BoardID) (*Service, error)
+	list func(context.Context) ([]BoardID, error)
+	log  *slog.Logger
 
 	opening  singleflight.Group
 	mu       sync.Mutex
 	services map[BoardID]*Service
 }
 
-func NewBoards(ctx context.Context, log *slog.Logger, interval time.Duration, open func(BoardID) (*Service, error)) *Boards {
-	return &Boards{ctx: ctx, interval: interval, open: open, log: log, services: map[BoardID]*Service{}}
+func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(context.Context) ([]BoardID, error)) *Boards {
+	return &Boards{open: open, list: list, log: log, services: map[BoardID]*Service{}}
 }
 
-func (b *Boards) Get(id BoardID) (*Service, error) {
+func (b *Boards) List(ctx context.Context) ([]BoardID, error) {
+	return b.list(ctx)
+}
+
+func (b *Boards) Get(ctx context.Context, id BoardID) (*Service, error) {
 	if !id.valid() {
 		return nil, ErrNotFound
-	}
-	if service, ok := b.cached(id); ok {
-		return service, nil
 	}
 	value, err, _ := b.opening.Do(id.Path(), func() (any, error) {
 		if service, ok := b.cached(id); ok {
@@ -67,21 +65,14 @@ func (b *Boards) Get(id BoardID) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value.(*Service), nil
-}
-
-func (b *Boards) NotifyHost(ctx context.Context, host string) {
-	b.mu.Lock()
-	var open []*Service
-	for id, service := range b.services {
-		if id.Host == host {
-			open = append(open, service)
+	service := value.(*Service)
+	if err := service.Poll(ctx); err != nil {
+		if _, ready := service.Board(); !ready {
+			b.forget(id)
 		}
+		return nil, err
 	}
-	b.mu.Unlock()
-	for _, service := range open {
-		service.NotifyChange(ctx)
-	}
+	return service, nil
 }
 
 func (b *Boards) cached(id BoardID) (*Service, bool) {
@@ -99,20 +90,14 @@ func (b *Boards) start(id BoardID) (*Service, error) {
 	if err := service.Restore(); err != nil {
 		b.log.Warn("the disk cache could not be read; starting empty", "board", id.Path(), "error", err)
 	}
-	_, restored := service.Board()
-	if !restored {
-		if err := service.Sync(b.ctx); errors.Is(err, ErrBranchMissing) {
-			return nil, ErrNotFound
-		}
-	}
-	go func() {
-		if restored {
-			_ = service.Sync(b.ctx)
-		}
-		service.Run(b.ctx, b.interval)
-	}()
 	b.mu.Lock()
 	b.services[id] = service
 	b.mu.Unlock()
 	return service, nil
+}
+
+func (b *Boards) forget(id BoardID) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.services, id)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -32,9 +33,7 @@ func taskFile(id string) map[string][]byte {
 
 func newTestBoards(t *testing.T, repos fakeRepos) *Boards {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	return NewBoards(ctx, slog.New(slog.DiscardHandler), time.Hour, func(id BoardID) (*Service, error) {
+	return NewBoards(slog.New(slog.DiscardHandler), func(id BoardID) (*Service, error) {
 		files, ok := repos[id.Repo]
 		if !ok {
 			return nil, ErrNotFound
@@ -44,17 +43,17 @@ func newTestBoards(t *testing.T, repos fakeRepos) *Boards {
 			source = missingSource{}
 		}
 		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Origin: Origin{Path: id.Path()}}), nil
-	})
+	}, nil)
 }
 
 func TestTwoBoardsKeepTheirOwnTasks(t *testing.T) {
 	boards := newTestBoards(t, fakeRepos{"a/one": taskFile("ONE-1"), "a/two": taskFile("TWO-1")})
 
-	one, err := boards.Get(BoardID{"github", "a/one"})
+	one, err := boards.Get(context.Background(), BoardID{"github", "a/one"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	two, err := boards.Get(BoardID{"github", "a/two"})
+	two, err := boards.Get(context.Background(), BoardID{"github", "a/two"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,8 +73,8 @@ func TestTwoBoardsKeepTheirOwnTasks(t *testing.T) {
 
 func TestGetReturnsTheSameServiceEachTime(t *testing.T) {
 	boards := newTestBoards(t, fakeRepos{"a/one": taskFile("ONE-1")})
-	first, _ := boards.Get(BoardID{"github", "a/one"})
-	second, _ := boards.Get(BoardID{"github", "a/one"})
+	first, _ := boards.Get(context.Background(), BoardID{"github", "a/one"})
+	second, _ := boards.Get(context.Background(), BoardID{"github", "a/one"})
 	if first != second {
 		t.Error("a Board was opened twice")
 	}
@@ -89,8 +88,85 @@ func TestGetUnknownBoardIsNotFound(t *testing.T) {
 		{"github", "../etc"},
 		{"github", ""},
 	} {
-		if _, err := boards.Get(id); !errors.Is(err, ErrNotFound) {
+		if _, err := boards.Get(context.Background(), id); !errors.Is(err, ErrNotFound) {
 			t.Errorf("%v: got %v, want not found", id, err)
 		}
+	}
+}
+
+type memberSource struct {
+	fakeSource
+	allowed string
+}
+
+func (m memberSource) Head(ctx context.Context, branch string) (string, error) {
+	switch TokenFrom(ctx) {
+	case "":
+		return "", ErrUnauthorized
+	case m.allowed:
+		return m.fakeSource.Head(ctx, branch)
+	}
+	return "", ErrBranchMissing
+}
+
+func TestACachedBoardIsNotShownToSomeoneWithoutAccess(t *testing.T) {
+	boards := NewBoards(slog.New(slog.DiscardHandler), func(BoardID) (*Service, error) {
+		source := memberSource{fakeSource{taskFile("ONE-1")}, "member"}
+		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+	}, nil)
+	id := BoardID{"github", "a/one"}
+
+	if _, err := boards.Get(WithToken(context.Background(), "member"), id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := boards.Get(WithToken(context.Background(), "stranger"), id); !errors.Is(err, ErrNotFound) {
+		t.Errorf("stranger: got %v, want not found", err)
+	}
+	if _, err := boards.Get(context.Background(), id); !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("no token: got %v, want login required", err)
+	}
+}
+
+type countingSource struct {
+	heads atomic.Int32
+	head  atomic.Value
+}
+
+func (c *countingSource) Head(context.Context, string) (string, error) {
+	c.heads.Add(1)
+	if h, ok := c.head.Load().(string); ok {
+		return h, nil
+	}
+	return "one", nil
+}
+
+func (c *countingSource) Files(context.Context, string) (map[string][]byte, error) {
+	return taskFile("ONE-1"), nil
+}
+
+func TestPollReadsFilesOnlyWhenTheHeadMoved(t *testing.T) {
+	source := &countingSource{}
+	s := NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Cooldown: time.Hour})
+	ctx := context.Background()
+
+	if err := s.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := s.Board()
+	if err := s.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := s.Board()
+	if first.Sync.Develop.SyncedAt != second.Sync.Develop.SyncedAt {
+		t.Error("an unchanged head caused a read")
+	}
+
+	source.head.Store("two")
+	if err := s.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	third, _ := s.Board()
+	if third.Sync.Develop.SHA != "two" {
+		t.Errorf("a moved head was not read: %+v", third.Sync.Develop)
 	}
 }

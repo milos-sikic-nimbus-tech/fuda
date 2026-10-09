@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppHeader } from '@/components/organisms/AppHeader'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -15,6 +16,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootLayout() {
   const { data, error } = useBoard()
   const { resolved } = useTheme()
+  const client = useQueryClient()
+  const head = data?.sync.develop.sha
+
+  useEffect(() => {
+    if (!head) return
+    for (const key of ['task', 'search', 'archive', 'doc']) {
+      void client.invalidateQueries({ queryKey: [key] })
+    }
+  }, [head, client])
 
   useEffect(() => {
     document.title = data?.title ? `${data.title} · fuda` : 'fuda'
@@ -25,7 +35,16 @@ function RootLayout() {
       <div className="flex h-svh flex-col text-foreground">
         <AppHeader board={data} />
         {error instanceof ApiError && error.status === 404 ? (
-          <p className="p-6 text-sm text-muted-foreground">No Board at this address.</p>
+          <p className="p-6 text-sm text-muted-foreground">
+            No Board at this address, or you cannot see it. The repository name must start with{' '}
+            <code>fuda-</code>, the fuda GitHub App must be installed on it, and your GitHub account
+            must have access to it.
+          </p>
+        ) : error instanceof ApiError && error.status === 403 ? (
+          <p className="p-6 text-sm text-muted-foreground">
+            GitHub says you have no access to this Board. Ask the repository owner to give you
+            access.
+          </p>
         ) : (
           <Outlet />
         )}

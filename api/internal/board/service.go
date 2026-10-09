@@ -26,6 +26,10 @@ var ErrBranchMissing = errors.New("branch not found")
 
 var ErrNotFound = errors.New("not found")
 
+var ErrUnauthorized = errors.New("login required")
+
+var ErrForbidden = errors.New("no access")
+
 type Options struct {
 	Title      string
 	DocsRoot   string
@@ -58,7 +62,6 @@ type Service struct {
 
 	mu          sync.Mutex
 	lastRequest time.Time
-	pending     bool
 	status      SyncStatus
 }
 

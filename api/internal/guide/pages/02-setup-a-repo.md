@@ -7,8 +7,8 @@
 | Your repo: task files (required) | `docs/board/tasks/*.md`, `docs/board/archive/*.md` | fuda and people |
 | Your repo: board config (optional) | `docs/board/stages.md`, `labels.md`, `people.md` | fuda and people |
 | Your repo: instructions | `TASKS.md`, `WORKFLOW.md`, the agent guide, a pointer in `CLAUDE.md` / `AGENTS.md` | people and agents, never fuda |
-| fuda's environment | git host, repository, token, whether to watch `main`, sync timing | fuda only |
-| Your hosting | access protection (basic auth on the proxy) | your proxy |
+| fuda's environment | GitHub App, public URL, cookie secret, whether to watch `main` | fuda only |
+| GitHub | who may read the repository: each person logs in with their own account | GitHub |
 
 What the board looks like belongs to your repository. How fuda reaches it belongs to fuda's
 environment.
@@ -41,4 +41,5 @@ The tasks folder is flat: no sub-folders, grouping is done with labels. The boar
 3. Copy the workflow into `TASKS.md` and add the agent guide and the `CLAUDE.md` pointer.
 4. Make CI skip changes that only touch `docs/board/` ([Workflow](/guide/workflow#ci-cd)).
 5. Try it locally ([Run locally](/guide/run-locally)) and fix anything listed under Problems.
-6. Create a read-only token, deploy fuda and add the webhook ([Self-host](/guide/self-host)).
+6. Name the repository `fuda-<something>`, install the fuda GitHub App on it and deploy fuda
+   ([Self-host](/guide/self-host)). Everyone who can read the repository sees it as a Board.

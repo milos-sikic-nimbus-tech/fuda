@@ -4,6 +4,7 @@ import { ApiError, api } from './api'
 import { BOARD_PREFIX } from './boardPath'
 
 export const keys = {
+  boards: ['boards'] as const,
   board: ['board'] as const,
   task: (id: string) => ['task', id] as const,
   search: (q: string) => ['search', q] as const,
@@ -13,11 +14,16 @@ export const keys = {
   guidePage: (slug: string) => ['guide', slug] as const,
 }
 
+export function useBoards() {
+  return useQuery({ queryKey: keys.boards, queryFn: api.boards, staleTime: 5 * 60_000 })
+}
+
 export function useBoard() {
   return useQuery({
     queryKey: keys.board,
     queryFn: api.board,
-    refetchInterval: 60_000,
+    refetchInterval: 5_000,
+    staleTime: 0,
     enabled: !!BOARD_PREFIX,
   })
 }

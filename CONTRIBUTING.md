@@ -27,20 +27,28 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 | `FUDA_SOURCE` | Needs |
 |---|---|
-| `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. |
-| `github` | `FUDA_GITHUB_REPO` (`owner/repo`), `FUDA_GITHUB_TOKEN` (fine-grained: Contents + Pull requests, read). Locally: `FUDA_GITHUB_TOKEN=$(gh auth token)`. |
-| `azure` | `FUDA_AZURE_ORG`, `FUDA_AZURE_PROJECT`, `FUDA_AZURE_REPO`, and `FUDA_AZURE_PAT` (Code: Read). Locally you can use `FUDA_AZURE_BEARER` from `az account get-access-token`. |
+| `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`, plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
+| `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. |
+| `azure` | `FUDA_AZURE_ORG`, `FUDA_AZURE_PROJECT`, `FUDA_AZURE_REPO`, and `FUDA_AZURE_PAT` (Code: Read). Locally you can use `FUDA_AZURE_BEARER` from `az account get-access-token`. No login yet. |
 
 All settings are in [`.env.example`](.env.example).
 
-## Webhooks locally
+## GitHub App locally
 
-Point your git host at `POST /api/webhooks/github` or `POST /api/webhooks/azure` (pushes and pull requests).
-A webhook means "re-read now"; fuda never trusts the payload. Locally, `make webhook` (or
-`make webhook HOST=azure`) simulates one against the running dev API, signed if `FUDA_WEBHOOK_SECRET` is set.
-With the local source you can also set `FUDA_SYNC_INTERVAL=5s` so task edits show up on their own. Without webhooks fuda still checks every
-`FUDA_SYNC_INTERVAL` (3 min). Set `FUDA_WEBHOOK_SECRET` to require GitHub's signature or Azure's
-`X-Fuda-Secret` header.
+Create a GitHub App (Settings → Developer settings → GitHub Apps) with:
+
+- Callback URL `http://localhost:5173/auth/github/callback`. Vite proxies `/auth` to the API, so the
+  login cookie lands on the page you browse.
+- "Expire user authorization tokens" on, and "Request user authorization (OAuth) during installation" off.
+- Repository permissions: Contents read, Pull requests read, Metadata read.
+- No webhook.
+
+Install it on your `fuda-` repositories, then set `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`,
+`FUDA_BASE_URL=http://localhost:5173` and any `FUDA_COOKIE_SECRET` in `.env`.
+
+The browser polls the Board about every 5 seconds. The server asks GitHub for the head commit first
+(a conditional request, free when nothing changed) and reads files only when it moved. With the local
+source the same poll picks up edits to your working tree.
 
 ## Layout
 

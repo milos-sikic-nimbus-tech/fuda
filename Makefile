@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
-.PHONY: dev dev-api dev-client webhook check check-api check-client fmt build client docker clean
+.PHONY: dev dev-api dev-client check check-api check-client fmt build client docker clean
 
 dev:
 	$(MAKE) -j2 dev-api dev-client
@@ -12,9 +12,6 @@ dev-api:
 
 dev-client: client/node_modules
 	pnpm -C client dev
-
-webhook:
-	$(ENV) scripts/webhook.sh $(or $(HOST),github)
 
 check: check-api check-client
 

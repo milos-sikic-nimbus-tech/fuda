@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { NoMatches } from '@/components/molecules/NoMatches'
 import { Board } from '@/components/organisms/Board'
+import { BoardList } from '@/components/organisms/BoardList'
 import { ListView } from '@/components/organisms/ListView'
 import { FilterBar } from '@/components/organisms/FilterBar'
 import { TaskSheet } from '@/components/organisms/TaskSheet'
@@ -25,13 +26,7 @@ function BoardPage() {
   )
   const taskIds = useMemo(() => data?.cards.map((c) => c.id) ?? [], [data])
 
-  if (!BOARD_PREFIX) {
-    return (
-      <p className="p-6 text-sm text-muted-foreground">
-        No Board here. Open a Board by its address, like /github/owner/repo.
-      </p>
-    )
-  }
+  if (!BOARD_PREFIX) return <BoardList />
   if (error) {
     return (
       <p className="p-6 text-sm text-muted-foreground">

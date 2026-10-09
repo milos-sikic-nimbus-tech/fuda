@@ -25,12 +25,11 @@ flowchart LR
     DEV["develop: the board"]
     MAIN["main: optional, 'in prod'"]
     PR["open PRs into develop: In review"]
-    HOOK["webhooks"]
   end
   subgraph fuda["fuda (one container)"]
     SRC["source: github · azure · local"]
     SVC["board.Service<br/>sync · snapshot · rules"]
-    HTTP["httpapi<br/>API · SPA · auth · webhooks"]
+    HTTP["httpapi<br/>API · SPA · GitHub login"]
     DISK[("FUDA_CACHE_DIR<br/>snapshot.gob")]
   end
   UI["browser: React app"]
@@ -38,7 +37,6 @@ flowchart LR
   DEV --> SRC
   MAIN --> SRC
   PR --> SRC
-  HOOK --> HTTP
   SRC --> SVC
   SVC <--> DISK
   SVC --> HTTP --> UI
@@ -54,13 +52,14 @@ declared where they are used.
 |---|---|
 | `cmd/fuda` | Reads config, picks the source, wires the service and the HTTP server, graceful shutdown. |
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
-| `internal/board` | All behaviour. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. Declares `Source` and the optional `ReviewSource`. |
+| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. Declares `Source` and the optional `ReviewSource`. |
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. |
 | `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
-| `internal/source/github` | GitHub REST: branch head, zipball, open pulls and their files, file contents at a commit. |
+| `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
-| `internal/httpapi` | Routes, JSON, basic auth, webhook verification, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
+| `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
+| `internal/login` | GitHub App web login with PKCE, the encrypted session cookie, token refresh. Knows nothing about Boards. |
 | `internal/web` | `go:embed` of the built client (`dist/`). |
 | `internal/guide` | `go:embed` of the Guide pages, rendered with `markdown`. |
 
@@ -70,13 +69,42 @@ declared where they are used.
 ## Boards
 
 `board.Boards` creates one `board.Service` per Board the first time its path is requested, and keeps
-it. Each Service has its own snapshot, sync loop and cache (`FUDA_CACHE_DIR/<host>/<repo>`). A
-repository the host reports missing (or without a `develop` branch) is not found; any other first-sync
-error keeps the Board and shows 503 until a sync succeeds. Reads still use the server's
-env tokens (`FUDA_GITHUB_TOKEN`, `FUDA_AZURE_PAT`); `FUDA_SOURCE` and its repository settings name
-the default Board that `/` redirects to. Any visitor who passes basic auth can open any repository the server's token reads, and each opened
-Board stays in memory until the process stops; ticket 02's per-user login replaces this. A webhook asks every open Board of that host to read again.
-The client takes its Board from the URL prefix once at page load and uses it as the router's base path, so switching Boards is a full page load.
+it. Each Service has its own snapshot and cache (`FUDA_CACHE_DIR/<host>/<repo>`).
+
+Every request for a Board calls `Service.Poll` with the caller's token in the context. Poll asks the
+host for the branch head first, which also proves the caller may read the repository, then reads
+files only if the head differs from the snapshot. A caller the host refuses gets 404 (no such
+repository for them), 403 or 401 and never sees the cached snapshot. A Board whose first read fails
+is forgotten again, so unknown paths do not pile up in memory.
+
+On GitHub the token comes from the person's login. The `local` and `azure` sources still read with
+the server's own access (`FUDA_LOCAL_PATH`, `FUDA_AZURE_PAT`) and have no login. With those sources
+the Board named by the environment is the only one listed.
+
+## Login
+
+```mermaid
+sequenceDiagram
+  actor U as Person
+  participant F as fuda
+  participant G as GitHub
+  U->>F: GET /api/github/o/fuda-x/board
+  F-->>U: 401
+  U->>F: GET /auth/github/login?return=…
+  F-->>U: redirect to GitHub (state + PKCE challenge, sealed in a short cookie)
+  U->>G: authorize the fuda GitHub App
+  G-->>U: redirect to /auth/github/callback?code&state
+  U->>F: callback
+  F->>G: exchange code + PKCE verifier + client secret
+  F-->>U: encrypted session cookie, redirect back
+```
+
+The session cookie (`fuda_github`) is AES-GCM sealed with a key derived from `FUDA_COOKIE_SECRET`,
+HTTP-only and `SameSite=Lax`. It holds the access token, the refresh token and the expiry. A token
+that expires within a minute is refreshed on the way in; GitHub refresh tokens work once, so one
+refresh at a time runs and its result is remembered for a minute for requests still carrying the old
+cookie. If refresh fails the cookie is cleared and the API answers 401. The client then goes to
+`/auth/github/login`, so one expired host never logs the person out of another.
 
 ## The snapshot
 
@@ -95,29 +123,27 @@ Task bodies and docs are rendered to HTML per request; the board itself is pre-b
 
 ```mermaid
 flowchart TD
-  START["process start"] --> R["restore snapshot.gob<br/>from FUDA_CACHE_DIR, if any"] --> S
-  W["webhook (push or PR)"] --> NC{"inside FUDA_SYNC_COOLDOWN<br/>of the last sync request?"}
-  NC -- no --> S
-  NC -- yes --> DEF["defer one sync to the end<br/>of the cooldown (more webhooks merge into it)"] --> S
-  B["Sync button: POST /api/sync"] --> BC{"inside the cooldown?"}
+  START["process start"] --> R["restore snapshot.gob<br/>from FUDA_CACHE_DIR, if any"] --> REQ
+  REQ["every Board request<br/>(the client polls about every 5 s)"] --> H["Poll: head SHA of develop with the caller's token"]
+  H --> SAME{"same head as<br/>the snapshot?"}
+  SAME -- yes --> DUE{"PRs last read more than<br/>FUDA_SYNC_COOLDOWN ago?"}
+  DUE -- yes --> BG["sync in the background"] --> S
+  DUE -- no --> ANS["answer from the snapshot"]
+  SAME -- no --> S["sync now: singleflight, 2 min limit"]
+  B["Sync button: POST …/sync"] --> BC{"inside the cooldown?"}
   BC -- yes --> TMR["429"]
   BC -- no --> S
-  TK["every FUDA_SYNC_INTERVAL"] --> DUE{"a webhook or button<br/>within the interval?"}
-  DUE -- yes --> SKIP[skip]
-  DUE -- no --> S
-  S["sync: singleflight, 2 min limit"] --> H["head SHA of develop<br/>(+ main if FUDA_WATCH_MAIN)"]
-  H --> SAME{"same heads as<br/>the snapshot?"}
-  SAME -- yes --> PRS
-  SAME -- no --> F["download docs/ of each branch<br/>save snapshot.gob<br/>parse"] --> PRS
+  S --> HM["head SHA of develop<br/>(+ main if FUDA_WATCH_MAIN)"] --> F["download docs/ of each branch when a head moved<br/>save snapshot.gob<br/>parse"] --> PRS
   PRS["open PRs into develop<br/>→ task files they change<br/>→ which ones they deliver"] --> SWAP["build the board, swap the snapshot"]
 ```
 
 - **Failures keep the last snapshot.** A failed head or file read changes nothing and is reported
   as `sync.lastError` in `…/board`. If only the PR list fails, the new files are used without
-  In review, and the error is reported.
-- **After a restart** the cached copy is served immediately, marked with its original sync time,
-  while the first sync runs. Without a cache, `…/board` answers 503 until a sync succeeds.
-- **Webhook payloads are never trusted.** A webhook only means "read again now".
+  In review, and the error is reported. A refusal from the host (login or access) is returned to
+  that caller only and is not recorded.
+- **After a restart** the cached copy is restored. The first request checks the head with the
+  caller's token before it is served. Without a cache, `…/board` answers 503 until a sync succeeds.
+- **No webhooks.** Change reaches everyone through polling, about 5 to 10 seconds after a push.
 
 ## How a card gets its column
 
@@ -174,17 +200,17 @@ sequenceDiagram
   participant Main as main (optional)
   participant Fuda as fuda
   Dev->>Develop: claim SS-12 (status in progress, owner, claimed)
-  Develop-->>Fuda: webhook → sync
+  Develop-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in In progress
   Dev->>Fuda: opens a PR (code + SS-12 set to merged, pr)
   Note over Fuda: SS-12 in In review, PR #n
   Dev->>Develop: PR completes
-  Develop-->>Fuda: webhook → sync
+  Develop-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in Merged
   Tester->>Develop: status testing, then validated
   Note over Fuda: Testing, then Validated
   Develop->>Main: promotion
-  Main-->>Fuda: webhook → sync
+  Main-->>Fuda: poll sees a new head
   Note over Fuda: "in prod" badge
   Dev->>Develop: move to archive/, status done
   Note over Fuda: off the board, in the Archive view
@@ -194,7 +220,7 @@ The statuses and who changes them are in the Guide's workflow page.
 
 ## HTTP API
 
-Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<owner>/<repo>/board`. An unknown Board is 404.
+Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<owner>/<repo>/board`. An unknown Board, or one the caller cannot read, is 404. No login is 401 (`login required`); a host refusal is 403 (`no access`).
 
 | Route | Returns |
 |---|---|
@@ -206,19 +232,20 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `GET …/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
 | `POST …/sync` | 202, or 429 inside the cooldown. |
-| `POST /api/webhooks/{github,azure}` | 202. 401 when `FUDA_WEBHOOK_SECRET` is set and GitHub's HMAC signature or Azure's `X-Fuda-Secret` header doesn't match. |
+| `GET /api/boards` | The Boards the caller can open: `host`, `repo`, `path`, `title`. On GitHub this is the caller's `fuda-` repositories; 401 when not logged in. |
+| `GET /auth/github/login?return=`, `GET /auth/github/callback`, `POST /auth/github/logout` | The GitHub login flow (only with `FUDA_SOURCE=github`). `return` must be a path on this site. |
 | `GET /healthz` | 200. |
 | anything else | The SPA. Hashed files under `/assets/` are cached for a year; `index.html` is `no-cache`. |
-
-With `FUDA_AUTH_PASSWORD` set, every route asks for basic auth except `/healthz` and
-`/api/webhooks/*`.
 
 ## Client
 
 React 19, TypeScript, Vite, TanStack Router (file routes, typed search params) and TanStack
 Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 
-- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`.
+- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`. Outside a
+  Board, `/` lists the caller's Boards, or opens the only one. A Board picker in the top bar switches
+  Boards with a full page load. Any 401 sends the browser to the login, which returns to the same
+  page. The board refetches every 5 seconds; when its head moves, tasks, archive and docs refetch.
 - **State lives in the URL:** every filter, the sort, the view, the open task (`?task=`) and the
   Insights range, so a link reproduces the view.
 - **Filtering, sorting and Insights run in the browser** over `…/board`. Only "also in task

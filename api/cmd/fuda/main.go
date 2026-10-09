@@ -16,6 +16,7 @@ import (
 	"fuda/internal/board"
 	"fuda/internal/config"
 	"fuda/internal/httpapi"
+	"fuda/internal/login"
 	"fuda/internal/source/azure"
 	"fuda/internal/source/github"
 	"fuda/internal/source/local"
@@ -51,7 +52,10 @@ func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, er
 		}
 		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: id.Repo}}, nil
 	case "github":
-		gh := github.New(id.Repo, cfg.GitHubToken, docsRoot)
+		if cfg.Source != config.SourceGitHub {
+			return nil, hostLinks{}, board.ErrNotFound
+		}
+		gh := github.New(id.Repo, docsRoot)
 		return gh, hostLinks{
 			code:   gh.CodeURL(workBranch),
 			pr:     gh.PRLink(),
@@ -84,19 +88,36 @@ func splitAzure(repo string) (org, project, name string, ok bool) {
 	return parts[0], parts[1], parts[2], true
 }
 
-func defaultBoard(cfg config.Config) board.BoardID {
+func envBoard(cfg config.Config) board.BoardID {
 	switch cfg.Source {
-	case config.SourceGitHub:
-		return board.BoardID{Host: "github", Repo: cfg.GitHubRepo}
 	case config.SourceAzure:
 		return board.BoardID{Host: "azure", Repo: cfg.AzureOrg + "/" + cfg.AzureProject + "/" + cfg.AzureRepo}
+	case config.SourceLocal:
+		return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
 	}
-	return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
+	return board.BoardID{}
 }
 
-func newBoards(ctx context.Context, log *slog.Logger, cfg config.Config) *board.Boards {
-	home := defaultBoard(cfg)
-	return board.NewBoards(ctx, log, cfg.SyncInterval, func(id board.BoardID) (*board.Service, error) {
+func listBoards(cfg config.Config) func(context.Context) ([]board.BoardID, error) {
+	return func(ctx context.Context) ([]board.BoardID, error) {
+		if cfg.Source != config.SourceGitHub {
+			return []board.BoardID{envBoard(cfg)}, nil
+		}
+		repos, err := github.ListBoards(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]board.BoardID, len(repos))
+		for i, repo := range repos {
+			ids[i] = board.BoardID{Host: "github", Repo: repo}
+		}
+		return ids, nil
+	}
+}
+
+func newBoards(log *slog.Logger, cfg config.Config) *board.Boards {
+	home := envBoard(cfg)
+	return board.NewBoards(log, func(id board.BoardID) (*board.Service, error) {
 		source, links, err := newSource(cfg, id)
 		if err != nil {
 			return nil, err
@@ -120,6 +141,18 @@ func newBoards(ctx context.Context, log *slog.Logger, cfg config.Config) *board.
 			PRLink:     links.pr,
 			Origin:     links.origin,
 		}), nil
+	}, listBoards(cfg))
+}
+
+func newGitHubLogin(log *slog.Logger, cfg config.Config) (httpapi.GitHubLogin, error) {
+	if cfg.Source != config.SourceGitHub {
+		return nil, nil
+	}
+	return login.NewGitHub(log, login.Config{
+		ClientID:     cfg.GitHubClientID,
+		ClientSecret: cfg.GitHubClientSecret,
+		CookieSecret: cfg.CookieSecret,
+		BaseURL:      cfg.BaseURL,
 	})
 }
 
@@ -132,11 +165,14 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	boards := newBoards(ctx, log, cfg)
+	githubLogin, err := newGitHubLogin(log, cfg)
+	if err != nil {
+		return err
+	}
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, boards, defaultBoard(cfg).Path(), web.Dist(), httpapi.Credentials{User: cfg.AuthUser, Password: cfg.AuthPassword}, cfg.WebhookSecret),
+		Handler:           httpapi.NewHandler(log, newBoards(log, cfg), web.Dist(), githubLogin),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,

@@ -1,4 +1,4 @@
-import { BOARD_PREFIX } from './boardPath'
+import { BOARD_PREFIX, loginPath } from './boardPath'
 
 export type Column = {
   id: string
@@ -68,6 +68,8 @@ export type BoardData = {
   sync: SyncStatus
 }
 
+export type BoardListing = { host: Origin['host']; repo: string; path: string; title: string }
+
 export type TaskDetail = Card & {
   custom: { key: string; value: string }[]
   html: string
@@ -90,6 +92,10 @@ export class ApiError extends Error {
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init)
+  if (res.status === 401) {
+    window.location.assign(loginPath(window.location.pathname + window.location.search))
+    return new Promise<T>(() => {})
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.error ?? res.statusText)
@@ -100,6 +106,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 const scoped = `/api${BOARD_PREFIX}`
 
 export const api = {
+  boards: () => request<BoardListing[]>('/api/boards'),
   board: () => request<BoardData>(`${scoped}/board`),
   task: (id: string) => request<TaskDetail>(`${scoped}/tasks/${encodeURIComponent(id)}`),
   search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),

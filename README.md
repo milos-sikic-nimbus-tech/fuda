@@ -29,11 +29,16 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 ```sh
 docker run -p 8080:8080 -v fuda-data:/data \
-  -e FUDA_SOURCE=github -e FUDA_GITHUB_REPO=owner/repo -e FUDA_GITHUB_TOKEN=… fuda
+  -e FUDA_BASE_URL=https://fuda.example.com \
+  -e FUDA_COOKIE_SECRET=<a long random string> \
+  -e FUDA_GITHUB_CLIENT_ID=<GitHub App client id> \
+  -e FUDA_GITHUB_CLIENT_SECRET=<GitHub App client secret> fuda
 ```
 
-Boards open at `/github/<owner>/<repo>/`, `/azure/<org>/<project>/<repo>/` and `/local/<folder>/`; `/` redirects to the Board named by `FUDA_SOURCE`. Protect it with your proxy's auth, or set `FUDA_AUTH_PASSWORD` (and optionally `FUDA_AUTH_USER`, default
-`fuda`) for built-in basic auth. `/healthz` and `/api/webhooks/*` stay open either way.
+People log in with the fuda GitHub App. fuda lists every `fuda-` repository they can read and the
+App is installed on, and reads each Board with that person's own token. There is no server token and
+no shared password. Boards open at `/github/<owner>/<repo>/`; `/` lists them, or opens the only one.
+Set up the App in the [Self-host guide](api/internal/guide/pages/08-self-host.md).
 
 ## License
 
