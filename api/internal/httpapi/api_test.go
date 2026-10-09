@@ -45,15 +45,9 @@ func TestAPISmoke(t *testing.T) {
 		"docs/board/TASKS.md":            "# Task rules\n\nClaim first.\n",
 		"docs/board/assets/flow.png":     "\x89PNG fake",
 	})
-	service := board.NewService(local.New(root, "docs", "develop"), board.Options{
-		Title: "test", DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
-		Cooldown: time.Minute,
-	})
-	if err := service.Sync(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), service, fstest.MapFS{}, Credentials{}, ""))
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"test": root}), "/local/test", fstest.MapFS{}, Credentials{}, ""))
 	defer server.Close()
+	base := server.URL + "/api/local/test"
 
 	var b struct {
 		Title    string
@@ -61,26 +55,26 @@ func TestAPISmoke(t *testing.T) {
 		Cards    []struct{ ID, Column string }
 		Problems []struct{ Path string }
 	}
-	getJSON(t, server.URL+"/api/board", http.StatusOK, &b)
+	getJSON(t, base+"/board", http.StatusOK, &b)
 	if b.Title != "test" || len(b.Columns) != 6 || len(b.Cards) != 2 || len(b.Problems) != 1 {
 		t.Fatalf("board: %+v", b)
 	}
 
 	var task struct{ ID, HTML string }
-	getJSON(t, server.URL+"/api/tasks/SS-1", http.StatusOK, &task)
-	if !strings.Contains(task.HTML, `href="/docs/board/TASKS.md"`) {
+	getJSON(t, base+"/tasks/SS-1", http.StatusOK, &task)
+	if !strings.Contains(task.HTML, `href="/local/test/docs/board/TASKS.md"`) {
 		t.Errorf("task html: %s", task.HTML)
 	}
-	getJSON(t, server.URL+"/api/tasks/NOPE", http.StatusNotFound, nil)
+	getJSON(t, base+"/tasks/NOPE", http.StatusNotFound, nil)
 
 	var ids []string
-	getJSON(t, server.URL+"/api/search?q=session", http.StatusOK, &ids)
+	getJSON(t, base+"/search?q=session", http.StatusOK, &ids)
 	if len(ids) != 1 || ids[0] != "SS-2" {
 		t.Errorf("search: %v", ids)
 	}
 
 	var archive []struct{ ID, Done string }
-	getJSON(t, server.URL+"/api/archive", http.StatusOK, &archive)
+	getJSON(t, base+"/archive", http.StatusOK, &archive)
 	if len(archive) != 1 || archive[0].Done != "2026-09-01" {
 		t.Errorf("archive: %+v", archive)
 	}
@@ -89,13 +83,13 @@ func TestAPISmoke(t *testing.T) {
 		Title     string
 		Backlinks []string
 	}
-	getJSON(t, server.URL+"/api/docs?path=board/TASKS.md", http.StatusOK, &doc)
+	getJSON(t, base+"/docs?path=board/TASKS.md", http.StatusOK, &doc)
 	if doc.Title != "Task rules" || len(doc.Backlinks) != 1 {
 		t.Errorf("doc: %+v", doc)
 	}
-	getJSON(t, server.URL+"/api/docs?path=../../etc/passwd", http.StatusNotFound, nil)
+	getJSON(t, base+"/docs?path=../../etc/passwd", http.StatusNotFound, nil)
 
-	res, err := http.Get(server.URL + "/api/files?path=docs/board/assets/flow.png")
+	res, err := http.Get(base + "/files?path=docs/board/assets/flow.png")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,10 +97,10 @@ func TestAPISmoke(t *testing.T) {
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/png" {
 		t.Errorf("asset: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
 	}
-	getJSON(t, server.URL+"/api/files?path=docs/board/TASKS.md", http.StatusNotFound, nil)
+	getJSON(t, base+"/files?path=docs/board/TASKS.md", http.StatusNotFound, nil)
 
 	for _, want := range []int{http.StatusAccepted, http.StatusTooManyRequests} {
-		res, err := http.Post(server.URL+"/api/sync", "", nil)
+		res, err := http.Post(base+"/sync", "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -114,6 +108,61 @@ func TestAPISmoke(t *testing.T) {
 		if res.StatusCode != want {
 			t.Errorf("sync: got %d, want %d", res.StatusCode, want)
 		}
+	}
+}
+
+func testBoards(t *testing.T, folders map[string]string) *board.Boards {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	return board.NewBoards(ctx, slog.New(slog.DiscardHandler), time.Hour, func(id board.BoardID) (*board.Service, error) {
+		root, ok := folders[id.Repo]
+		if !ok || id.Host != "local" {
+			return nil, board.ErrNotFound
+		}
+		return board.NewService(local.New(root, "docs", "develop"), board.Options{
+			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
+			Cooldown: time.Minute, Origin: board.Origin{Host: "local", Repo: id.Repo, Path: id.Path()},
+		}), nil
+	})
+}
+
+func TestBoardsAreServedByPath(t *testing.T) {
+	one := writeRepo(t, map[string]string{"docs/board/tasks/ONE-1.md": "---\nid: ONE-1\ntitle: First\nstatus: backlog\n---\nSee [rules](../TASKS.md).\n", "docs/board/TASKS.md": "# Rules\n"})
+	two := writeRepo(t, map[string]string{"docs/board/tasks/TWO-1.md": "---\nid: TWO-1\ntitle: Second\nstatus: backlog\n---\n"})
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"one": one, "two": two}), "", fstest.MapFS{}, Credentials{}, ""))
+	defer server.Close()
+
+	for folder, card := range map[string]string{"one": "ONE-1", "two": "TWO-1"} {
+		var b struct{ Cards []struct{ ID string } }
+		getJSON(t, server.URL+"/api/local/"+folder+"/board", http.StatusOK, &b)
+		if len(b.Cards) != 1 || b.Cards[0].ID != card {
+			t.Errorf("%s: %+v", folder, b.Cards)
+		}
+	}
+	getJSON(t, server.URL+"/api/local/two/tasks/ONE-1", http.StatusNotFound, nil)
+
+	var task struct{ HTML string }
+	getJSON(t, server.URL+"/api/local/one/tasks/ONE-1", http.StatusOK, &task)
+	if !strings.Contains(task.HTML, `href="/local/one/docs/board/TASKS.md"`) {
+		t.Errorf("links are not prefixed with the Board path: %s", task.HTML)
+	}
+
+	getJSON(t, server.URL+"/api/local/nothing/board", http.StatusNotFound, nil)
+	getJSON(t, server.URL+"/api/github/nobody/none/board", http.StatusNotFound, nil)
+}
+
+func TestRootRedirectsToTheDefaultBoard(t *testing.T) {
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, nil), "/local/test", fstest.MapFS{}, Credentials{}, ""))
+	defer server.Close()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	res, err := client.Get(server.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusFound || res.Header.Get("Location") != "/local/test" {
+		t.Errorf("got %d to %q", res.StatusCode, res.Header.Get("Location"))
 	}
 }
 

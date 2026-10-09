@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,19 +43,26 @@ type hostLinks struct {
 	origin board.Origin
 }
 
-func newSource(cfg config.Config) (board.Source, hostLinks, error) {
-	switch cfg.Source {
-	case config.SourceLocal:
-		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}}, nil
-	case config.SourceGitHub:
-		gh := github.New(cfg.GitHubRepo, cfg.GitHubToken, docsRoot)
+func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, error) {
+	switch id.Host {
+	case "local":
+		if id.Repo != filepath.Base(filepath.Clean(cfg.LocalPath)) {
+			return nil, hostLinks{}, board.ErrNotFound
+		}
+		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: id.Repo}}, nil
+	case "github":
+		gh := github.New(id.Repo, cfg.GitHubToken, docsRoot)
 		return gh, hostLinks{
 			code:   gh.CodeURL(workBranch),
 			pr:     gh.PRLink(),
-			origin: board.Origin{Host: "github", Repo: cfg.GitHubRepo, URL: "https://github.com/" + cfg.GitHubRepo},
+			origin: board.Origin{Host: "github", Repo: id.Repo, URL: "https://github.com/" + id.Repo},
 		}, nil
-	case config.SourceAzure:
-		repo := azure.Repo{Org: cfg.AzureOrg, Project: cfg.AzureProject, Name: cfg.AzureRepo}
+	case "azure":
+		org, project, name, ok := splitAzure(id.Repo)
+		if !ok || (cfg.AzurePAT == "" && cfg.AzureBearer == "") {
+			return nil, hostLinks{}, board.ErrNotFound
+		}
+		repo := azure.Repo{Org: org, Project: project, Name: name}
 		az := azure.WithPAT(repo, cfg.AzurePAT, docsRoot)
 		if cfg.AzurePAT == "" {
 			az = azure.WithBearer(repo, cfg.AzureBearer, docsRoot)
@@ -62,10 +70,57 @@ func newSource(cfg config.Config) (board.Source, hostLinks, error) {
 		return az, hostLinks{
 			code:   az.CodeURL(workBranch),
 			pr:     az.PRLink(),
-			origin: board.Origin{Host: "azure", Repo: cfg.AzureRepo, URL: repo.WebURL()},
+			origin: board.Origin{Host: "azure", Repo: name, URL: repo.WebURL()},
 		}, nil
 	}
-	return nil, hostLinks{}, fmt.Errorf("source %q is not available yet", cfg.Source)
+	return nil, hostLinks{}, board.ErrNotFound
+}
+
+func splitAzure(repo string) (org, project, name string, ok bool) {
+	parts := strings.Split(repo, "/")
+	if len(parts) != 3 {
+		return "", "", "", false
+	}
+	return parts[0], parts[1], parts[2], true
+}
+
+func defaultBoard(cfg config.Config) board.BoardID {
+	switch cfg.Source {
+	case config.SourceGitHub:
+		return board.BoardID{Host: "github", Repo: cfg.GitHubRepo}
+	case config.SourceAzure:
+		return board.BoardID{Host: "azure", Repo: cfg.AzureOrg + "/" + cfg.AzureProject + "/" + cfg.AzureRepo}
+	}
+	return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
+}
+
+func newBoards(ctx context.Context, log *slog.Logger, cfg config.Config) *board.Boards {
+	home := defaultBoard(cfg)
+	return board.NewBoards(ctx, log, cfg.SyncInterval, func(id board.BoardID) (*board.Service, error) {
+		source, links, err := newSource(cfg, id)
+		if err != nil {
+			return nil, err
+		}
+		links.origin.Path = id.Path()
+		title := path.Base(id.Repo)
+		if id == home && cfg.Title != "" {
+			title = cfg.Title
+		}
+		return board.NewService(source, board.Options{
+			Title:      title,
+			DocsRoot:   docsRoot,
+			BoardDir:   boardDir,
+			WorkBranch: workBranch,
+			ProdBranch: prodBranch,
+			WatchMain:  cfg.WatchMain,
+			Cooldown:   cfg.SyncCooldown,
+			CacheDir:   filepath.Join(cfg.CacheDir, id.Host, filepath.FromSlash(id.Repo)),
+			Logger:     log,
+			CodeURL:    links.code,
+			PRLink:     links.pr,
+			Origin:     links.origin,
+		}), nil
+	})
 }
 
 func run(log *slog.Logger) error {
@@ -77,37 +132,11 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	source, links, err := newSource(cfg)
-	if err != nil {
-		return err
-	}
-	service := board.NewService(source, board.Options{
-		Title:      cfg.Title,
-		DocsRoot:   docsRoot,
-		BoardDir:   boardDir,
-		WorkBranch: workBranch,
-		ProdBranch: prodBranch,
-		WatchMain:  cfg.WatchMain,
-		Cooldown:   cfg.SyncCooldown,
-		CacheDir:   cfg.CacheDir,
-		Logger:     log,
-		CodeURL:    links.code,
-		PRLink:     links.pr,
-		Origin:     links.origin,
-	})
-	if err := service.Restore(); err != nil {
-		log.Warn("the disk cache could not be read; starting empty", "error", err)
-	}
-	go func() {
-		if err := service.Sync(ctx); err != nil {
-			log.Error("first sync failed; serving the cached copy, if any, until a sync succeeds", "error", err)
-		}
-		service.Run(ctx, cfg.SyncInterval)
-	}()
+	boards := newBoards(ctx, log, cfg)
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, service, web.Dist(), httpapi.Credentials{User: cfg.AuthUser, Password: cfg.AuthPassword}, cfg.WebhookSecret),
+		Handler:           httpapi.NewHandler(log, boards, defaultBoard(cfg).Path(), web.Dist(), httpapi.Credentials{User: cfg.AuthUser, Password: cfg.AuthPassword}, cfg.WebhookSecret),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,

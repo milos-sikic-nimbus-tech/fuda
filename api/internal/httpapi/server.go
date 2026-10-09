@@ -18,12 +18,17 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 	return h
 }
 
-func NewHandler(log *slog.Logger, service *board.Service, spa fs.FS, creds Credentials, webhookSecret string) http.Handler {
+func NewHandler(log *slog.Logger, boards *board.Boards, defaultBoard string, spa fs.FS, creds Credentials, webhookSecret string) http.Handler {
 	mux := http.NewServeMux()
-	api{log: log, service: service, webhookSecret: webhookSecret}.routes(mux)
+	api{log: log, boards: boards, webhookSecret: webhookSecret}.routes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	if defaultBoard != "" {
+		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, defaultBoard, http.StatusFound)
+		})
+	}
 	mux.Handle("/", spaHandler(spa))
 	return chain(mux, recoverPanics(log), logRequests(log), basicAuth(creds))
 }

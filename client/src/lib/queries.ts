@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ApiError, api } from './api'
+import { BOARD_PREFIX } from './boardPath'
 
 export const keys = {
   board: ['board'] as const,
@@ -13,7 +14,12 @@ export const keys = {
 }
 
 export function useBoard() {
-  return useQuery({ queryKey: keys.board, queryFn: api.board, refetchInterval: 60_000 })
+  return useQuery({
+    queryKey: keys.board,
+    queryFn: api.board,
+    refetchInterval: 60_000,
+    enabled: !!BOARD_PREFIX,
+  })
 }
 
 export function useTask(id: string | undefined) {

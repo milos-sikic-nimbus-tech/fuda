@@ -1,3 +1,5 @@
+import { BOARD_PREFIX } from './boardPath'
+
 export type Column = {
   id: string
   name: string
@@ -95,13 +97,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return res.status === 202 ? (undefined as T) : res.json()
 }
 
+const scoped = `/api${BOARD_PREFIX}`
+
 export const api = {
-  board: () => request<BoardData>('/api/board'),
-  task: (id: string) => request<TaskDetail>(`/api/tasks/${encodeURIComponent(id)}`),
-  search: (q: string) => request<string[]>(`/api/search?q=${encodeURIComponent(q)}`),
-  archive: () => request<Card[]>('/api/archive'),
-  doc: (path: string) => request<DocDetail>(`/api/docs?path=${encodeURIComponent(path)}`),
-  sync: () => request<void>('/api/sync', { method: 'POST' }),
+  board: () => request<BoardData>(`${scoped}/board`),
+  task: (id: string) => request<TaskDetail>(`${scoped}/tasks/${encodeURIComponent(id)}`),
+  search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),
+  archive: () => request<Card[]>(`${scoped}/archive`),
+  doc: (path: string) => request<DocDetail>(`${scoped}/docs?path=${encodeURIComponent(path)}`),
+  sync: () => request<void>(`${scoped}/sync`, { method: 'POST' }),
   guide: () => request<GuidePage[]>('/api/guide'),
   guidePage: (slug: string) => request<GuideContent>(`/api/guide/${encodeURIComponent(slug)}`),
 }

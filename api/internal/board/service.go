@@ -45,6 +45,7 @@ type Origin struct {
 	Host string `json:"host"`
 	Repo string `json:"repo"`
 	URL  string `json:"url,omitempty"`
+	Path string `json:"path"`
 }
 
 type Service struct {

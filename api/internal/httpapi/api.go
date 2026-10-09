@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"fuda/internal/board"
 	"fuda/internal/guide"
@@ -12,25 +13,64 @@ import (
 
 type api struct {
 	log           *slog.Logger
-	service       *board.Service
+	boards        *board.Boards
 	webhookSecret string
 }
 
+type boardHost struct {
+	name   string
+	params []string
+}
+
+var boardHosts = []boardHost{
+	{"github", []string{"owner", "repo"}},
+	{"azure", []string{"org", "project", "repo"}},
+	{"local", []string{"folder"}},
+}
+
+type boardHandler func(w http.ResponseWriter, r *http.Request, service *board.Service)
+
 func (a api) routes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/board", a.board)
-	mux.HandleFunc("GET /api/tasks/{id}", a.task)
-	mux.HandleFunc("GET /api/search", a.search)
-	mux.HandleFunc("GET /api/archive", a.archive)
-	mux.HandleFunc("GET /api/docs", a.doc)
-	mux.HandleFunc("GET /api/files", a.file)
+	for _, host := range boardHosts {
+		prefix := "/api/" + host.name
+		for _, param := range host.params {
+			prefix += "/{" + param + "}"
+		}
+		for pattern, handler := range map[string]boardHandler{
+			"GET /board":      a.board,
+			"GET /tasks/{id}": a.task,
+			"GET /search":     a.search,
+			"GET /archive":    a.archive,
+			"GET /docs":       a.doc,
+			"GET /files":      a.file,
+			"POST /sync":      a.sync,
+		} {
+			method, path, _ := strings.Cut(pattern, " ")
+			mux.HandleFunc(method+" "+prefix+path, a.onBoard(host, handler))
+		}
+	}
 	mux.HandleFunc("GET /api/guide", a.guideList)
 	mux.HandleFunc("GET /api/guide/{slug}", a.guidePage)
-	mux.HandleFunc("POST /api/sync", a.sync)
 	mux.HandleFunc("POST /api/webhooks/{host}", a.webhook)
 }
 
-func (a api) board(w http.ResponseWriter, _ *http.Request) {
-	view, ready := a.service.Board()
+func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		parts := make([]string, len(host.params))
+		for i, param := range host.params {
+			parts[i] = r.PathValue(param)
+		}
+		service, err := a.boards.Get(board.BoardID{Host: host.name, Repo: strings.Join(parts, "/")})
+		if err != nil {
+			a.result(w, nil, err)
+			return
+		}
+		handler(w, r, service)
+	}
+}
+
+func (a api) board(w http.ResponseWriter, _ *http.Request, service *board.Service) {
+	view, ready := service.Board()
 	if !ready {
 		a.json(w, http.StatusServiceUnavailable, view)
 		return
@@ -38,26 +78,26 @@ func (a api) board(w http.ResponseWriter, _ *http.Request) {
 	a.json(w, http.StatusOK, view)
 }
 
-func (a api) task(w http.ResponseWriter, r *http.Request) {
-	view, err := a.service.Task(r.PathValue("id"))
+func (a api) task(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	view, err := service.Task(r.PathValue("id"))
 	a.result(w, view, err)
 }
 
-func (a api) search(w http.ResponseWriter, r *http.Request) {
-	a.json(w, http.StatusOK, a.service.Search(r.URL.Query().Get("q")))
+func (a api) search(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	a.json(w, http.StatusOK, service.Search(r.URL.Query().Get("q")))
 }
 
-func (a api) archive(w http.ResponseWriter, _ *http.Request) {
-	a.json(w, http.StatusOK, a.service.Archive())
+func (a api) archive(w http.ResponseWriter, _ *http.Request, service *board.Service) {
+	a.json(w, http.StatusOK, service.Archive())
 }
 
-func (a api) doc(w http.ResponseWriter, r *http.Request) {
-	view, err := a.service.Doc(r.URL.Query().Get("path"))
+func (a api) doc(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	view, err := service.Doc(r.URL.Query().Get("path"))
 	a.result(w, view, err)
 }
 
-func (a api) file(w http.ResponseWriter, r *http.Request) {
-	content, contentType, err := a.service.Asset(r.URL.Query().Get("path"))
+func (a api) file(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	content, contentType, err := service.Asset(r.URL.Query().Get("path"))
 	if err != nil {
 		a.result(w, nil, err)
 		return
@@ -81,8 +121,8 @@ func (a api) guidePage(w http.ResponseWriter, r *http.Request) {
 	a.result(w, page, err)
 }
 
-func (a api) sync(w http.ResponseWriter, r *http.Request) {
-	if !a.service.RequestSync(r.Context()) {
+func (a api) sync(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	if !service.RequestSync(r.Context()) {
 		a.json(w, http.StatusTooManyRequests, map[string]string{"error": "a sync ran moments ago; try again shortly"})
 		return
 	}
@@ -94,7 +134,7 @@ func (a api) webhook(w http.ResponseWriter, r *http.Request) {
 		a.json(w, http.StatusUnauthorized, map[string]string{"error": "invalid webhook signature"})
 		return
 	}
-	a.service.NotifyChange(r.Context())
+	a.boards.NotifyHost(r.Context(), r.PathValue("host"))
 	w.WriteHeader(http.StatusAccepted)
 }
 

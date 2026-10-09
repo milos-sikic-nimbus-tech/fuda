@@ -9,7 +9,7 @@ For how a repo is set up and how teams use the board, see the Guide pages in
 
 ## The shape
 
-One Go binary serves the JSON API and the embedded React app. One container runs per repository.
+One Go binary serves the JSON API and the embedded React app. One process serves many Boards. A Board is one repository, addressed by path: `/github/<owner>/<repo>/`, `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`.
 There is no database: the repository's markdown files are the data, and fuda keeps a parsed
 snapshot of them in memory, plus a copy on disk so a restart has something to show.
 
@@ -67,6 +67,17 @@ declared where they are used.
 `client/` is the Vite app. It builds into `api/internal/web/dist`, so `go build` embeds it.
 `go build` works without it; the SPA handler then answers "client not built".
 
+## Boards
+
+`board.Boards` creates one `board.Service` per Board the first time its path is requested, and keeps
+it. Each Service has its own snapshot, sync loop and cache (`FUDA_CACHE_DIR/<host>/<repo>`). A
+repository the host reports missing (or without a `develop` branch) is not found; any other first-sync
+error keeps the Board and shows 503 until a sync succeeds. Reads still use the server's
+env tokens (`FUDA_GITHUB_TOKEN`, `FUDA_AZURE_PAT`); `FUDA_SOURCE` and its repository settings name
+the default Board that `/` redirects to. Any visitor who passes basic auth can open any repository the server's token reads, and each opened
+Board stays in memory until the process stops; ticket 02's per-user login replaces this. A webhook asks every open Board of that host to read again.
+The client takes its Board from the URL prefix once at page load and uses it as the router's base path, so switching Boards is a full page load.
+
 ## The snapshot
 
 `board.Service` holds an `atomic.Pointer` to an immutable snapshot. Reads never lock; a sync
@@ -102,10 +113,10 @@ flowchart TD
 ```
 
 - **Failures keep the last snapshot.** A failed head or file read changes nothing and is reported
-  as `sync.lastError` in `/api/board`. If only the PR list fails, the new files are used without
+  as `sync.lastError` in `…/board`. If only the PR list fails, the new files are used without
   In review, and the error is reported.
 - **After a restart** the cached copy is served immediately, marked with its original sync time,
-  while the first sync runs. Without a cache, `/api/board` answers 503 until a sync succeeds.
+  while the first sync runs. Without a cache, `…/board` answers 503 until a sync succeeds.
 - **Webhook payloads are never trusted.** A webhook only means "read again now".
 
 ## How a card gets its column
@@ -183,16 +194,18 @@ The statuses and who changes them are in the Guide's workflow page.
 
 ## HTTP API
 
+Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<owner>/<repo>/board`. An unknown Board is 404.
+
 | Route | Returns |
 |---|---|
-| `GET /api/board` | Columns, cards, facets, problems, sync state, title, origin. 503 (same body) until a snapshot exists. |
-| `GET /api/tasks/{id}` | One card plus custom fields and the rendered body. |
-| `GET /api/search?q=` | Ids of tasks whose title or body contains the text. |
-| `GET /api/archive` | Archived tasks as cards. |
-| `GET /api/docs?path=` | A doc under `docs/`: rendered HTML, title, tasks linking to it. |
-| `GET /api/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
+| `GET …/board` | Columns, cards, facets, problems, sync state, title, origin. 503 (same body) until a snapshot exists. |
+| `GET …/tasks/{id}` | One card plus custom fields and the rendered body. |
+| `GET …/search?q=` | Ids of tasks whose title or body contains the text. |
+| `GET …/archive` | Archived tasks as cards. |
+| `GET …/docs?path=` | A doc under `docs/`: rendered HTML, title, tasks linking to it. |
+| `GET …/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
-| `POST /api/sync` | 202, or 429 inside the cooldown. |
+| `POST …/sync` | 202, or 429 inside the cooldown. |
 | `POST /api/webhooks/{github,azure}` | 202. 401 when `FUDA_WEBHOOK_SECRET` is set and GitHub's HMAC signature or Azure's `X-Fuda-Secret` header doesn't match. |
 | `GET /healthz` | 200. |
 | anything else | The SPA. Hashed files under `/assets/` are cached for a year; `index.html` is `no-cache`. |
@@ -208,7 +221,7 @@ Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 - **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`.
 - **State lives in the URL:** every filter, the sort, the view, the open task (`?task=`) and the
   Insights range, so a link reproduces the view.
-- **Filtering, sorting and Insights run in the browser** over `/api/board`. Only "also in task
+- **Filtering, sorting and Insights run in the browser** over `…/board`. Only "also in task
   text" calls `/api/search`.
 - **Components** are split into `atoms`, `molecules`, `organisms`; `components/ui` is generated
   by shadcn and not edited by hand.
@@ -223,5 +236,5 @@ branch `main`, the board folder `docs/board/`, the docs root `docs/`.
 ## Deployment
 
 The `Dockerfile` builds the client (Node), then a static Go binary, into a distroless image that
-runs as non-root with a `/data` volume for the cache. One container per repository; each gets its
+runs as non-root with a `/data` volume for the cache. One container serves every Board; it gets its
 own environment.

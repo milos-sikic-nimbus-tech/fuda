@@ -198,6 +198,7 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 		byID:    byID,
 		heads:   heads,
 		links: markdown.Links{
+			Prefix:    s.opts.Origin.Path,
 			DocsRoot:  s.opts.DocsRoot,
 			Docs:      docSet,
 			Assets:    assetSet,

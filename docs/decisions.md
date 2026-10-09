@@ -26,8 +26,8 @@ with a proposal.
 
 ## Architecture
 
-- **One binary, one container per repository.** The API and the built client ship together
-  (`go:embed`). Several repositories means several containers, not tenants inside one process.
+- **One binary, one container; one Board per repository path.** The API and the built client ship together
+  (`go:embed`). One process serves many Boards, each with its own snapshot, cache and sync loop.
 - **No database.** The files are the data. A parsed snapshot lives in memory and a copy on disk
   (`FUDA_CACHE_DIR`) so a restart serves the last board at once.
 - **Webhooks plus a fallback interval.** A webhook means "read again now" and its payload is never

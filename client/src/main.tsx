@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { toast } from 'sonner'
 import { ApiError } from './lib/api'
+import { BOARD_PREFIX } from './lib/boardPath'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
@@ -17,7 +18,7 @@ const queryClient = new QueryClient({
   }),
 })
 
-const router = createRouter({ routeTree, context: { queryClient } })
+const router = createRouter({ routeTree, basepath: BOARD_PREFIX || '/', context: { queryClient } })
 
 declare module '@tanstack/react-router' {
   interface Register {

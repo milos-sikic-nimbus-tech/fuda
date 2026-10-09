@@ -6,6 +6,7 @@ import { ListView } from '@/components/organisms/ListView'
 import { FilterBar } from '@/components/organisms/FilterBar'
 import { TaskSheet } from '@/components/organisms/TaskSheet'
 import { boardSearchSchema, filterCards, sortCards } from '@/lib/filters'
+import { BOARD_PREFIX } from '@/lib/boardPath'
 import { useBoard, useTextSearch } from '@/lib/queries'
 
 export const Route = createFileRoute('/')({
@@ -24,6 +25,13 @@ function BoardPage() {
   )
   const taskIds = useMemo(() => data?.cards.map((c) => c.id) ?? [], [data])
 
+  if (!BOARD_PREFIX) {
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        No Board here. Open a Board by its address, like /github/owner/repo.
+      </p>
+    )
+  }
   if (error) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
