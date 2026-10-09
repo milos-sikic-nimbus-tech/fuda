@@ -12,7 +12,7 @@ import { useBoards } from '@/lib/queries'
 
 export function BoardPicker() {
   const { data: boards } = useBoards()
-  if (!boards || boards.length < 2) return null
+  if (!boards || boards.length === 0) return null
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
