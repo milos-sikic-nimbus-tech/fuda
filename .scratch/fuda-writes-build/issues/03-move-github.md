@@ -4,12 +4,12 @@
 
 **Blocked by:** 02: GitHub login and the Board picker
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Pure edit tests: status change, `claimed` added once and never changed, other bytes untouched
-- [ ] Board service tests with an in-memory fake host: happy path, other-line retry, same-field conflict, never force
-- [ ] HTTP smoke test covers a Move and a conflict
+- [x] Pure edit tests: status change, `claimed` added once and never changed, other bytes untouched
+- [x] Board service tests with an in-memory fake host: happy path, other-line retry, same-field conflict, never force
+- [x] HTTP smoke test covers a Move and a conflict
 - [ ] Another user sees the Move within about 10 seconds
-- [ ] ADR 0001 and 0002 accepted; "Read-only" in `docs/decisions.md` replaced
+- [x] ADR 0001 and 0002 accepted; "Read-only" in `docs/decisions.md` replaced
 
 Spec: `.scratch/fuda-writes/spec.md`.

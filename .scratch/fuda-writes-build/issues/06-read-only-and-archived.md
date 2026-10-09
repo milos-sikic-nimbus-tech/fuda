@@ -1,4 +1,4 @@
-# 05: Read-only and archived cards
+# 06: Read-only and archived cards
 
 **What to build:** An account that can read but not write a repository gets a read-only Board: cards don't drag and a note says why. Archived Tasks never drag, and nothing can be dropped into or out of the archive.
 

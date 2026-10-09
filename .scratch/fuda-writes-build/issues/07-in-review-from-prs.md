@@ -1,4 +1,4 @@
-# 06: In review from code PRs
+# 07: In review from code PRs
 
 **What to build:** The board config lists code repositories (`code_repos`). fuda lists open PRs in each with the user's token, on any base branch, and finds Task ids in the PR title and branch name. Every Task named is shown in the PR-derived Stage and is locked: it cannot be dragged, and nothing can be dropped into that Stage by hand. When the PR closes, the card returns to its `status` Stage. fuda never sets `merged`. The old match by the PR's version of the Task file is removed.
 
