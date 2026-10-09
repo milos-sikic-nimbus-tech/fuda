@@ -32,9 +32,9 @@ type MoveRequest struct {
 const moveAttempts = 4
 
 func (s *Service) Move(ctx context.Context, req MoveRequest) error {
-	writer, ok := s.source.(Writer)
-	if !ok {
-		return ErrForbidden
+	writer, err := s.requireWriter(ctx)
+	if err != nil {
+		return err
 	}
 	snap := s.snapshot.Load()
 	if snap == nil {

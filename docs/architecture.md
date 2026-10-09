@@ -234,6 +234,13 @@ sequenceDiagram
 
 The statuses and who changes them are in the Guide's workflow page.
 
+## Read-only Boards
+
+`board.Service.CanWrite` asks the source whether the caller may write (an optional `Access`
+interface; GitHub reads `permissions.push` of the repository). The answer is kept for a minute per
+token. Move and Assign return `ErrForbidden` for a read-only account, and `GET /board` sets
+`readOnly`, so the client shows a note and no drag handles.
+
 ## Move
 
 A Move is one commit to one Task file, made with the caller's own token (so the host shows them as

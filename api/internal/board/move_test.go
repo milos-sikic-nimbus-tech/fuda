@@ -17,6 +17,7 @@ type fakeHost struct {
 	head        int
 	writes      int
 	editor      string
+	readOnly    bool
 	beforeWrite func(h *fakeHost)
 }
 
@@ -75,6 +76,10 @@ func (h *fakeHost) WriteFile(_ context.Context, _, path string, content []byte, 
 
 func (h *fakeHost) LastEditor(context.Context, string, string) (string, error) {
 	return h.editor, nil
+}
+
+func (h *fakeHost) CanWrite(context.Context) (bool, error) {
+	return !h.readOnly, nil
 }
 
 func (h *fakeHost) edit(change func(string) string) {
@@ -261,5 +266,34 @@ func TestMoveNeedsASourceThatWrites(t *testing.T) {
 	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
 	if !errors.Is(err, ErrForbidden) {
 		t.Errorf("got %v, want ErrForbidden", err)
+	}
+}
+
+func TestReadOnlyAccountsCannotMoveOrAssign(t *testing.T) {
+	host := newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})
+	host.readOnly = true
+	s := newMoveService(t, host)
+
+	moveErr := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	assignErr := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Owners: []string{"Ann"}})
+
+	if !errors.Is(moveErr, ErrForbidden) || !errors.Is(assignErr, ErrForbidden) {
+		t.Fatalf("got %v and %v, want ErrForbidden", moveErr, assignErr)
+	}
+	check(t, "file", host.file(), taskContent("backlog", ""))
+	check(t, "writes", host.writes, 0)
+}
+
+func TestServiceReportsWriteAccess(t *testing.T) {
+	for _, readOnly := range []bool{false, true} {
+		host := newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})
+		host.readOnly = readOnly
+		s := newMoveService(t, host)
+
+		can, err := s.CanWrite(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, fmt.Sprintf("can write when readOnly=%v", readOnly), can, !readOnly)
 	}
 }

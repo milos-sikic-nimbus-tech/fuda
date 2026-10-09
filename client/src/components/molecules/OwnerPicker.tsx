@@ -15,11 +15,13 @@ export function OwnerPicker({
   people,
   owners,
   saving,
+  readOnly,
   onChange,
 }: {
   people: string[]
   owners: string[]
   saving: boolean
+  readOnly: boolean
   onChange: (owners: string[]) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -30,7 +32,7 @@ export function OwnerPicker({
         <Button
           variant="ghost"
           size="xs"
-          disabled={saving}
+          disabled={saving || readOnly}
           aria-label="Pick owners"
           className="text-muted-foreground"
         >

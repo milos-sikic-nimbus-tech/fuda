@@ -62,6 +62,7 @@ type Service struct {
 
 	mu          sync.Mutex
 	lastRequest time.Time
+	access      map[string]knownAccess
 	status      SyncStatus
 }
 
@@ -96,7 +97,7 @@ func NewService(source Source, opts Options) *Service {
 	if opts.Logger == nil {
 		opts.Logger = slog.New(slog.DiscardHandler)
 	}
-	return &Service{source: source, opts: opts, now: time.Now}
+	return &Service{source: source, opts: opts, now: time.Now, access: map[string]knownAccess{}}
 }
 
 type BoardView struct {
@@ -105,6 +106,8 @@ type BoardView struct {
 	PRLink string     `json:"prLink,omitempty"`
 	Origin Origin     `json:"origin"`
 	Sync   SyncStatus `json:"sync"`
+
+	ReadOnly bool `json:"readOnly"`
 }
 
 func (s *Service) Board() (BoardView, bool) {

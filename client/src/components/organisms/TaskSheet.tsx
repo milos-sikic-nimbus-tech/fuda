@@ -76,6 +76,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
                   people={board?.facets.people ?? []}
                   owners={owners}
                   saving={!!pending}
+                  readOnly={board?.readOnly ?? true}
                   onChange={(next) => assign.mutate({ card: task, owners: next })}
                 />
               </Field>

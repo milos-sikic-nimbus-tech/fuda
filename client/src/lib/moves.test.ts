@@ -41,13 +41,16 @@ describe('applyPendingMoves', () => {
 
 describe('canDrag', () => {
   it('refuses a card that is saving', () => {
-    expect(canDrag(card('A-1'), true)).toBe(false)
+    expect(canDrag(card('A-1'), true, false)).toBe(false)
   })
   it('refuses a card locked by an open PR', () => {
-    expect(canDrag(card('A-1', { openPrs: [7] }), false)).toBe(false)
+    expect(canDrag(card('A-1', { openPrs: [7] }), false, false)).toBe(false)
+  })
+  it('refuses every card on a read-only board', () => {
+    expect(canDrag(card('A-1'), false, true)).toBe(false)
   })
   it('allows a free card', () => {
-    expect(canDrag(card('A-1'), false)).toBe(true)
+    expect(canDrag(card('A-1'), false, false)).toBe(true)
   })
 })
 

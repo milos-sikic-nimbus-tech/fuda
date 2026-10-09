@@ -66,6 +66,7 @@ export type BoardData = {
   facets: Facets
   problems: Problem[]
   sync: SyncStatus
+  readOnly: boolean
 }
 
 export type BoardListing = { host: Origin['host']; repo: string; path: string; title: string }

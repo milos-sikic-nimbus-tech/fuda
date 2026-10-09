@@ -16,9 +16,9 @@ type AssignRequest struct {
 }
 
 func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
-	writer, ok := s.source.(Writer)
-	if !ok {
-		return ErrForbidden
+	writer, err := s.requireWriter(ctx)
+	if err != nil {
+		return err
 	}
 	snap := s.snapshot.Load()
 	if snap == nil {

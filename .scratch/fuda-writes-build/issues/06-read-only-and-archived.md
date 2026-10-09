@@ -4,10 +4,10 @@
 
 **Blocked by:** 03: Move on GitHub
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Write access is checked when a Board opens
-- [ ] Board service refuses Move and Assign for read-only accounts and archived Tasks (tests)
-- [ ] UI shows the read-only note and no drag handles
+- [x] Write access is checked when a Board opens
+- [x] Board service refuses Move and Assign for read-only accounts and archived Tasks (tests)
+- [x] UI shows the read-only note and no drag handles
 
 Spec: `.scratch/fuda-writes/spec.md`.

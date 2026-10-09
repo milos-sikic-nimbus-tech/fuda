@@ -116,12 +116,18 @@ func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 	a.result(w, listing, err)
 }
 
-func (a api) board(w http.ResponseWriter, _ *http.Request, service *board.Service) {
+func (a api) board(w http.ResponseWriter, r *http.Request, service *board.Service) {
 	view, ready := service.Board()
 	if !ready {
 		a.json(w, http.StatusServiceUnavailable, view)
 		return
 	}
+	canWrite, err := service.CanWrite(r.Context())
+	if err != nil {
+		a.result(w, nil, err)
+		return
+	}
+	view.ReadOnly = !canWrite
 	a.json(w, http.StatusOK, view)
 }
 

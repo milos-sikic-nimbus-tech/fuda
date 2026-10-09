@@ -75,3 +75,15 @@ func (s *Source) LastEditor(ctx context.Context, branch, path string) (string, e
 	}
 	return commits[0].Commit.Author.Name, nil
 }
+
+func (s *Source) CanWrite(ctx context.Context) (bool, error) {
+	var repo struct {
+		Permissions struct {
+			Push bool `json:"push"`
+		} `json:"permissions"`
+	}
+	if err := s.getJSON(ctx, "/repos/"+s.repo, &repo); err != nil {
+		return false, err
+	}
+	return repo.Permissions.Push, nil
+}

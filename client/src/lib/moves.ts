@@ -16,8 +16,8 @@ export function applyPendingMoves(board: BoardData, moves: PendingMove[]): Board
   }
 }
 
-export function canDrag(card: Card, saving: boolean): boolean {
-  return !saving && card.openPrs.length === 0
+export function canDrag(card: Card, saving: boolean, readOnly: boolean): boolean {
+  return !readOnly && !saving && card.openPrs.length === 0
 }
 
 export function canDrop(card: Card, column: Column): boolean {

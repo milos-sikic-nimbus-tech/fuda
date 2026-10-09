@@ -45,6 +45,11 @@ function BoardPage() {
         cards={data.cards}
         shown={cards.length}
       />
+      {data.readOnly && (
+        <p className="px-4 pb-2 text-sm text-muted-foreground">
+          This board is read-only: your account can read this repository but not write to it.
+        </p>
+      )}
       {data.cards.length === 0 ? (
         <EmptyBoard />
       ) : cards.length === 0 ? (
@@ -52,7 +57,7 @@ function BoardPage() {
       ) : search.view === 'list' ? (
         <ListView columns={data.columns} cards={cards} />
       ) : (
-        <Board columns={data.columns} cards={cards} prLink={data.prLink} />
+        <Board columns={data.columns} cards={cards} prLink={data.prLink} readOnly={data.readOnly} />
       )}
       <TaskSheet taskIds={taskIds} prLink={data.prLink} />
     </main>

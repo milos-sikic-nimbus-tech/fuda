@@ -108,10 +108,12 @@ updates [architecture.md](architecture.md).
   - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built.
     Still to build: Microsoft Entra ID for Azure DevOps (confidential client on the web, MSAL device
     code on desktop), logging in to both hosts at once, per-host logout, and writing with the
-    user's token on Azure DevOps. Read-only board if the user cannot write.
-  - **Move and Assign (rest).** Built for GitHub. Still to build: Azure DevOps and Local Boards,
-    and read-only Boards for accounts that cannot write (today a refused write shows as an
-    error). No card order is stored.
+    user's token on Azure DevOps. Read-only Boards are built for GitHub; Azure DevOps still needs its
+    write check.
+  - **Move and Assign (rest).** Built for GitHub, including read-only Boards: fuda asks GitHub
+    whether the account can push, keeps the answer for a minute, and refuses Move and Assign
+    for read-only accounts. The board shows a note and no card drags. Still to build: Azure
+    DevOps and Local Boards. No card order is stored.
   - **In review.** Code repositories are listed in the board config (`code_repos: [org/app]`).
     An open PR in any of them, on any base, puts every Task whose id is in its title or branch
     name In review. Such cards cannot be dragged. When the PR closes the card returns to its

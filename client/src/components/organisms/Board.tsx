@@ -10,10 +10,12 @@ export function Board({
   columns,
   cards,
   prLink,
+  readOnly,
 }: {
   columns: ColumnData[]
   cards: Card[]
   prLink?: string
+  readOnly: boolean
 }) {
   const { isCollapsed, toggle } = useCollapsedColumns()
   const [dragging, setDragging] = useState<Card | null>(null)
@@ -30,7 +32,7 @@ export function Board({
           prLink={prLink}
           saving={saving}
           dropAllowed={dragging !== null && canDrop(dragging, column)}
-          isDraggable={(card) => canDrag(card, saving.has(card.id))}
+          isDraggable={(card) => canDrag(card, saving.has(card.id), readOnly)}
           onDragStart={setDragging}
           onDragEnd={() => setDragging(null)}
           onDrop={() => {
