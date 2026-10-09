@@ -9,7 +9,9 @@ cp .env.example .env          # set FUDA_LOCAL_PATH to your repository
 make dev                      # API on :8080, app on http://localhost:5173
 ```
 
-With the local source the board shows your working tree, uncommitted edits included. If the
+With the local source the board shows your working tree, uncommitted edits included. Move and
+Assign change the task file on disk; you commit them. The folder can have `docs/board/tasks/` or
+`tasks/`. In the desktop app, use File → Open folder…. If the
 checkout has `origin/main` and `FUDA_WATCH_MAIN=true`, "in prod" works too.
 
 | Setting | Use |

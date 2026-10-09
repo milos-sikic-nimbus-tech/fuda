@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -16,6 +17,17 @@ export function BoardPicker() {
   const { data } = useBoardListing()
   if (!data || (data.boards.length === 0 && data.hosts.length === 0)) return null
   const { boards, hosts } = data
+  const remote = boards.filter((board) => board.host !== 'local')
+  const onDisk = boards.filter((board) => board.host === 'local')
+  const boardItem = (board: (typeof boards)[number]) => (
+    <DropdownMenuItem key={board.path} asChild className="gap-2">
+      <a href={board.path}>
+        <HostIcon host={board.host} className="size-3.5 shrink-0" />
+        <span className="truncate">{board.title}</span>
+        {board.path === BOARD_PREFIX && <Check className="ml-auto size-3.5" />}
+      </a>
+    </DropdownMenuItem>
+  )
   const returnTo = window.location.pathname + window.location.search
   return (
     <DropdownMenu>
@@ -25,15 +37,10 @@ export function BoardPicker() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-48">
-        {boards.map((board) => (
-          <DropdownMenuItem key={board.path} asChild className="gap-2">
-            <a href={board.path}>
-              <HostIcon host={board.host} className="size-3.5 shrink-0" />
-              <span className="truncate">{board.title}</span>
-              {board.path === BOARD_PREFIX && <Check className="ml-auto size-3.5" />}
-            </a>
-          </DropdownMenuItem>
-        ))}
+        {remote.map(boardItem)}
+        {remote.length > 0 && onDisk.length > 0 && <DropdownMenuSeparator />}
+        {onDisk.length > 0 && <DropdownMenuLabel>Local</DropdownMenuLabel>}
+        {onDisk.map(boardItem)}
         {hosts.length > 0 && <DropdownMenuSeparator />}
         {hosts.map((host) =>
           host.loggedIn ? (

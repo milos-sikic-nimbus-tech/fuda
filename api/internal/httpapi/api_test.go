@@ -118,7 +118,7 @@ func testBoards(t *testing.T, folders map[string]string) *board.Boards {
 		if !ok || id.Host != "local" {
 			return nil, board.ErrNotFound
 		}
-		return board.NewService(local.New(root, "docs", "develop"), board.Options{
+		return board.NewService(local.New(root, "docs", "docs/board", "develop"), board.Options{
 			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
 			Cooldown: time.Minute, Origin: board.Origin{Host: "local", Repo: id.Repo, Path: id.Path()},
 		}), nil

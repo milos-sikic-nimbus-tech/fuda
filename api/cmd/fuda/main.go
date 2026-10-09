@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -62,9 +63,19 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	folders, err := app.NewFolders("")
+	if err != nil {
+		return err
+	}
+	if cfg.Has(config.SourceLocal) {
+		if _, err := folders.Add(cfg.LocalPath); err != nil {
+			return fmt.Errorf("FUDA_LOCAL_PATH: %w", err)
+		}
+	}
+
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), logins...),
+		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg, folders), web.Dist(), logins...),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,

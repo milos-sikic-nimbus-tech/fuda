@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Board service tests with a temp folder: Move, Assign, other-line change, same-field conflict
-- [ ] No In review on a Local Board
-- [ ] Edits made in an editor show within a few seconds
+- [x] Board service tests with a temp folder: Move, Assign, other-line change, same-field conflict
+- [x] No In review on a Local Board
+- [x] Edits made in an editor show within a few seconds
 - [ ] The desktop app has "Open folder…" and remembers opened folders
 
 Spec: `.scratch/fuda-writes/spec.md`.

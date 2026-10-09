@@ -27,13 +27,14 @@ type hostLinks struct {
 	origin board.Origin
 }
 
-func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, error) {
+func newSource(cfg config.Config, folders *Folders, id board.BoardID) (board.Source, hostLinks, error) {
 	switch id.Host {
 	case "local":
-		if id.Repo != filepath.Base(filepath.Clean(cfg.LocalPath)) {
+		folder, ok := folders.Path(id)
+		if !ok {
 			return nil, hostLinks{}, board.ErrNotFound
 		}
-		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: id.Repo}}, nil
+		return local.New(folder, docsRoot, boardDir, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: id.Repo}}, nil
 	case "github":
 		if !cfg.Has(config.SourceGitHub) {
 			return nil, hostLinks{}, board.ErrNotFound
@@ -68,22 +69,15 @@ func splitAzure(repo string) (org, project, name string, ok bool) {
 	return parts[0], parts[1], parts[2], true
 }
 
-func envBoard(cfg config.Config) board.BoardID {
-	if !cfg.Has(config.SourceLocal) {
-		return board.BoardID{}
-	}
-	return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
-}
-
-func listBoards(cfg config.Config) func(context.Context, string) ([]board.BoardID, error) {
+func listBoards(cfg config.Config, folders *Folders) func(context.Context, string) ([]board.BoardID, error) {
 	return func(ctx context.Context, host string) ([]board.BoardID, error) {
 		switch {
 		case host == "github" && cfg.Has(config.SourceGitHub):
 			return boardIDs(ctx, "github", github.ListBoards)
 		case host == "azure" && cfg.Has(config.SourceAzure):
 			return boardIDs(ctx, "azure", azure.ListBoards)
-		case host == "local" && cfg.Has(config.SourceLocal):
-			return []board.BoardID{envBoard(cfg)}, nil
+		case host == "local":
+			return folders.List(), nil
 		}
 		return nil, nil
 	}
@@ -101,10 +95,13 @@ func boardIDs(ctx context.Context, host string, list func(context.Context) ([]st
 	return ids, nil
 }
 
-func NewBoards(log *slog.Logger, cfg config.Config) *board.Boards {
-	home := envBoard(cfg)
+func NewBoards(log *slog.Logger, cfg config.Config, folders *Folders) *board.Boards {
+	home := board.BoardID{}
+	if ids := folders.List(); cfg.Has(config.SourceLocal) && len(ids) > 0 {
+		home = ids[0]
+	}
 	return board.NewBoards(log, func(id board.BoardID) (*board.Service, error) {
-		source, links, err := newSource(cfg, id)
+		source, links, err := newSource(cfg, folders, id)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +116,7 @@ func NewBoards(log *slog.Logger, cfg config.Config) *board.Boards {
 			BoardDir:   boardDir,
 			WorkBranch: workBranch,
 			ProdBranch: prodBranch,
-			WatchMain:  cfg.WatchMain,
+			WatchMain:  cfg.WatchMain && id.Host != "local",
 			Cooldown:   cfg.SyncCooldown,
 			CacheDir:   filepath.Join(cfg.CacheDir, id.Host, filepath.FromSlash(id.Repo)),
 			Logger:     log,
@@ -127,5 +124,5 @@ func NewBoards(log *slog.Logger, cfg config.Config) *board.Boards {
 			PRLink:     links.pr,
 			Origin:     links.origin,
 		}), nil
-	}, listBoards(cfg))
+	}, listBoards(cfg, folders))
 }

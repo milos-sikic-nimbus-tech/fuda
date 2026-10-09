@@ -54,7 +54,7 @@ declared where they are used.
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
 | `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
-| `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
+| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
@@ -84,8 +84,11 @@ repository for them), 403 or 401 and never sees the cached snapshot. A Board who
 is forgotten again, so unknown paths do not pile up in memory.
 
 On GitHub and Azure DevOps the token comes from the person's login for that Board's host. A person can
-be logged in to both at once: `FUDA_SOURCE=github,azure` starts one login per host. The `local` source
-reads the folder in `FUDA_LOCAL_PATH` and has no login; it stands alone and its folder is the only Board listed.
+be logged in to both at once: `FUDA_SOURCE=github,azure` starts one login per host. Local Boards have no
+login. Their folders come from `FUDA_LOCAL_PATH` (with `FUDA_SOURCE=local`, which stands alone) or, on desktop,
+from "Open folder…"; the desktop app remembers them in `folders.json` in the user config directory. `app.Folders`
+names each folder after its directory (a second one with the same name gets `-2`) and lists them all in the
+picker's "Local" group.
 
 ## Login
 
@@ -268,7 +271,10 @@ flowchart TD
 `claimed` is set to today only when the Task leaves the first column, has no `claimed` value, and
 moves to another column. fuda never changes a `claimed` value that exists. The write goes to the
 work branch (`develop`). GitHub implements `Writer` with the contents API (the file's blob SHA is
-the version; a 409 is "changed since read"). Local and Azure DevOps do not, so a Move there is 403.
+the version; a 409 is "changed since read"). Azure DevOps uses the pushes API. The Local source compares the
+file's hash with the one it read, then replaces the file through a temporary file and a rename, so an editor's change
+made before the write is never overwritten; it does not commit, and it cannot name who changed the file
+("Someone moved this to …").
 
 The client keeps no copy of the board for a Move. While a Move is saving, the pending Move is
 overlaid on the polled board (`applyPendingMoves`), which also stops the card being dragged

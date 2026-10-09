@@ -67,15 +67,28 @@ func run(log *slog.Logger) error {
 	if len(logins) == 0 {
 		return errors.New("no login is set up: set FUDA_GITHUB_CLIENT_ID or FUDA_AZURE_CLIENT_ID")
 	}
+	configRoot, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	folders, err := app.NewFolders(filepath.Join(configRoot, "fuda", "folders.json"))
+	if err != nil {
+		return err
+	}
 	desktop = application.New(application.Options{
 		Name: "fuda",
 		Assets: application.AssetOptions{
-			Handler: httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), logins...),
+			Handler: httpapi.NewHandler(log, app.NewBoards(log, cfg, folders), web.Dist(), logins...),
 		},
 	})
 
 	menu := desktop.NewMenu()
 	menu.AddRole(application.AppMenu)
+	var window *application.WebviewWindow
+	file := menu.AddSubmenu("File")
+	file.Add("Open folder…").SetAccelerator("CmdOrCtrl+O").OnClick(func(*application.Context) {
+		openFolder(desktop, window, folders)
+	})
 	menu.AddRole(application.EditMenu)
 	menu.AddRole(application.WindowMenu)
 	help := menu.AddSubmenu("Help")
@@ -84,7 +97,7 @@ func run(log *slog.Logger) error {
 	})
 	desktop.Menu.Set(menu)
 
-	desktop.Window.NewWithOptions(application.WebviewWindowOptions{
+	window = desktop.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "fuda",
 		Width:     1280,
 		Height:    820,

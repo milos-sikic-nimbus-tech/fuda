@@ -30,7 +30,7 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 | `FUDA_SOURCE` | Needs |
 |---|---|
 | `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`, plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
-| `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. |
+| `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. Moves and Assigns write the file on disk; you commit. A folder with `tasks/` also works. On desktop, File → Open folder… does this. |
 | `azure` | A Microsoft Entra ID app: `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET`, optionally `FUDA_AZURE_TENANT` (default `organizations`), plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
 
 `FUDA_SOURCE=github,azure` serves both hosts at once, each with its own login and settings. `local`

@@ -117,14 +117,16 @@ updates [architecture.md](architecture.md).
     Read-only Boards: Azure DevOps asks the Contribute permission of the repository.
   - **Move and Assign (rest).** Built for GitHub and Azure DevOps, including read-only Boards: fuda asks GitHub
     whether the account can push, keeps the answer for a minute, and refuses Move and Assign
-    for read-only accounts. The board shows a note and no card drags. Still to build: Local
-    Boards. No card order is stored.
+    for read-only accounts. The board shows a note and no card drags. Local Boards write the file
+    on disk. No card order is stored.
   - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
-    write the file on disk and the person commits. fuda polls the folder; same conflict rule.
+    write the file on disk and the person commits. fuda polls the folder; same conflict rule. A folder
+    is a Local Board when it has `docs/board/tasks/` or `tasks/`. A Local Board has no In review.
+    It cannot tell who changed a file, so a lost conflict says "Someone".
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
     UI. The web shell is self-hosted at the host's own cost. The desktop app logs in to GitHub or Azure DevOps
-    (device flow, keychain, self-update from GitHub Releases). Still to build there: "Open
-    folder…" and remembered folders.
+    (device flow, keychain, self-update from GitHub Releases). "Open folder…" in the File menu opens
+    a Local Board; the app remembers the folders.
   - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code
