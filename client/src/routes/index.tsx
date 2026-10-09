@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo } from 'react'
+import { EmptyBoard } from '@/components/molecules/EmptyBoard'
 import { NoMatches } from '@/components/molecules/NoMatches'
 import { Board } from '@/components/organisms/Board'
 import { BoardList } from '@/components/organisms/BoardList'
@@ -44,7 +45,9 @@ function BoardPage() {
         cards={data.cards}
         shown={cards.length}
       />
-      {cards.length === 0 && data.cards.length > 0 ? (
+      {data.cards.length === 0 ? (
+        <EmptyBoard />
+      ) : cards.length === 0 ? (
         <NoMatches />
       ) : search.view === 'list' ? (
         <ListView columns={data.columns} cards={cards} />

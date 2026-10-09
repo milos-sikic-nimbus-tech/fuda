@@ -4,10 +4,10 @@
 
 **Blocked by:** 02: GitHub login and the Board picker
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Board service test for an empty repository
-- [ ] Hint shows in the UI
-- [ ] `CONTRIBUTING.md` has the "start a new Board" step
+- [x] Board service test for an empty repository
+- [x] Hint shows in the UI
+- [x] `CONTRIBUTING.md` has the "start a new Board" step
 
 Spec: `.scratch/fuda-writes/spec.md`.

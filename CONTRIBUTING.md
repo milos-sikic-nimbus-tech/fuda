@@ -52,6 +52,12 @@ The browser polls the Board about every 5 seconds. The server asks GitHub for th
 (a conditional request, free when nothing changed) and reads files only when it moved. With the local
 source the same poll picks up edits to your working tree.
 
+## Start a new Board
+
+Create a repository named `fuda-<something>` and install the fuda GitHub App on it. Open it in fuda:
+with no Task files it shows an empty Board with the default Stages and the hint "No Tasks yet: add
+files in `tasks/`". Add Task files under `docs/board/tasks/` and they appear on the next sync.
+
 ## Desktop app
 
 Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or

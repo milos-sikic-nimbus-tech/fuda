@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -168,5 +169,41 @@ func TestPollReadsFilesOnlyWhenTheHeadMoved(t *testing.T) {
 	third, _ := s.Board()
 	if third.Sync.Develop.SHA != "two" {
 		t.Errorf("a moved head was not read: %+v", third.Sync.Develop)
+	}
+}
+
+func emptyBoardService(files map[string][]byte) *Service {
+	return NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+}
+
+func TestRepositoryWithoutTasksIsAnEmptyBoardWithDefaultStages(t *testing.T) {
+	s := emptyBoardService(map[string][]byte{})
+	if err := s.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	view, ok := s.Board()
+	if !ok {
+		t.Fatal("an empty repository must still give a board")
+	}
+	if len(view.Cards) != 0 || len(view.Problems) != 0 {
+		t.Errorf("cards %d, problems %v", len(view.Cards), view.Problems)
+	}
+	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated"}
+	if got := columnIDs(view.Board); !reflect.DeepEqual(got, want) {
+		t.Errorf("columns: got %v, want %v", got, want)
+	}
+}
+
+func TestInvalidBoardConfigIsAProblemOnAnEmptyBoard(t *testing.T) {
+	s := emptyBoardService(map[string][]byte{"docs/board/stages.md": []byte("---\nstages: [\n---\n")})
+	if err := s.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	view, _ := s.Board()
+	if len(view.Problems) != 1 || view.Problems[0].Path != "docs/board/stages.md" {
+		t.Errorf("problems: %v", view.Problems)
+	}
+	if len(view.Columns) == 0 {
+		t.Error("default stages must still apply")
 	}
 }

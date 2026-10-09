@@ -43,3 +43,6 @@ The tasks folder is flat: no sub-folders, grouping is done with labels. The boar
 5. Try it locally ([Run locally](/guide/run-locally)) and fix anything listed under Problems.
 6. Name the repository `fuda-<something>`, install the fuda GitHub App on it and deploy fuda
    ([Self-host](/guide/self-host)). Everyone who can read the repository sees it as a Board.
+
+A repository with no task files is not an error. It shows an empty board with the default stages
+and the hint "No Tasks yet: add files in `tasks/`".
