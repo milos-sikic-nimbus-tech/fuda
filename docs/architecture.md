@@ -88,7 +88,7 @@ be logged in to both at once: `FUDA_SOURCE=github,azure` starts one login per ho
 login. Their folders come from `FUDA_LOCAL_PATH` (with `FUDA_SOURCE=local`, which stands alone) or, on desktop,
 from "Open folder…"; the desktop app remembers them in `folders.json` in the user config directory. `app.Folders`
 names each folder after its directory (a second one with the same name gets `-2`) and lists them all in the
-picker's "Local" group.
+Board dropdown's "Local" group.
 
 ## Login
 
@@ -321,8 +321,9 @@ React 19, TypeScript, Vite, TanStack Router (file routes, typed search params) a
 Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 
 - **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`. Outside a
-  Board, `/` lists the caller's Boards, or opens the only one. A Board picker in the top bar switches
-  Boards with a full page load. Any 401 sends the browser to the login, which returns to the same
+  Board, `/` lists the caller's Boards, or opens the only one. One top-bar button shows the current Board (host icon, name, branch) and, as a dropdown grouped by host
+  then "Local", switches Boards with a full page load; its current row has "Open repo". An account menu next
+  to the theme toggle lists each host with Log in or Log out, and "Log out of all". Any 401 sends the browser to the login, which returns to the same
   page. The board refetches every 5 seconds; when its head moves, tasks, archive and docs refetch.
 - **State lives in the URL:** every filter, the sort, the view, the open task (`?task=`) and the
   Insights range, so a link reproduces the view.

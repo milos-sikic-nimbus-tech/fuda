@@ -57,7 +57,7 @@ with a proposal.
   that person's token, so a cached Board is never shown to someone GitHub would refuse. An
   expired token is refreshed; if that fails the person goes back to login. See
   [ADR 0003](adr/0003-users-read-and-write-with-their-own-token.md).
-- **A Board is a `fuda-` repository the person can read.** The picker lists them from
+- **A Board is a `fuda-` repository the person can read.** The Board dropdown lists them from
   `GET /user/repos`, which only returns repositories the app is installed on. `/` opens the only
   Board or lists them.
 - **Plain Go packages by responsibility.** No ports-and-adapters layering. `board` holds the
@@ -104,7 +104,7 @@ updates [architecture.md](architecture.md).
 - **Proposal:**
   - **Boards.** A Board is a tasks repository whose name starts with `fuda-`, mounted in its code
     repository as a submodule at `docs/board`. fuda finds Boards from the user's login and lists
-    them in a picker in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
+    them in the Board button's dropdown in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
     `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
     with default Stages and a hint.
   - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built. So is Microsoft

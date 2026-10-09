@@ -25,3 +25,23 @@ export async function logOut(host?: HostName) {
   await fetch(host ? `/auth/${host}/logout` : '/auth/logout', { method: 'POST' })
   window.location.assign('/')
 }
+
+const groupOrder = ['github', 'azure', 'local'] as const
+
+export function groupBoards(boards: BoardListing[]) {
+  return groupOrder
+    .map((host) => ({
+      host,
+      label: host === 'local' ? 'Local' : hostLabel(host),
+      boards: boards.filter((board) => board.host === host),
+    }))
+    .filter((group) => group.boards.length > 0)
+}
+
+export function pickerButtonLabel(board?: { title: string; origin: { repo: string } }): string {
+  return board ? board.title || board.origin.repo : 'Select a Board'
+}
+
+export function showLogOutAll(hosts: HostStatus[]): boolean {
+  return hosts.filter((host) => host.loggedIn).length > 1
+}

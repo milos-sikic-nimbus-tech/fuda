@@ -47,7 +47,7 @@ Set up the App in the [Self-host guide](api/internal/guide/pages/08-self-host.md
 Download the archive for your system from the latest GitHub Release, unpack it and open `fuda.app`
 (macOS) or `fuda-desktop.exe` (Windows). Log in with GitHub: fuda shows a code and opens GitHub, where
 you type it. Azure DevOps works the same way, and you can be logged in to both. Each login token stays in your
-OS keychain, and you can log out of one host or of all from the Board picker. The app updates itself from new releases.
+OS keychain, and you can log out of one host or of all from the account menu in the top bar. The app updates itself from new releases.
 
 The builds are not signed, so your system warns the first time:
 

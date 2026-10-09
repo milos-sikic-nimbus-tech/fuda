@@ -45,7 +45,7 @@ a server on a private network or behind your proxy's authentication.
 ## How people see Boards
 
 - Not logged in: every Board page sends you to GitHub or Microsoft to log in, then back.
-- After login the Board picker in the top bar lists the `fuda-` repositories the app is installed
+- After login the Board button in the top bar lists the `fuda-` repositories the app is installed
   on and you can read. `/` opens the only Board, or lists them.
 - No access: the page says so. Check that the app is installed on the repository and that your
   account can read it.
