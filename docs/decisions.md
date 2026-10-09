@@ -169,3 +169,15 @@ updates [architecture.md](architecture.md).
 - **Open:** which host is next.
 - **Proposal:** GitLab, when someone needs it: project archive for `docs/`, merge requests and
   their changes for In review.
+
+### One device-flow login for GitHub
+
+- **Settled:** GitHub login uses device flow on web and desktop, with only the client id. The
+  GitHub App has "Expire user authorization tokens" turned off, so there is no refresh and no
+  client secret. Desktop keeps the token in the OS keychain. Web keeps it in a sealed HttpOnly
+  cookie, and the server makes its own cookie key. Azure keeps its current login.
+- **Open:** the web server saves the cookie key in its cache dir (`FUDA_CACHE_DIR`). If that
+  dir is not persistent, every restart makes a new key and logs everyone out. The Docker image
+  must declare the dir as a volume.
+- **Proposal:** declare `VOLUME` for the cache dir in the Dockerfile, say so in the self-host
+  Guide page, and write the key file with mode 0600. The cookie is `Secure` except on localhost.
