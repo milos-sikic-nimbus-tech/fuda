@@ -4,10 +4,14 @@
 
 **Blocked by:** 05: Assign on GitHub
 
-**Status:** ready-for-agent
+**Status:** needs-info
 
 - [ ] The picker shows the hint, not "No one found", when the list of people is empty
 - [ ] The Guide page names the file, its path and a small example
 - [ ] A client test covers the choice between the hint and the list
 
 Spec: `.scratch/fuda-writes/spec.md`.
+
+## Open questions (to grill)
+
+The hint should also link to a modal (or similar) that explains how to fix missing people. Not decided yet: where the warning shows, what the modal holds, who sees it, and whether the Guide link stays.
