@@ -21,6 +21,8 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 | `make fmt` | Formats Go and client code. |
 | `make build` | Builds the client into `api/internal/web/dist`, then the binary `bin/fuda`. |
 | `make docker` | Builds the image (`fuda`). |
+| `make desktop-macos` | The desktop app for macOS in `bin/fuda-desktop`. Needs a Mac with Xcode command line tools. `ARCH=amd64` for Intel. |
+| `make desktop-windows` | The desktop app for Windows in `bin/fuda-desktop.exe`. Cross-builds from any host. |
 | `make clean` | Removes build output and the local cache. |
 
 ## Sources
@@ -50,10 +52,21 @@ The browser polls the Board about every 5 seconds. The server asks GitHub for th
 (a conditional request, free when nothing changed) and reads files only when it moved. With the local
 source the same poll picks up edits to your working tree.
 
+## Desktop app
+
+Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or
+build it in with `make desktop-macos GITHUB_CLIENT_ID=<id>`. For a local run, turn off "Expire user
+authorization tokens" on the App: the app has no client secret, so it cannot refresh a token.
+
+To release, push a tag such as `v0.1.0`. The `release` workflow builds macOS (arm64, amd64) and
+Windows, and uploads `fuda-desktop_<os>_<arch>` archives to the GitHub Release. Set the repository
+variable `FUDA_GITHUB_CLIENT_ID` first. The app checks the latest release on start and from
+Help → Check for updates…, then replaces its own binary. A build made with `VERSION=dev` never updates.
+
 ## Layout
 
 ```
-api/      Go module: cmd/fuda (entry) and internal/ packages; serves the API and the built app
+api/      Go module: cmd/fuda (web server) and cmd/fuda-desktop (Wails app) and internal/ packages; serves the API and the built app
 client/   Vite + React + TypeScript app; builds into api/internal/web/dist
 docs/     how fuda works (architecture) and why (decisions)
 ```

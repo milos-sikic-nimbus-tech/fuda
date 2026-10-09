@@ -100,9 +100,9 @@ updates [architecture.md](architecture.md).
     them in a picker in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
     `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
     with default Stages and a hint.
-  - **Login (rest).** GitHub web login is built. Still to build: Microsoft Entra ID for Azure
-    DevOps (confidential client on the web, MSAL device code on desktop), device flow and the OS
-    keychain on desktop, logging in to both hosts at once, per-host logout, and writing with the
+  - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built.
+    Still to build: Microsoft Entra ID for Azure DevOps (confidential client on the web, MSAL device
+    code on desktop), logging in to both hosts at once, per-host logout, and writing with the
     user's token on Azure DevOps. Read-only board if the user cannot write.
   - **Move (rest).** Built for GitHub. Still to build: Azure DevOps and Local Boards, and
     read-only Boards for accounts that cannot write (today a refused write shows as an error).
@@ -117,8 +117,9 @@ updates [architecture.md](architecture.md).
   - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
     write the file on disk and the person commits. fuda polls the folder; same conflict rule.
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
-    UI. The web shell is self-hosted at the host's own cost. Desktop releases on GitHub Releases
-    with the Wails updater.
+    UI. The web shell is self-hosted at the host's own cost. The desktop app is built for GitHub
+    only (device flow, keychain, self-update from GitHub Releases). Still to build there: "Open
+    folder…" and remembered folders, MSAL device code, per-host logout.
   - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code

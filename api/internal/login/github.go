@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+var (
+	errAuthorizationPending = errors.New("authorization pending")
+	errSlowDown             = errors.New("github asked to poll slower")
+)
+
 type Token struct {
 	Access  string    `json:"a"`
 	Refresh string    `json:"r,omitempty"`
@@ -23,6 +28,7 @@ type githubApp struct {
 	redirectURL  string
 	authorizeURL string
 	tokenURL     string
+	deviceURL    string
 	client       *http.Client
 	now          func() time.Time
 }
@@ -34,6 +40,7 @@ func newGitHubApp(clientID, clientSecret, redirectURL string) *githubApp {
 		redirectURL:  redirectURL,
 		authorizeURL: "https://github.com/login/oauth/authorize",
 		tokenURL:     "https://github.com/login/oauth/access_token",
+		deviceURL:    "https://github.com/login/device/code",
 		client:       &http.Client{Timeout: 30 * time.Second},
 		now:          time.Now,
 	}
@@ -67,7 +74,9 @@ func (g *githubApp) refresh(ctx context.Context, refreshToken string) (Token, er
 
 func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
 	form.Set("client_id", g.clientID)
-	form.Set("client_secret", g.clientSecret)
+	if g.clientSecret != "" {
+		form.Set("client_secret", g.clientSecret)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return Token{}, err
@@ -89,6 +98,12 @@ func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		return Token{}, fmt.Errorf("github token response: %w", err)
 	}
+	switch body.Error {
+	case "authorization_pending":
+		return Token{}, errAuthorizationPending
+	case "slow_down":
+		return Token{}, errSlowDown
+	}
 	if body.Error != "" {
 		return Token{}, fmt.Errorf("github refused the token request: %s: %s", body.Error, body.Description)
 	}
@@ -100,4 +115,46 @@ func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
 		token.Expires = g.now().Add(time.Duration(body.ExpiresIn) * time.Second)
 	}
 	return token, nil
+}
+
+type deviceCode struct {
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	Interval        int    `json:"interval"`
+	Error           string `json:"error"`
+	Description     string `json:"error_description"`
+}
+
+func (g *githubApp) startDevice(ctx context.Context) (deviceCode, error) {
+	form := url.Values{"client_id": {g.clientID}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.deviceURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return deviceCode{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	res, err := g.client.Do(req)
+	if err != nil {
+		return deviceCode{}, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	var code deviceCode
+	if err := json.NewDecoder(res.Body).Decode(&code); err != nil {
+		return deviceCode{}, fmt.Errorf("github device response: %w", err)
+	}
+	if code.Error != "" {
+		return deviceCode{}, fmt.Errorf("github refused the device login: %s: %s", code.Error, code.Description)
+	}
+	if code.DeviceCode == "" || code.UserCode == "" {
+		return deviceCode{}, errors.New("github sent no device code")
+	}
+	return code, nil
+}
+
+func (g *githubApp) pollDevice(ctx context.Context, code string) (Token, error) {
+	return g.token(ctx, url.Values{
+		"device_code": {code},
+		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
+	})
 }

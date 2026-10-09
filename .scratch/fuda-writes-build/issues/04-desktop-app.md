@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] App builds for macOS and Windows from `make` with only go, pnpm and docker
+- [x] App builds for macOS and Windows from `make` with only go, pnpm and docker
 - [ ] Device-flow login, Board picker and Move work in the app (checked by hand)
-- [ ] Token is kept in the OS keychain, not on disk
+- [x] Token is kept in the OS keychain, not on disk
 - [ ] Update from a newer GitHub Release works (checked by hand)
-- [ ] ADR 0004 accepted; README explains the unsigned-app warnings
+- [x] ADR 0004 accepted; README explains the unsigned-app warnings
 
 Later tickets add to the app: 09 adds MSAL device code and the Azure keychain entry, 10 adds per-host logout in the app, 11 adds "Open folder…" and remembered folders.
 

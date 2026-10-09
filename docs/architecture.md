@@ -59,9 +59,15 @@ declared where they are used.
 | `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
-| `internal/login` | GitHub App web login with PKCE, the encrypted session cookie, token refresh. Knows nothing about Boards. |
+| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). |
+| `internal/app` | Builds the set of Boards from config: which source serves which Board. Shared by both shells. |
+| `internal/login` | GitHub App login. `session.go`: web login with PKCE, the encrypted session cookie, token refresh. `device.go`: desktop device flow, token kept in a `TokenStore`. Knows nothing about Boards. |
+| `internal/keychain` | A `login.TokenStore` in the OS keychain (macOS Keychain, Windows Credential Manager). |
 | `internal/web` | `go:embed` of the built client (`dist/`). |
 | `internal/guide` | `go:embed` of the Guide pages, rendered with `markdown`. |
+
+The desktop app has the same shape as the server: `cmd/fuda-desktop` serves the handler to the Wails
+window in-process instead of listening on a port.
 
 `client/` is the Vite app. It builds into `api/internal/web/dist`, so `go build` embeds it.
 `go build` works without it; the SPA handler then answers "client not built".
@@ -105,6 +111,16 @@ that expires within a minute is refreshed on the way in; GitHub refresh tokens w
 refresh at a time runs and its result is remembered for a minute for requests still carrying the old
 cookie. If refresh fails the cookie is cleared and the API answers 401. The client then goes to
 `/auth/github/login`, so one expired host never logs the person out of another.
+
+### Login on desktop
+
+The desktop app has no cookie and no client secret. `GET /auth/github/login` starts GitHub device
+flow: fuda asks GitHub for a user code, opens GitHub's device page in the system browser and shows
+the code. The page polls `POST /auth/github/device/poll` until the person approves. The token then
+goes to the OS keychain; nothing is written to disk. A token that expires within a minute is
+refreshed if there is a refresh token, otherwise it is forgotten and the API answers 401, as on the
+web. A refresh needs the client secret, which a desktop binary cannot keep, so turn off "Expire user
+authorization tokens" on the App or log in again every 8 hours.
 
 ## The snapshot
 

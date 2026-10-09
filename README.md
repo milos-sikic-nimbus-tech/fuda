@@ -41,6 +41,18 @@ App is installed on, and reads each Board with that person's own token. There is
 no shared password. Boards open at `/github/<owner>/<repo>/`; `/` lists them, or opens the only one.
 Set up the App in the [Self-host guide](api/internal/guide/pages/08-self-host.md).
 
+## Desktop app
+
+Download the archive for your system from the latest GitHub Release, unpack it and open `fuda-desktop`
+(macOS) or `fuda-desktop.exe` (Windows). Log in with GitHub: fuda shows a code and opens GitHub, where
+you type it. The login token stays in your OS keychain. The app updates itself from new releases.
+
+The builds are not signed, so your system warns the first time:
+
+- **macOS:** "fuda-desktop cannot be opened". Right-click the file, choose Open, then Open again. Or
+  run `xattr -d com.apple.quarantine fuda-desktop`.
+- **Windows:** SmartScreen says "Windows protected your PC". Choose More info, then Run anyway.
+
 ## License
 
 MIT

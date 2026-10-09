@@ -1,7 +1,12 @@
 SHELL := /bin/bash
 ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
-.PHONY: dev dev-api dev-client check check-api check-client fmt build client docker clean
+.PHONY: dev dev-api dev-client check check-api check-client fmt build client docker desktop desktop-macos desktop-windows clean
+
+VERSION ?= dev
+GITHUB_CLIENT_ID ?=
+ARCH ?= $(shell go env GOARCH)
+DESKTOP_LDFLAGS := -X main.version=$(VERSION) -X main.githubClientID=$(GITHUB_CLIENT_ID)
 
 dev:
 	$(MAKE) -j2 dev-api dev-client
@@ -33,6 +38,16 @@ client: client/node_modules
 
 build: client
 	go -C api build -o ../bin/fuda ./cmd/fuda
+
+desktop: desktop-macos desktop-windows
+
+desktop-macos: client
+	CGO_ENABLED=1 GOOS=darwin GOARCH=$(ARCH) MACOSX_DEPLOYMENT_TARGET=13.0 CGO_LDFLAGS=-mmacosx-version-min=13.0 \
+		go -C api build -trimpath -ldflags="-s -w $(DESKTOP_LDFLAGS)" -o ../bin/fuda-desktop ./cmd/fuda-desktop
+
+desktop-windows: client
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+		go -C api build -trimpath -ldflags="-s -w -H=windowsgui $(DESKTOP_LDFLAGS)" -o ../bin/fuda-desktop.exe ./cmd/fuda-desktop
 
 docker:
 	docker build -t fuda .
