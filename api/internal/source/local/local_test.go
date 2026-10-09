@@ -155,3 +155,22 @@ func TestALocalBoardHasNoInReview(t *testing.T) {
 		}
 	}
 }
+
+func TestAFolderThatCannotBeWrittenIsReadOnly(t *testing.T) {
+	root := writeTree(t, map[string]string{"tasks/T-1.md": taskFile("")})
+	s := openBoard(t, root)
+	if err := os.Chmod(filepath.Join(root, "tasks"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "tasks"), 0o755) })
+	if f, err := os.CreateTemp(filepath.Join(root, "tasks"), "probe"); err == nil {
+		_ = f.Close()
+		t.Skip("this user can write to read-only folders")
+	}
+
+	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+
+	if !errors.Is(err, board.ErrForbidden) {
+		t.Errorf("want forbidden, got %v", err)
+	}
+}

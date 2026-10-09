@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 
 	"fuda/internal/board"
@@ -76,4 +77,18 @@ func replaceFile(disk string, content []byte, mode fs.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), disk)
+}
+
+func (s *Source) CanWrite(context.Context) (bool, error) {
+	dir, err := s.diskPath(path.Join(s.boardDir, "tasks", "x"))
+	if err != nil {
+		return false, err
+	}
+	probe, err := os.CreateTemp(filepath.Dir(dir), ".fuda-probe-*")
+	if err != nil {
+		return false, nil
+	}
+	_ = probe.Close()
+	_ = os.Remove(probe.Name())
+	return true, nil
 }
