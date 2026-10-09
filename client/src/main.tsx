@@ -18,7 +18,15 @@ const queryClient = new QueryClient({
   }),
 })
 
-const router = createRouter({ routeTree, basepath: BOARD_PREFIX || '/', context: { queryClient } })
+const webViewScheme = !window.location.protocol.startsWith('http')
+
+// The router treats any non-http address, such as the desktop app's wails://, as an external link.
+const router = createRouter({
+  routeTree,
+  basepath: BOARD_PREFIX || '/',
+  context: { queryClient },
+  origin: webViewScheme ? 'http://localhost' : undefined,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {
