@@ -16,7 +16,7 @@ import (
 type api struct {
 	log    *slog.Logger
 	boards *board.Boards
-	login  Login
+	logins []Login
 }
 
 type boardHost struct {
@@ -82,14 +82,24 @@ func (a api) withToken(w http.ResponseWriter, r *http.Request, host string) (con
 	if host == "local" {
 		return r.Context(), nil
 	}
-	if a.login == nil || a.login.Host() != host {
+	login := a.loginFor(host)
+	if login == nil {
 		return nil, board.ErrNotFound
 	}
-	token, err := a.login.Token(w, r)
+	token, err := login.Token(w, r)
 	if err != nil {
 		return nil, board.ErrUnauthorized
 	}
 	return board.WithToken(r.Context(), token), nil
+}
+
+func (a api) loginFor(host string) Login {
+	for _, login := range a.logins {
+		if login.Host() == host {
+			return login
+		}
+	}
+	return nil
 }
 
 type boardListing struct {
@@ -99,21 +109,51 @@ type boardListing struct {
 	Title string `json:"title"`
 }
 
+type hostStatus struct {
+	Host     string `json:"host"`
+	LoggedIn bool   `json:"loggedIn"`
+	Login    string `json:"login"`
+	Error    string `json:"error,omitempty"`
+}
+
+type boardListResponse struct {
+	Boards []boardListing `json:"boards"`
+	Hosts  []hostStatus   `json:"hosts"`
+}
+
 func (a api) boardList(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if a.login != nil {
-		var err error
-		if ctx, err = a.withToken(w, r, a.login.Host()); err != nil {
-			a.result(w, nil, err)
-			return
-		}
+	response := boardListResponse{Boards: []boardListing{}, Hosts: []hostStatus{}}
+	if ids, err := a.boards.List(r.Context(), "local"); err == nil {
+		response.Boards = append(response.Boards, listings(ids)...)
 	}
-	ids, err := a.boards.List(ctx)
+	for _, login := range a.logins {
+		status := hostStatus{Host: login.Host(), Login: "/auth/" + login.Host() + "/login"}
+		ctx, err := a.withToken(w, r, login.Host())
+		if err == nil {
+			var ids []board.BoardID
+			ids, err = a.boards.List(ctx, login.Host())
+			response.Boards = append(response.Boards, listings(ids)...)
+		}
+		switch {
+		case err == nil:
+			status.LoggedIn = true
+		case errors.Is(err, board.ErrUnauthorized):
+		default:
+			a.log.Warn("could not list Boards", "host", login.Host(), "error", err)
+			status.LoggedIn = true
+			status.Error = "could not list Boards"
+		}
+		response.Hosts = append(response.Hosts, status)
+	}
+	a.json(w, http.StatusOK, response)
+}
+
+func listings(ids []board.BoardID) []boardListing {
 	listing := make([]boardListing, 0, len(ids))
 	for _, id := range ids {
 		listing = append(listing, boardListing{Host: id.Host, Repo: id.Repo, Path: id.Path(), Title: path.Base(id.Repo)})
 	}
-	a.result(w, listing, err)
+	return listing
 }
 
 func (a api) board(w http.ResponseWriter, r *http.Request, service *board.Service) {
@@ -229,11 +269,7 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 	case errors.Is(err, board.ErrNotFound):
 		a.json(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	case errors.Is(err, board.ErrUnauthorized):
-		body := map[string]string{"error": "login required"}
-		if a.login != nil {
-			body["login"] = "/auth/" + a.login.Host() + "/login"
-		}
-		a.json(w, http.StatusUnauthorized, body)
+		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
 	case errors.Is(err, board.ErrLocked):

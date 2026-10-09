@@ -83,8 +83,9 @@ files only if the head differs from the snapshot. A caller the host refuses gets
 repository for them), 403 or 401 and never sees the cached snapshot. A Board whose first read fails
 is forgotten again, so unknown paths do not pile up in memory.
 
-On GitHub and Azure DevOps the token comes from the person's login. The `local` source reads
-the folder in `FUDA_LOCAL_PATH` and has no login; its folder is the only Board listed.
+On GitHub and Azure DevOps the token comes from the person's login for that Board's host. A person can
+be logged in to both at once: `FUDA_SOURCE=github,azure` starts one login per host. The `local` source
+reads the folder in `FUDA_LOCAL_PATH` and has no login; it stands alone and its folder is the only Board listed.
 
 ## Login
 
@@ -109,7 +110,8 @@ HTTP-only and `SameSite=Lax`. It holds the access token, the refresh token and t
 that expires within a minute is refreshed on the way in; GitHub refresh tokens work once, so one
 refresh at a time runs and its result is remembered for a minute for requests still carrying the old
 cookie. If refresh fails the cookie is cleared and the API answers 401. The client then goes to
-`/auth/github/login`, so one expired host never logs the person out of another.
+`/auth/<host>/login`, so one expired host never logs the person out of another. Each host has its own
+cookie (`fuda_github`, `fuda_azure`), so logging out of one leaves the other alone.
 
 ### Login on desktop
 
@@ -118,7 +120,8 @@ flow: fuda asks GitHub for a user code, opens GitHub's device page in the system
 the code. The page polls `POST /auth/github/device/poll` until the person approves. The token then
 goes to the OS keychain; nothing is written to disk. A token that expires within a minute is
 refreshed if there is a refresh token, otherwise it is forgotten and the API answers 401, as on the
-web. A refresh needs the client secret, which a desktop binary cannot keep, so turn off "Expire user
+web. Each host has its own keychain entry (`fuda` / `github`, `fuda` / `azure`). The app serves every
+host whose client id is set (`FUDA_GITHUB_CLIENT_ID`, `FUDA_AZURE_CLIENT_ID`, or the built-in ones). A refresh needs the client secret, which a desktop binary cannot keep, so turn off "Expire user
 authorization tokens" on the App or log in again every 8 hours.
 
 ## The snapshot
@@ -300,8 +303,9 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `POST …/sync` | 202, or 429 inside the cooldown. |
 | `POST …/tasks/{id}/move` | Body `{"seen": "<status the client showed>", "column": "<column id>"}`, `application/json`. 204 when committed. 409 with a message when `status` changed first. 403 for archived Tasks, PR-derived Stages and sources that cannot write. 401 when the login expired. |
 | `POST …/tasks/{id}/assign` | Body `{"seen": ["<owners the client showed>"], "owners": ["<short names>"]}`, `application/json`. 204 when committed. 409 with a message when the owners changed first. 403 for archived Tasks and sources that cannot write. 401 when the login expired. |
-| `GET /api/boards` | The Boards the caller can open: `host`, `repo`, `path`, `title`. On GitHub this is the caller's `fuda-` repositories; 401 when not logged in. |
-| `GET /auth/github/login?return=`, `GET /auth/github/callback`, `POST /auth/github/logout` | The GitHub login flow (only with `FUDA_SOURCE=github`). `return` must be a path on this site. |
+| `GET /api/boards` | `{boards, hosts}`. `boards` are the Boards the caller can open on every host they are logged in to: `host`, `repo`, `path`, `title`. `hosts` has one entry per login host: `host`, `loggedIn`, `login` (where to log in), and `error` when that host's list failed. Always 200: a host without a login only shows `loggedIn: false`. |
+| `GET /auth/<host>/login?return=`, `GET /auth/<host>/callback`, `POST /auth/<host>/logout` | The login flow of `github` or `azure` (only when `FUDA_SOURCE` includes it). `return` must be a path on this site. Logout clears only that host. |
+| `POST /auth/logout` | Clears every host's login. 204. |
 | `GET /healthz` | 200. |
 | anything else | The SPA. Hashed files under `/assets/` are cached for a year; `index.html` is `no-cache`. |
 

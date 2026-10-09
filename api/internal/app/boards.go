@@ -35,7 +35,7 @@ func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, er
 		}
 		return local.New(cfg.LocalPath, docsRoot, workBranch), hostLinks{origin: board.Origin{Host: "local", Repo: id.Repo}}, nil
 	case "github":
-		if cfg.Source != config.SourceGitHub {
+		if !cfg.Has(config.SourceGitHub) {
 			return nil, hostLinks{}, board.ErrNotFound
 		}
 		gh := github.New(id.Repo, docsRoot)
@@ -46,7 +46,7 @@ func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, er
 		}, nil
 	case "azure":
 		org, project, name, ok := splitAzure(id.Repo)
-		if !ok || cfg.Source != config.SourceAzure {
+		if !ok || !cfg.Has(config.SourceAzure) {
 			return nil, hostLinks{}, board.ErrNotFound
 		}
 		repo := azure.Repo{Org: org, Project: project, Name: name}
@@ -69,21 +69,23 @@ func splitAzure(repo string) (org, project, name string, ok bool) {
 }
 
 func envBoard(cfg config.Config) board.BoardID {
-	if cfg.Source != config.SourceLocal {
+	if !cfg.Has(config.SourceLocal) {
 		return board.BoardID{}
 	}
 	return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
 }
 
-func listBoards(cfg config.Config) func(context.Context) ([]board.BoardID, error) {
-	return func(ctx context.Context) ([]board.BoardID, error) {
-		switch cfg.Source {
-		case config.SourceGitHub:
+func listBoards(cfg config.Config) func(context.Context, string) ([]board.BoardID, error) {
+	return func(ctx context.Context, host string) ([]board.BoardID, error) {
+		switch {
+		case host == "github" && cfg.Has(config.SourceGitHub):
 			return boardIDs(ctx, "github", github.ListBoards)
-		case config.SourceAzure:
+		case host == "azure" && cfg.Has(config.SourceAzure):
 			return boardIDs(ctx, "azure", azure.ListBoards)
+		case host == "local" && cfg.Has(config.SourceLocal):
+			return []board.BoardID{envBoard(cfg)}, nil
 		}
-		return []board.BoardID{envBoard(cfg)}, nil
+		return nil, nil
 	}
 }
 

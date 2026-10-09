@@ -1,4 +1,5 @@
 import { BOARD_PREFIX, loginPath } from './boardPath'
+import type { BoardListData } from './hosts'
 
 export type Column = {
   id: string
@@ -99,8 +100,7 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetch(url, init)
   if (res.status === 401 && redirectToLogin) {
-    const body = await res.json().catch(() => ({}))
-    window.location.assign(loginPath(window.location.pathname + window.location.search, body.login))
+    window.location.assign(loginPath(window.location.pathname + window.location.search))
     return new Promise<T>(() => {})
   }
   if (!res.ok) {
@@ -113,7 +113,7 @@ async function request<T>(
 const scoped = `/api${BOARD_PREFIX}`
 
 export const api = {
-  boards: () => request<BoardListing[]>('/api/boards'),
+  boards: () => request<BoardListData>('/api/boards'),
   board: () => request<BoardData>(`${scoped}/board`),
   task: (id: string) => request<TaskDetail>(`${scoped}/tasks/${encodeURIComponent(id)}`),
   search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),

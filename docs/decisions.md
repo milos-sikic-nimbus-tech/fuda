@@ -109,8 +109,9 @@ updates [architecture.md](architecture.md).
     with default Stages and a hint.
   - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built. So is Microsoft
     Entra ID for Azure DevOps: a confidential client on the web, the OAuth device code on desktop
-    (plain HTTP, no MSAL library), scope `user_impersonation`. Each process serves one host
-    (`FUDA_SOURCE`). Still to build: logging in to both hosts at once and per-host logout. Whether
+    (plain HTTP, no MSAL library), scope `user_impersonation`. One process serves
+    both hosts at once (`FUDA_SOURCE=github,azure`), with one cookie or keychain entry per host,
+    per-host logout and "Log out of all". Whether
     people can consent to the Azure DevOps scope without an admin depends on the tenant's consent
     policy; not checked against a real tenant yet. A narrower `vso.code_write` scope is not used.
     Read-only Boards: Azure DevOps asks the Contribute permission of the repository.
@@ -123,7 +124,7 @@ updates [architecture.md](architecture.md).
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
     UI. The web shell is self-hosted at the host's own cost. The desktop app logs in to GitHub or Azure DevOps
     (device flow, keychain, self-update from GitHub Releases). Still to build there: "Open
-    folder…" and remembered folders, both hosts at once, per-host logout.
+    folder…" and remembered folders.
   - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code

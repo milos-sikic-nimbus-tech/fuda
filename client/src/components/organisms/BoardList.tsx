@@ -1,22 +1,30 @@
 import { useEffect } from 'react'
 import { HostIcon } from '@/components/atoms/HostIcon'
-import { useBoards } from '@/lib/queries'
+import { Button } from '@/components/ui/button'
+import { loginPath } from '@/lib/boardPath'
+import { hostLabel, loginRedirect, logOut, onlyBoard } from '@/lib/hosts'
+import { useBoardListing } from '@/lib/queries'
 
 export function BoardList() {
-  const { data: boards, error } = useBoards()
-  const only = boards?.length === 1 ? boards[0] : undefined
+  const { data, error } = useBoardListing()
+  const only = data && onlyBoard(data)
+  const redirect = data && loginRedirect(data)
 
   useEffect(() => {
     if (only) window.location.replace(only.path)
-  }, [only])
+    else if (redirect) window.location.replace(loginPath('/', redirect))
+  }, [only, redirect])
 
   if (error) {
     return (
       <p className="p-6 text-sm text-muted-foreground">Could not list Boards: {error.message}</p>
     )
   }
-  if (!boards || only) return <p className="p-6 text-sm text-muted-foreground">Loading Boards…</p>
-  if (boards.length === 0) {
+  if (!data || only || redirect) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading Boards…</p>
+  }
+  const { boards, hosts } = data
+  if (boards.length === 0 && hosts.every((host) => host.loggedIn)) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
         No Boards yet. Create a repository whose name starts with <code>fuda-</code> (on GitHub,
@@ -40,6 +48,29 @@ export function BoardList() {
           </li>
         ))}
       </ul>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {hosts.map((host) =>
+          host.loggedIn ? (
+            <Button
+              key={host.host}
+              variant="outline"
+              size="sm"
+              onClick={() => void logOut(host.host)}
+            >
+              Log out of {hostLabel(host.host)}
+            </Button>
+          ) : (
+            <Button key={host.host} size="sm" asChild>
+              <a href={loginPath('/', host.login)}>Log in to {hostLabel(host.host)}</a>
+            </Button>
+          ),
+        )}
+        {hosts.length > 1 && hosts.some((host) => host.loggedIn) && (
+          <Button variant="ghost" size="sm" onClick={() => void logOut()}>
+            Log out of all
+          </Button>
+        )}
+      </div>
     </main>
   )
 }

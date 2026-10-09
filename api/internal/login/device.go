@@ -202,10 +202,14 @@ func (d *Device) poll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Device) logout(w http.ResponseWriter, _ *http.Request) {
-	d.mu.Lock()
-	d.forget()
-	d.mu.Unlock()
+	d.Logout(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (d *Device) Logout(http.ResponseWriter) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.forget()
 }
 
 func writeStatus(w http.ResponseWriter, body map[string]any) {

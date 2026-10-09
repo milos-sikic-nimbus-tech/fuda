@@ -36,7 +36,7 @@ func (id BoardID) valid() bool {
 
 type Boards struct {
 	open func(BoardID) (*Service, error)
-	list func(context.Context) ([]BoardID, error)
+	list func(ctx context.Context, host string) ([]BoardID, error)
 	log  *slog.Logger
 
 	opening  singleflight.Group
@@ -44,12 +44,12 @@ type Boards struct {
 	services map[BoardID]*Service
 }
 
-func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(context.Context) ([]BoardID, error)) *Boards {
+func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(ctx context.Context, host string) ([]BoardID, error)) *Boards {
 	return &Boards{open: open, list: list, log: log, services: map[BoardID]*Service{}}
 }
 
-func (b *Boards) List(ctx context.Context) ([]BoardID, error) {
-	return b.list(ctx)
+func (b *Boards) List(ctx context.Context, host string) ([]BoardID, error) {
+	return b.list(ctx, host)
 }
 
 func (b *Boards) Get(ctx context.Context, id BoardID) (*Service, error) {

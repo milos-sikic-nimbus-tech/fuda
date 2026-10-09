@@ -23,7 +23,7 @@ export const keys = {
   guidePage: (slug: string) => ['guide', slug] as const,
 }
 
-export function useBoards() {
+export function useBoardListing() {
   return useQuery({ queryKey: keys.boards, queryFn: api.boards, staleTime: 5 * 60_000 })
 }
 

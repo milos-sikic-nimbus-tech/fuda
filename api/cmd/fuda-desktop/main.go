@@ -2,6 +2,7 @@ package main
 
 import (
 	"cmp"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -32,42 +33,44 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	clientID := githubClientID
-	if fromEnv := os.Getenv("FUDA_GITHUB_CLIENT_ID"); fromEnv != "" {
-		clientID = fromEnv
-	}
 	cacheRoot, err := os.UserCacheDir()
 	if err != nil {
 		return err
 	}
 	cfg := config.Config{
-		Source:         config.SourceGitHub,
-		GitHubClientID: clientID,
-		SyncCooldown:   30 * time.Second,
-		CacheDir:       filepath.Join(cacheRoot, "fuda"),
+		SyncCooldown: 30 * time.Second,
+		CacheDir:     filepath.Join(cacheRoot, "fuda"),
 	}
 
-	deviceConfig := login.DeviceConfig{
-		Host:         "github",
-		ClientID:     clientID,
-		ClientSecret: os.Getenv("FUDA_GITHUB_CLIENT_SECRET"),
-	}
-	if os.Getenv("FUDA_SOURCE") == string(config.SourceAzure) {
-		cfg.Source = config.SourceAzure
-		deviceConfig = login.DeviceConfig{
+	var desktop *application.App
+	var logins []httpapi.Login
+	for _, hostConfig := range []login.DeviceConfig{
+		{
+			Host:         "github",
+			ClientID:     cmp.Or(os.Getenv("FUDA_GITHUB_CLIENT_ID"), githubClientID),
+			ClientSecret: os.Getenv("FUDA_GITHUB_CLIENT_SECRET"),
+		},
+		{
 			Host:     "azure",
 			ClientID: cmp.Or(os.Getenv("FUDA_AZURE_CLIENT_ID"), azureClientID),
 			Tenant:   cmp.Or(os.Getenv("FUDA_AZURE_TENANT"), "organizations"),
+		},
+	} {
+		if hostConfig.ClientID == "" {
+			continue
 		}
+		hostConfig.Store = keychain.New(hostConfig.Host)
+		hostConfig.Open = func(url string) error { return desktop.Browser.OpenURL(url) }
+		logins = append(logins, login.NewDevice(log, hostConfig))
+		cfg.Sources = append(cfg.Sources, config.Source(hostConfig.Host))
 	}
-	var desktop *application.App
-	deviceConfig.Store = keychain.New(deviceConfig.Host)
-	deviceConfig.Open = func(url string) error { return desktop.Browser.OpenURL(url) }
-	device := login.NewDevice(log, deviceConfig)
+	if len(logins) == 0 {
+		return errors.New("no login is set up: set FUDA_GITHUB_CLIENT_ID or FUDA_AZURE_CLIENT_ID")
+	}
 	desktop = application.New(application.Options{
 		Name: "fuda",
 		Assets: application.AssetOptions{
-			Handler: httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), device),
+			Handler: httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), logins...),
 		},
 	})
 

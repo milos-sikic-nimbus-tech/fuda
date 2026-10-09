@@ -168,8 +168,12 @@ func (g *Web) callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Web) logout(w http.ResponseWriter, _ *http.Request) {
-	g.clear(w, g.session, "/")
+	g.Logout(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (g *Web) Logout(w http.ResponseWriter) {
+	g.clear(w, g.session, "/")
 }
 
 func (g *Web) storeSession(w http.ResponseWriter, token Token) {

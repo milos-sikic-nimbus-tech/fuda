@@ -45,7 +45,7 @@ func TestAPISmoke(t *testing.T) {
 		"docs/board/TASKS.md":            "# Task rules\n\nClaim first.\n",
 		"docs/board/assets/flow.png":     "\x89PNG fake",
 	})
-	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"test": root}), fstest.MapFS{}, nil))
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"test": root}), fstest.MapFS{}))
 	defer server.Close()
 	base := server.URL + "/api/local/test"
 
@@ -122,7 +122,7 @@ func testBoards(t *testing.T, folders map[string]string) *board.Boards {
 			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
 			Cooldown: time.Minute, Origin: board.Origin{Host: "local", Repo: id.Repo, Path: id.Path()},
 		}), nil
-	}, func(context.Context) ([]board.BoardID, error) {
+	}, func(context.Context, string) ([]board.BoardID, error) {
 		var ids []board.BoardID
 		for folder := range folders {
 			ids = append(ids, board.BoardID{Host: "local", Repo: folder})
@@ -134,7 +134,7 @@ func testBoards(t *testing.T, folders map[string]string) *board.Boards {
 func TestBoardsAreServedByPath(t *testing.T) {
 	one := writeRepo(t, map[string]string{"docs/board/tasks/ONE-1.md": "---\nid: ONE-1\ntitle: First\nstatus: backlog\n---\nSee [rules](../TASKS.md).\n", "docs/board/TASKS.md": "# Rules\n"})
 	two := writeRepo(t, map[string]string{"docs/board/tasks/TWO-1.md": "---\nid: TWO-1\ntitle: Second\nstatus: backlog\n---\n"})
-	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"one": one, "two": two}), fstest.MapFS{}, nil))
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), testBoards(t, map[string]string{"one": one, "two": two}), fstest.MapFS{}))
 	defer server.Close()
 
 	for folder, card := range map[string]string{"one": "ONE-1", "two": "TWO-1"} {
@@ -185,6 +185,8 @@ func (headerLogin) Token(_ http.ResponseWriter, r *http.Request) (string, error)
 
 func (headerLogin) Routes(*http.ServeMux) {}
 
+func (headerLogin) Logout(http.ResponseWriter) {}
+
 func (headerLogin) Host() string { return "github" }
 
 type azureHeaderLogin struct{ headerLogin }
@@ -195,7 +197,7 @@ func TestAnAzureLoginServesAzureBoardsOnly(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
 		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, func(context.Context) ([]board.BoardID, error) {
+	}, func(context.Context, string) ([]board.BoardID, error) {
 		return []board.BoardID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
 	})
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, azureHeaderLogin{}))
@@ -237,7 +239,7 @@ func TestGitHubBoardsNeedALogin(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
 		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, func(ctx context.Context) ([]board.BoardID, error) {
+	}, func(ctx context.Context, _ string) ([]board.BoardID, error) {
 		if board.TokenFrom(ctx) != "member" {
 			return nil, board.ErrForbidden
 		}
@@ -269,7 +271,6 @@ func TestGitHubBoardsNeedALogin(t *testing.T) {
 	}
 
 	get("/api/github/o/fuda-tasks/board", "", http.StatusUnauthorized, nil)
-	get("/api/boards", "", http.StatusUnauthorized, nil)
 
 	var b struct{ Cards []struct{ ID string } }
 	get("/api/github/o/fuda-tasks/board", "member", http.StatusOK, &b)
@@ -279,9 +280,11 @@ func TestGitHubBoardsNeedALogin(t *testing.T) {
 	get("/api/github/o/fuda-tasks/board", "stranger", http.StatusNotFound, nil)
 	get("/api/github/o/fuda-tasks/board", "banned", http.StatusForbidden, nil)
 
-	var listing []struct{ Host, Repo, Path, Title string }
+	var listing struct {
+		Boards []struct{ Host, Repo, Path, Title string }
+	}
 	get("/api/boards", "member", http.StatusOK, &listing)
-	if len(listing) != 1 || listing[0].Path != "/github/o/fuda-tasks" || listing[0].Title != "fuda-tasks" {
+	if len(listing.Boards) != 1 || listing.Boards[0].Path != "/github/o/fuda-tasks" || listing.Boards[0].Title != "fuda-tasks" {
 		t.Errorf("listing: %+v", listing)
 	}
 }

@@ -28,11 +28,11 @@ docker run -p 8080:8080 -v fuda-data:/data \
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FUDA_SOURCE` | `github` | `github`, `azure` or `local` |
+| `FUDA_SOURCE` | `github` | `github`, `azure`, `local`, or `github,azure` for both hosts at once |
 | `FUDA_BASE_URL` | | Public address of fuda, used for the login callback |
 | `FUDA_COOKIE_SECRET` | | Encrypts the login cookie. Changing it logs everyone out |
 | `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET` | | The GitHub App's client id and secret |
-| `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (with `FUDA_SOURCE=azure`) |
+| `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (when `FUDA_SOURCE` includes `azure`) |
 | `FUDA_AZURE_TENANT` | `organizations` | The Entra tenant that may log in. Use your tenant id for a single-tenant app |
 | `FUDA_TITLE` | repository name | Shown in the header of the `local` Board |
 | `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |

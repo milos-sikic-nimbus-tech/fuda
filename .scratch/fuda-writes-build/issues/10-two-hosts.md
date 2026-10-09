@@ -4,11 +4,11 @@
 
 **Blocked by:** 09: Azure DevOps login, Boards and writes
 
-**Status:** ready-for-agent
+**Status:** in-progress: built and tested; the by-hand check needs real GitHub and Azure DevOps logins
 
-- [ ] Picker shows Boards from both hosts
-- [ ] Logging out of one host keeps the other working
-- [ ] "Log out of all" clears both
-- [ ] The desktop app has one keychain entry per host and the same per-host logout
+- [x] Picker shows Boards from both hosts
+- [x] Logging out of one host keeps the other working
+- [x] "Log out of all" clears both
+- [x] The desktop app has one keychain entry per host and the same per-host logout
 
 Spec: `.scratch/fuda-writes/spec.md`.

@@ -214,3 +214,14 @@ func TestAzureDeviceLoginUsesItsOwnRoutesAndScope(t *testing.T) {
 		t.Errorf("poll: %s, stored %q", w.Body, store.token.Access)
 	}
 }
+
+func TestDeviceLogoutMethodClearsTheStore(t *testing.T) {
+	store := &memoryStore{token: Token{Access: "tok"}}
+	var opened []string
+	d := newDevice(t, newFakeDeviceGitHub(t), store, &opened)
+
+	d.Logout(httptest.NewRecorder())
+	if !store.deleted {
+		t.Fatal("token stayed in the store")
+	}
+}

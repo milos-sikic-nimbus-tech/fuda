@@ -25,17 +25,27 @@ func main() {
 	}
 }
 
-func newLogin(log *slog.Logger, cfg config.Config) (httpapi.Login, error) {
-	web := login.Config{CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL}
-	switch cfg.Source {
-	case config.SourceGitHub:
-		web.ClientID, web.ClientSecret = cfg.GitHubClientID, cfg.GitHubClientSecret
-		return login.NewGitHub(log, web)
-	case config.SourceAzure:
-		web.ClientID, web.ClientSecret, web.Tenant = cfg.AzureClientID, cfg.AzureClientSecret, cfg.AzureTenant
-		return login.NewAzure(log, web)
+func newLogins(log *slog.Logger, cfg config.Config) ([]httpapi.Login, error) {
+	var logins []httpapi.Login
+	if cfg.Has(config.SourceGitHub) {
+		github, err := login.NewGitHub(log, login.Config{
+			ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL,
+		})
+		if err != nil {
+			return nil, err
+		}
+		logins = append(logins, github)
 	}
-	return nil, nil
+	if cfg.Has(config.SourceAzure) {
+		azure, err := login.NewAzure(log, login.Config{
+			Tenant: cfg.AzureTenant, ClientID: cfg.AzureClientID, ClientSecret: cfg.AzureClientSecret, CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL,
+		})
+		if err != nil {
+			return nil, err
+		}
+		logins = append(logins, azure)
+	}
+	return logins, nil
 }
 
 func run(log *slog.Logger) error {
@@ -47,14 +57,14 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	hostLogin, err := newLogin(log, cfg)
+	logins, err := newLogins(log, cfg)
 	if err != nil {
 		return err
 	}
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), hostLogin),
+		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), logins...),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
@@ -62,7 +72,7 @@ func run(log *slog.Logger) error {
 
 	errs := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", cfg.Addr, "source", cfg.Source)
+		log.Info("listening", "addr", cfg.Addr, "sources", cfg.Sources)
 		errs <- server.ListenAndServe()
 	}()
 

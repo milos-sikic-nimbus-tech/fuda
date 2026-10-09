@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -22,8 +23,8 @@ type Config struct {
 	BaseURL      string `env:"FUDA_BASE_URL"`
 	CookieSecret string `env:"FUDA_COOKIE_SECRET"`
 
-	Source    Source `env:"FUDA_SOURCE" envDefault:"github"`
-	LocalPath string `env:"FUDA_LOCAL_PATH"`
+	Sources   []Source `env:"FUDA_SOURCE" envDefault:"github"`
+	LocalPath string   `env:"FUDA_LOCAL_PATH"`
 
 	GitHubClientID     string `env:"FUDA_GITHUB_CLIENT_ID"`
 	GitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
@@ -45,22 +46,31 @@ func Load() (Config, error) {
 	return cfg, cfg.validate()
 }
 
+func (c Config) Has(source Source) bool {
+	return slices.Contains(c.Sources, source)
+}
+
 func (c Config) validate() error {
-	switch c.Source {
-	case SourceLocal:
-		if c.LocalPath == "" {
-			return fmt.Errorf("FUDA_SOURCE=local needs FUDA_LOCAL_PATH")
+	if c.Has(SourceLocal) && len(c.Sources) > 1 {
+		return fmt.Errorf("FUDA_SOURCE=local cannot be combined with other sources")
+	}
+	for _, source := range c.Sources {
+		switch source {
+		case SourceLocal:
+			if c.LocalPath == "" {
+				return fmt.Errorf("FUDA_SOURCE=local needs FUDA_LOCAL_PATH")
+			}
+		case SourceGitHub:
+			if c.GitHubClientID == "" || c.GitHubClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
+				return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID, FUDA_GITHUB_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
+			}
+		case SourceAzure:
+			if c.AzureClientID == "" || c.AzureClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
+				return fmt.Errorf("FUDA_SOURCE=azure needs FUDA_AZURE_CLIENT_ID, FUDA_AZURE_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
+			}
+		default:
+			return fmt.Errorf("unknown FUDA_SOURCE %q: use local, github or azure (github,azure for both)", source)
 		}
-	case SourceGitHub:
-		if c.GitHubClientID == "" || c.GitHubClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
-			return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID, FUDA_GITHUB_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
-		}
-	case SourceAzure:
-		if c.AzureClientID == "" || c.AzureClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
-			return fmt.Errorf("FUDA_SOURCE=azure needs FUDA_AZURE_CLIENT_ID, FUDA_AZURE_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
-		}
-	default:
-		return fmt.Errorf("unknown FUDA_SOURCE %q: use local, github or azure", c.Source)
 	}
 	return nil
 }

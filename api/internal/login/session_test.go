@@ -253,3 +253,13 @@ func TestAzureLoginAsksForTheAzureDevOpsScopeAndKeepsItsOwnCookie(t *testing.T) 
 		t.Errorf("host %q", g.Host())
 	}
 }
+
+func TestLogoutMethodClearsOnlyItsOwnHostCookie(t *testing.T) {
+	g := newLogin(t, newFakeGitHub(t))
+	w := httptest.NewRecorder()
+	g.Logout(w)
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != "fuda_github" || cookies[0].MaxAge >= 0 {
+		t.Errorf("%+v", cookies)
+	}
+}
