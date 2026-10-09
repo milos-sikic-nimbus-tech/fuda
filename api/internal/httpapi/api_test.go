@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -247,5 +249,89 @@ func TestGitHubBoardsNeedALogin(t *testing.T) {
 	get("/api/boards", "member", http.StatusOK, &listing)
 	if len(listing) != 1 || listing[0].Path != "/github/o/fuda-tasks" || listing[0].Title != "fuda-tasks" {
 		t.Errorf("listing: %+v", listing)
+	}
+}
+
+type movableSource struct {
+	mu      sync.Mutex
+	content string
+	version int
+	editor  string
+}
+
+func (m *movableSource) Head(context.Context, string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return strconv.Itoa(m.version), nil
+}
+
+func (m *movableSource) Files(context.Context, string) (map[string][]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return map[string][]byte{"docs/board/tasks/A-1.md": []byte(m.content)}, nil
+}
+
+func (m *movableSource) ReadFile(context.Context, string, string) ([]byte, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return []byte(m.content), strconv.Itoa(m.version), nil
+}
+
+func (m *movableSource) WriteFile(_ context.Context, _, _ string, content []byte, version, _ string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if version != strconv.Itoa(m.version) {
+		return board.ErrChanged
+	}
+	m.content = string(content)
+	m.version++
+	return nil
+}
+
+func (m *movableSource) LastEditor(context.Context, string, string) (string, error) {
+	return m.editor, nil
+}
+
+func TestMoveThroughTheHandler(t *testing.T) {
+	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
+	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
+		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+	}, nil)
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
+	defer server.Close()
+
+	move := func(token, contentType, body string, status int) string {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/github/o/fuda-tasks/tasks/A-1/move", strings.NewReader(body))
+		req.Header.Set("Content-Type", contentType)
+		if token != "" {
+			req.Header.Set("X-Test-Token", token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = res.Body.Close() }()
+		out, _ := io.ReadAll(res.Body)
+		if res.StatusCode != status {
+			t.Fatalf("status %d, want %d: %s", res.StatusCode, status, out)
+		}
+		return string(out)
+	}
+	const json = "application/json"
+
+	move("", json, `{"seen":"backlog","column":"in-progress"}`, http.StatusUnauthorized)
+	move("member", "text/plain", `{"seen":"backlog","column":"in-progress"}`, http.StatusUnsupportedMediaType)
+	move("member", json, `nonsense`, http.StatusBadRequest)
+	move("member", json, `{"seen":"backlog","column":"in-review"}`, http.StatusForbidden)
+
+	move("member", json, `{"seen":"backlog","column":"in-progress"}`, http.StatusNoContent)
+	if !strings.Contains(source.content, "status: in progress\n") {
+		t.Errorf("file after the move: %q", source.content)
+	}
+
+	body := move("member", json, `{"seen":"backlog","column":"testing"}`, http.StatusConflict)
+	if !strings.Contains(body, "Ben moved this to In progress just now") {
+		t.Errorf("conflict body: %s", body)
 	}
 }

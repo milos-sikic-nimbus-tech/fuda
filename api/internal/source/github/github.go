@@ -198,13 +198,20 @@ func (s *Source) get(ctx context.Context, path, accept string) ([]byte, error) {
 }
 
 func (s *Source) send(ctx context.Context, path, accept, ifNoneMatch string) (response, error) {
+	return s.exchange(ctx, http.MethodGet, path, accept, ifNoneMatch, nil)
+}
+
+func (s *Source) exchange(ctx context.Context, method, path, accept, ifNoneMatch string, payload []byte) (response, error) {
 	token := board.TokenFrom(ctx)
 	if token == "" {
 		return response{}, board.ErrUnauthorized
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.base+path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, s.base+path, bytes.NewReader(payload))
 	if err != nil {
 		return response{}, err
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	if accept != "" {
 		req.Header.Set("Accept", accept)

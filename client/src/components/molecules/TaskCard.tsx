@@ -90,10 +90,18 @@ export function TaskCard({
   card,
   column,
   prLink,
+  saving,
+  draggable,
+  onDragStart,
+  onDragEnd,
 }: {
   card: Card
   column: Column
   prLink?: string
+  saving: boolean
+  draggable: boolean
+  onDragStart: () => void
+  onDragEnd: () => void
 }) {
   const { search, toggle, openTask } = useBoardSearch()
   const selectedLabels = listOf(search.label)
@@ -105,6 +113,14 @@ export function TaskCard({
     <div
       role="button"
       tabIndex={0}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', card.id)
+        onDragStart()
+      }}
+      onDragEnd={onDragEnd}
+      aria-busy={saving}
       onClick={() => openTask(card.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -116,6 +132,7 @@ export function TaskCard({
         'group cursor-pointer rounded-lg border border-border bg-card px-3 py-2.5 text-left shadow-[0_1px_1px_rgb(0_0_0/0.03)] transition-[border-color,box-shadow]',
         'hover:border-foreground/15 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
         search.task === card.id && 'border-primary/60 ring-2 ring-primary/20',
+        draggable && 'active:cursor-grabbing',
       )}
     >
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -125,6 +142,15 @@ export function TaskCard({
           </Hint>
         )}
         <span className="font-mono tracking-tight">{card.id}</span>
+        {saving && (
+          <Hint label="Saving to git">
+            <span
+              role="status"
+              aria-label="Saving"
+              className="size-1.5 animate-pulse rounded-full bg-amber-500"
+            />
+          </Hint>
+        )}
         <span className="ml-auto flex -space-x-1">
           {card.owners.map((owner) => (
             <Avatar

@@ -39,13 +39,14 @@ func (a api) routes(mux *http.ServeMux) {
 			prefix += "/{" + param + "}"
 		}
 		for pattern, handler := range map[string]boardHandler{
-			"GET /board":      a.board,
-			"GET /tasks/{id}": a.task,
-			"GET /search":     a.search,
-			"GET /archive":    a.archive,
-			"GET /docs":       a.doc,
-			"GET /files":      a.file,
-			"POST /sync":      a.sync,
+			"GET /board":            a.board,
+			"GET /tasks/{id}":       a.task,
+			"POST /tasks/{id}/move": a.move,
+			"GET /search":           a.search,
+			"GET /archive":          a.archive,
+			"GET /docs":             a.doc,
+			"GET /files":            a.file,
+			"POST /sync":            a.sync,
 		} {
 			method, suffix, _ := strings.Cut(pattern, " ")
 			mux.HandleFunc(method+" "+prefix+suffix, a.onBoard(host, handler))
@@ -128,6 +129,24 @@ func (a api) task(w http.ResponseWriter, r *http.Request, service *board.Service
 	a.result(w, view, err)
 }
 
+func (a api) move(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		a.json(w, http.StatusUnsupportedMediaType, map[string]string{"error": "send application/json"})
+		return
+	}
+	var req board.MoveRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
+		a.json(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	req.TaskID = r.PathValue("id")
+	if err := service.Move(r.Context(), req); err != nil {
+		a.result(w, nil, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a api) search(w http.ResponseWriter, r *http.Request, service *board.Service) {
 	a.json(w, http.StatusOK, service.Search(r.URL.Query().Get("q")))
 }
@@ -175,6 +194,7 @@ func (a api) sync(w http.ResponseWriter, r *http.Request, service *board.Service
 }
 
 func (a api) result(w http.ResponseWriter, v any, err error) {
+	var conflict *board.ConflictError
 	switch {
 	case errors.Is(err, board.ErrNotFound):
 		a.json(w, http.StatusNotFound, map[string]string{"error": "not found"})
@@ -182,6 +202,10 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
+	case errors.Is(err, board.ErrLocked):
+		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+	case errors.As(err, &conflict):
+		a.json(w, http.StatusConflict, map[string]string{"error": conflict.Message})
 	case err != nil:
 		a.log.Error("request failed", "error", err)
 		a.json(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})

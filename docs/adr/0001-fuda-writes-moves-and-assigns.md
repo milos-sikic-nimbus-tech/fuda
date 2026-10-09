@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # fuda writes Moves and Assigns through git

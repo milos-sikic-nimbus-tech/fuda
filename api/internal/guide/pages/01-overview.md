@@ -1,12 +1,16 @@
 # What fuda is
 
-fuda is a read-only board over a git repository. Each task is a markdown file in
+fuda is a board over a git repository. Each task is a markdown file in
 `docs/board/tasks/`, and its frontmatter (`status`, `owner`, `labels`, …) is its state. fuda reads
 those files from GitHub, Azure DevOps or a local checkout and shows them as a board, an insights
 view, an archive and a reader for the repository's docs.
 
-fuda never writes to the repository. People, and their AI agents, move tasks with ordinary
-commits. The browser asks for changes about every 5 seconds, so the board follows a push within
+People, and their AI agents, move tasks with ordinary commits. On GitHub, people can also drag a
+card to another column. fuda then commits one change to the task file as the person who dragged:
+the `status` line, and `claimed` set to today the first time the task leaves the first column.
+Nothing else in the file changes, and fuda never force-pushes. If someone changed the task's
+status first, the card goes back and a message says who moved it. Archived tasks and the
+In review column cannot be dragged to or from. The browser asks for changes about every 5 seconds, so the board follows a push within
 about 10 seconds.
 
 ```mermaid

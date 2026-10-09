@@ -90,9 +90,13 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  url: string,
+  init?: RequestInit,
+  { redirectToLogin = true }: { redirectToLogin?: boolean } = {},
+): Promise<T> {
   const res = await fetch(url, init)
-  if (res.status === 401) {
+  if (res.status === 401 && redirectToLogin) {
     window.location.assign(loginPath(window.location.pathname + window.location.search))
     return new Promise<T>(() => {})
   }
@@ -100,7 +104,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.error ?? res.statusText)
   }
-  return res.status === 202 ? (undefined as T) : res.json()
+  return res.status === 202 || res.status === 204 ? (undefined as T) : res.json()
 }
 
 const scoped = `/api${BOARD_PREFIX}`
@@ -112,6 +116,16 @@ export const api = {
   search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),
   archive: () => request<Card[]>(`${scoped}/archive`),
   doc: (path: string) => request<DocDetail>(`${scoped}/docs?path=${encodeURIComponent(path)}`),
+  move: (id: string, seen: string, column: string) =>
+    request<void>(
+      `${scoped}/tasks/${encodeURIComponent(id)}/move`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen, column }),
+      },
+      { redirectToLogin: false },
+    ),
   sync: () => request<void>(`${scoped}/sync`, { method: 'POST' }),
   guide: () => request<GuidePage[]>('/api/guide'),
   guidePage: (slug: string) => request<GuideContent>(`/api/guide/${encodeURIComponent(slug)}`),

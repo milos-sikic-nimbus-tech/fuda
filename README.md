@@ -1,11 +1,12 @@
 # fuda
 
-A read-only kanban board and doc reader for teams that keep their tasks as markdown files in git.
+A kanban board and doc reader for teams that keep their tasks as markdown files in git.
 
 Each task is one file in `docs/board/tasks/` with YAML frontmatter (`status`, `owner`, `labels`, …).
 fuda reads them from GitHub, Azure DevOps or a local checkout, and shows them as a board with filters,
-a task reader and the repo's docs. It never writes to the repo: people (and their AI agents) move
-tasks with ordinary commits.
+a task reader and the repo's docs. People (and their AI agents) move tasks with ordinary commits.
+On GitHub a person can also drag a card to another Stage: fuda commits that one `status` change as
+the logged-in user.
 
 > Status: early development, in use on two repositories.
 

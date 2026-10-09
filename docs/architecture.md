@@ -52,8 +52,8 @@ declared where they are used.
 |---|---|
 | `cmd/fuda` | Reads config, picks the source, wires the service and the HTTP server, graceful shutdown. |
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
-| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. Declares `Source` and the optional `ReviewSource`. |
-| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. |
+| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
+| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. `edit.go`: the pure Move edit, which changes the `status` line (and adds `claimed` once) and leaves every other byte alone. |
 | `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
@@ -218,6 +218,35 @@ sequenceDiagram
 
 The statuses and who changes them are in the Guide's workflow page.
 
+## Move
+
+A Move is one commit to one Task file, made with the caller's own token (so the host shows them as
+the author). `board.Service.Move` does this:
+
+```mermaid
+flowchart TD
+  R["POST …/tasks/{id}/move<br/>seen status, target column"] --> C{"archived, or a<br/>PR-derived column?"}
+  C -- yes --> F["403"]
+  C -- no --> READ["read the file and its version"]
+  READ --> SAME{"status still<br/>equals seen?"}
+  SAME -- no --> L["409: who moved it, and to where"]
+  SAME -- yes --> EDIT["taskfiles.ApplyMove: status line,<br/>claimed once"] --> W["write, compare-and-swap<br/>on the file version"]
+  W -- changed since read --> N{"4 tries used?"}
+  N -- no --> READ
+  N -- yes --> L2["409: the task keeps changing"]
+  W -- ok --> SYNC["sync, then 204"]
+```
+
+`claimed` is set to today only when the Task leaves the first column, has no `claimed` value, and
+moves to another column. fuda never changes a `claimed` value that exists. The write goes to the
+work branch (`develop`). GitHub implements `Writer` with the contents API (the file's blob SHA is
+the version; a 409 is "changed since read"). Local and Azure DevOps do not, so a Move there is 403.
+
+The client keeps no copy of the board for a Move. While a Move is saving, the pending Move is
+overlaid on the polled board (`applyPendingMoves`), which also stops the card being dragged
+again. When the request ends, the board is refetched and the overlay is gone, so a failed Move
+shows the card back in its real column.
+
 ## HTTP API
 
 Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<owner>/<repo>/board`. An unknown Board, or one the caller cannot read, is 404. No login is 401 (`login required`); a host refusal is 403 (`no access`).
@@ -232,6 +261,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `GET …/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
 | `POST …/sync` | 202, or 429 inside the cooldown. |
+| `POST …/tasks/{id}/move` | Body `{"seen": "<status the client showed>", "column": "<column id>"}`, `application/json`. 204 when committed. 409 with a message when `status` changed first. 403 for archived Tasks, PR-derived Stages and sources that cannot write. 401 when the login expired. |
 | `GET /api/boards` | The Boards the caller can open: `host`, `repo`, `path`, `title`. On GitHub this is the caller's `fuda-` repositories; 401 when not logged in. |
 | `GET /auth/github/login?return=`, `GET /auth/github/callback`, `POST /auth/github/logout` | The GitHub login flow (only with `FUDA_SOURCE=github`). `return` must be a path on this site. |
 | `GET /healthz` | 200. |

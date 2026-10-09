@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Tasks live in their own repository
