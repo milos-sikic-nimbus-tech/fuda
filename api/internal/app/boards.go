@@ -46,14 +46,11 @@ func newSource(cfg config.Config, id board.BoardID) (board.Source, hostLinks, er
 		}, nil
 	case "azure":
 		org, project, name, ok := splitAzure(id.Repo)
-		if !ok || (cfg.AzurePAT == "" && cfg.AzureBearer == "") {
+		if !ok || cfg.Source != config.SourceAzure {
 			return nil, hostLinks{}, board.ErrNotFound
 		}
 		repo := azure.Repo{Org: org, Project: project, Name: name}
-		az := azure.WithPAT(repo, cfg.AzurePAT, docsRoot)
-		if cfg.AzurePAT == "" {
-			az = azure.WithBearer(repo, cfg.AzureBearer, docsRoot)
-		}
+		az := azure.New(repo, docsRoot)
 		return az, hostLinks{
 			code:   az.CodeURL(workBranch),
 			pr:     az.PRLink(),
@@ -72,30 +69,34 @@ func splitAzure(repo string) (org, project, name string, ok bool) {
 }
 
 func envBoard(cfg config.Config) board.BoardID {
-	switch cfg.Source {
-	case config.SourceAzure:
-		return board.BoardID{Host: "azure", Repo: cfg.AzureOrg + "/" + cfg.AzureProject + "/" + cfg.AzureRepo}
-	case config.SourceLocal:
-		return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
+	if cfg.Source != config.SourceLocal {
+		return board.BoardID{}
 	}
-	return board.BoardID{}
+	return board.BoardID{Host: "local", Repo: filepath.Base(filepath.Clean(cfg.LocalPath))}
 }
 
 func listBoards(cfg config.Config) func(context.Context) ([]board.BoardID, error) {
 	return func(ctx context.Context) ([]board.BoardID, error) {
-		if cfg.Source != config.SourceGitHub {
-			return []board.BoardID{envBoard(cfg)}, nil
+		switch cfg.Source {
+		case config.SourceGitHub:
+			return boardIDs(ctx, "github", github.ListBoards)
+		case config.SourceAzure:
+			return boardIDs(ctx, "azure", azure.ListBoards)
 		}
-		repos, err := github.ListBoards(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ids := make([]board.BoardID, len(repos))
-		for i, repo := range repos {
-			ids[i] = board.BoardID{Host: "github", Repo: repo}
-		}
-		return ids, nil
+		return []board.BoardID{envBoard(cfg)}, nil
 	}
+}
+
+func boardIDs(ctx context.Context, host string, list func(context.Context) ([]string, error)) ([]board.BoardID, error) {
+	repos, err := list(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]board.BoardID, len(repos))
+	for i, repo := range repos {
+		ids[i] = board.BoardID{Host: host, Repo: repo}
+	}
+	return ids, nil
 }
 
 func NewBoards(log *slog.Logger, cfg config.Config) *board.Boards {

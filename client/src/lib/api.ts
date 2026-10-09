@@ -99,7 +99,8 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetch(url, init)
   if (res.status === 401 && redirectToLogin) {
-    window.location.assign(loginPath(window.location.pathname + window.location.search))
+    const body = await res.json().catch(() => ({}))
+    window.location.assign(loginPath(window.location.pathname + window.location.search, body.login))
     return new Promise<T>(() => {})
   }
   if (!res.ok) {

@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,39 +26,39 @@ type Repo struct {
 	Name    string
 }
 
+const (
+	hostBase     = "https://dev.azure.com"
+	accountsBase = "https://app.vssps.visualstudio.com"
+	boardPrefix  = "fuda-"
+)
+
 func (r Repo) WebURL() string {
-	return "https://dev.azure.com/" + url.PathEscape(r.Org) + "/" + url.PathEscape(r.Project) + "/_git/" + url.PathEscape(r.Name)
+	return hostBase + "/" + url.PathEscape(r.Org) + "/" + url.PathEscape(r.Project) + "/_git/" + url.PathEscape(r.Name)
 }
 
-func (r Repo) apiBase() string {
-	return "https://dev.azure.com/" + url.PathEscape(r.Org) + "/" + url.PathEscape(r.Project) + "/_apis/git/repositories/" + url.PathEscape(r.Name)
+func (r Repo) apiBase(host string) string {
+	return host + "/" + url.PathEscape(r.Org) + "/" + url.PathEscape(r.Project) + "/_apis/git/repositories/" + url.PathEscape(r.Name)
 }
 
 type Source struct {
-	repo          Repo
-	authorization string
-	docsRoot      string
-	base          string
-	client        *http.Client
+	repo     Repo
+	docsRoot string
+	host     string
+	accounts string
+	client   *http.Client
 }
 
-func WithPAT(repo Repo, pat, docsRoot string) *Source {
-	return newSource(repo, "Basic "+base64.StdEncoding.EncodeToString([]byte(":"+pat)), docsRoot)
-}
-
-func WithBearer(repo Repo, token, docsRoot string) *Source {
-	return newSource(repo, "Bearer "+token, docsRoot)
-}
-
-func newSource(repo Repo, authorization, docsRoot string) *Source {
+func New(repo Repo, docsRoot string) *Source {
 	return &Source{
-		repo:          repo,
-		authorization: authorization,
-		docsRoot:      docsRoot,
-		base:          repo.apiBase(),
-		client:        &http.Client{Timeout: 60 * time.Second},
+		repo:     repo,
+		docsRoot: docsRoot,
+		host:     hostBase,
+		accounts: accountsBase,
+		client:   &http.Client{Timeout: 60 * time.Second},
 	}
 }
+
+func (s *Source) base() string { return s.repo.apiBase(s.host) }
 
 func (s *Source) CodeURL(branch string) func(string) string {
 	return func(repoPath string) string {
@@ -78,7 +77,7 @@ func (s *Source) Head(ctx context.Context, branch string) (string, error) {
 			ObjectID string `json:"objectId"`
 		} `json:"value"`
 	}
-	if err := s.getJSON(ctx, "/refs", url.Values{"filter": {"heads/" + branch}}, &out); err != nil {
+	if err := s.getJSON(ctx, s.base(), "/refs", url.Values{"filter": {"heads/" + branch}}, &out); err != nil {
 		return "", err
 	}
 	for _, ref := range out.Value {
@@ -90,19 +89,23 @@ func (s *Source) Head(ctx context.Context, branch string) (string, error) {
 }
 
 func (s *Source) Files(ctx context.Context, branch string) (map[string][]byte, error) {
-	body, err := s.get(ctx, "/items", url.Values{
+	res, err := s.send(ctx, http.MethodGet, s.base()+"/items", url.Values{
 		"path":                          {"/" + s.docsRoot},
 		"$format":                       {"zip"},
 		"download":                      {"true"},
 		"versionDescriptor.version":     {branch},
 		"versionDescriptor.versionType": {"branch"},
-	})
-	if errors.Is(err, errNotFound) {
-		return map[string][]byte{}, nil
-	}
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
+	if res.status == http.StatusNotFound {
+		return map[string][]byte{}, nil
+	}
+	if res.status >= 300 {
+		return nil, res.failure()
+	}
+	body := res.body
 	archive, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return nil, fmt.Errorf("items zip: %w", err)
@@ -144,7 +147,7 @@ func (s *Source) OpenPRs(ctx context.Context, repo string) ([]board.PullRequest,
 			SourceRefName string `json:"sourceRefName"`
 		} `json:"value"`
 	}
-	err := s.getJSONFrom(ctx, code.apiBase(), "/pullrequests", url.Values{
+	err := s.getJSON(ctx, code.apiBase(s.host), "/pullrequests", url.Values{
 		"searchCriteria.status": {"active"},
 		"$top":                  {"100"},
 	}, &pulls)
@@ -166,50 +169,63 @@ func (s *Source) OpenPRs(ctx context.Context, repo string) ([]board.PullRequest,
 	return out, nil
 }
 
-func (s *Source) getJSON(ctx context.Context, path string, query url.Values, v any) error {
-	return s.getJSONFrom(ctx, s.base, path, query, v)
+type response struct {
+	url    string
+	status int
+	body   []byte
 }
 
-func (s *Source) getJSONFrom(ctx context.Context, base, path string, query url.Values, v any) error {
-	body, err := s.fetch(ctx, base, path, query)
+func (r response) failure() error {
+	return fmt.Errorf("azure %s: status %d: %s", r.url, r.status, truncate(r.body))
+}
+
+func (s *Source) getJSON(ctx context.Context, base, path string, query url.Values, v any) error {
+	res, err := s.send(ctx, http.MethodGet, base+path, query, nil)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(body, v)
+	switch {
+	case res.status == http.StatusNotFound:
+		return errNotFound
+	case res.status >= 300:
+		return res.failure()
+	}
+	return json.Unmarshal(res.body, v)
 }
 
-func (s *Source) get(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	return s.fetch(ctx, s.base, path, query)
-}
-
-func (s *Source) fetch(ctx context.Context, base, path string, query url.Values) ([]byte, error) {
+func (s *Source) send(ctx context.Context, method, target string, query url.Values, payload []byte) (response, error) {
+	token := board.TokenFrom(ctx)
+	if token == "" {
+		return response{}, board.ErrUnauthorized
+	}
 	if query == nil {
 		query = url.Values{}
 	}
 	query.Set("api-version", apiVersion)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path+"?"+query.Encode(), nil)
+	req, err := http.NewRequestWithContext(ctx, method, target+"?"+query.Encode(), bytes.NewReader(payload))
 	if err != nil {
-		return nil, err
+		return response{}, err
 	}
-	req.Header.Set("Authorization", s.authorization)
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	res, err := s.client.Do(req)
 	if err != nil {
-		return nil, err
+		return response{}, err
 	}
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return response{}, err
 	}
-	switch {
-	case res.StatusCode == http.StatusNotFound:
-		return nil, errNotFound
-	case res.StatusCode == http.StatusNonAuthoritativeInfo, res.StatusCode == http.StatusUnauthorized:
-		return nil, fmt.Errorf("azure %s: authentication failed (%s); check FUDA_AZURE_PAT", path, res.Status)
-	case res.StatusCode >= 300:
-		return nil, fmt.Errorf("azure %s: %s: %s", path, res.Status, truncate(body))
+	switch res.StatusCode {
+	case http.StatusNonAuthoritativeInfo, http.StatusUnauthorized:
+		return response{}, board.ErrUnauthorized
+	case http.StatusForbidden:
+		return response{}, board.ErrForbidden
 	}
-	return body, nil
+	return response{url: target, status: res.StatusCode, body: body}, nil
 }
 
 func truncate(b []byte) string {

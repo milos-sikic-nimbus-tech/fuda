@@ -15,26 +15,27 @@ import (
 var ErrNotLoggedIn = errors.New("not logged in")
 
 const (
-	sessionCookie = "fuda_github"
-	flowCookie    = "fuda_github_flow"
 	flowLifetime  = 10 * time.Minute
 	refreshMargin = time.Minute
 	memoLifetime  = time.Minute
 )
 
 type Config struct {
+	Tenant       string
 	ClientID     string
 	ClientSecret string
 	CookieSecret string
 	BaseURL      string
 }
 
-type GitHub struct {
-	app    *githubApp
-	sealer sealer
-	secure bool
-	log    *slog.Logger
-	now    func() time.Time
+type Web struct {
+	session string
+	flow    string
+	app     *oauthApp
+	sealer  sealer
+	secure  bool
+	log     *slog.Logger
+	now     func() time.Time
 
 	mu     sync.Mutex
 	recent map[string]refreshed
@@ -51,36 +52,50 @@ type flow struct {
 	Return   string `json:"r"`
 }
 
-func NewGitHub(log *slog.Logger, cfg Config) (*GitHub, error) {
+func NewGitHub(log *slog.Logger, cfg Config) (*Web, error) {
+	return newWeb(log, cfg, newGitHubApp)
+}
+
+func NewAzure(log *slog.Logger, cfg Config) (*Web, error) {
+	return newWeb(log, cfg, func(clientID, clientSecret, redirectURL string) *oauthApp {
+		return newAzureApp(cfg.Tenant, clientID, clientSecret, redirectURL)
+	})
+}
+
+func newWeb(log *slog.Logger, cfg Config, newApp func(clientID, clientSecret, redirectURL string) *oauthApp) (*Web, error) {
 	sealer, err := newSealer(cfg.CookieSecret)
 	if err != nil {
 		return nil, err
 	}
 	base := strings.TrimRight(cfg.BaseURL, "/")
-	return &GitHub{
-		app:    newGitHubApp(cfg.ClientID, cfg.ClientSecret, base+"/auth/github/callback"),
-		sealer: sealer,
-		secure: strings.HasPrefix(base, "https://"),
-		log:    log,
-		now:    time.Now,
-		recent: map[string]refreshed{},
+	app := newApp(cfg.ClientID, cfg.ClientSecret, "")
+	app.redirectURL = base + "/auth/" + app.name + "/callback"
+	return &Web{
+		session: "fuda_" + app.name,
+		flow:    "fuda_" + app.name + "_flow",
+		app:     app,
+		sealer:  sealer,
+		secure:  strings.HasPrefix(base, "https://"),
+		log:     log,
+		now:     time.Now,
+		recent:  map[string]refreshed{},
 	}, nil
 }
 
-func (g *GitHub) Routes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /auth/github/login", g.login)
-	mux.HandleFunc("GET /auth/github/callback", g.callback)
-	mux.HandleFunc("POST /auth/github/logout", g.logout)
+func (g *Web) Routes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /auth/"+g.app.name+"/login", g.login)
+	mux.HandleFunc("GET /auth/"+g.app.name+"/callback", g.callback)
+	mux.HandleFunc("POST /auth/"+g.app.name+"/logout", g.logout)
 }
 
-func (g *GitHub) Token(w http.ResponseWriter, r *http.Request) (string, error) {
-	cookie, err := r.Cookie(sessionCookie)
+func (g *Web) Token(w http.ResponseWriter, r *http.Request) (string, error) {
+	cookie, err := r.Cookie(g.session)
 	if err != nil {
 		return "", ErrNotLoggedIn
 	}
 	var token Token
 	if err := g.sealer.open(cookie.Value, &token); err != nil || token.Access == "" {
-		g.clear(w, sessionCookie, "/")
+		g.clear(w, g.session, "/")
 		return "", ErrNotLoggedIn
 	}
 	if token.Expires.IsZero() || token.Expires.After(g.now().Add(refreshMargin)) {
@@ -88,15 +103,15 @@ func (g *GitHub) Token(w http.ResponseWriter, r *http.Request) (string, error) {
 	}
 	next, err := g.refreshOnce(r, token.Refresh)
 	if err != nil {
-		g.log.Info("github login expired and could not be refreshed", "error", err)
-		g.clear(w, sessionCookie, "/")
+		g.log.Info("login expired and could not be refreshed", "error", err)
+		g.clear(w, g.session, "/")
 		return "", ErrNotLoggedIn
 	}
 	g.storeSession(w, next)
 	return next.Access, nil
 }
 
-func (g *GitHub) refreshOnce(r *http.Request, refreshToken string) (Token, error) {
+func (g *Web) refreshOnce(r *http.Request, refreshToken string) (Token, error) {
 	if refreshToken == "" {
 		return Token{}, errors.New("no refresh token")
 	}
@@ -118,63 +133,63 @@ func (g *GitHub) refreshOnce(r *http.Request, refreshToken string) (Token, error
 	return token, nil
 }
 
-func (g *GitHub) login(w http.ResponseWriter, r *http.Request) {
+func (g *Web) login(w http.ResponseWriter, r *http.Request) {
 	state, verifier := randomString(), randomString()
 	value, err := g.sealer.seal(flow{State: state, Verifier: verifier, Return: safeReturn(r.URL.Query().Get("return"))})
 	if err != nil {
 		http.Error(w, "login failed", http.StatusInternalServerError)
 		return
 	}
-	g.set(w, flowCookie, "/auth/github", value, flowLifetime)
+	g.set(w, g.flow, "/auth/"+g.app.name, value, flowLifetime)
 	challenge := sha256.Sum256([]byte(verifier))
 	http.Redirect(w, r, g.app.authorize(state, base64.RawURLEncoding.EncodeToString(challenge[:])), http.StatusFound)
 }
 
-func (g *GitHub) callback(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(flowCookie)
+func (g *Web) callback(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(g.flow)
 	var started flow
 	if err != nil || g.sealer.open(cookie.Value, &started) != nil || started.State == "" || started.State != r.URL.Query().Get("state") {
 		http.Error(w, "The login did not start here. Open fuda and try again.", http.StatusBadRequest)
 		return
 	}
-	g.clear(w, flowCookie, "/auth/github")
+	g.clear(w, g.flow, "/auth/"+g.app.name)
 	if r.URL.Query().Get("error") != "" {
-		http.Error(w, "GitHub did not let you in: "+r.URL.Query().Get("error"), http.StatusForbidden)
+		http.Error(w, g.app.label+" did not let you in: "+r.URL.Query().Get("error"), http.StatusForbidden)
 		return
 	}
 	token, err := g.app.exchange(r.Context(), r.URL.Query().Get("code"), started.Verifier)
 	if err != nil {
-		g.log.Warn("github login failed", "error", err)
-		http.Error(w, "GitHub login failed. Try again.", http.StatusBadGateway)
+		g.log.Warn(g.app.label+" login failed", "error", err)
+		http.Error(w, g.app.label+" login failed. Try again.", http.StatusBadGateway)
 		return
 	}
 	g.storeSession(w, token)
 	http.Redirect(w, r, started.Return, http.StatusFound)
 }
 
-func (g *GitHub) logout(w http.ResponseWriter, _ *http.Request) {
-	g.clear(w, sessionCookie, "/")
+func (g *Web) logout(w http.ResponseWriter, _ *http.Request) {
+	g.clear(w, g.session, "/")
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (g *GitHub) storeSession(w http.ResponseWriter, token Token) {
+func (g *Web) storeSession(w http.ResponseWriter, token Token) {
 	value, err := g.sealer.seal(token)
 	if err != nil {
 		g.log.Error("seal login cookie", "error", err)
 		return
 	}
 	lifetime := 180 * 24 * time.Hour
-	g.set(w, sessionCookie, "/", value, lifetime)
+	g.set(w, g.session, "/", value, lifetime)
 }
 
-func (g *GitHub) set(w http.ResponseWriter, name, path, value string, lifetime time.Duration) {
+func (g *Web) set(w http.ResponseWriter, name, path, value string, lifetime time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Value: value, Path: path, MaxAge: int(lifetime.Seconds()),
 		HttpOnly: true, Secure: g.secure, SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func (g *GitHub) clear(w http.ResponseWriter, name, path string) {
+func (g *Web) clear(w http.ResponseWriter, name, path string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Path: path, MaxAge: -1, HttpOnly: true, Secure: g.secure, SameSite: http.SameSiteLaxMode,
 	})
@@ -194,3 +209,5 @@ func randomString() string {
 	}
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
+
+func (g *Web) Host() string { return g.app.name }

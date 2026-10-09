@@ -20,4 +20,12 @@ describe('loginPath', () => {
       '/auth/github/login?return=%2Fgithub%2Fo%2Ffuda-x%2Farchive%3Fq%3Da%20b',
     )
   })
+  it('logs in to Azure DevOps from an Azure Board', () => {
+    expect(loginPath('/azure/o/p/fuda-x/board')).toBe(
+      '/auth/azure/login?return=%2Fazure%2Fo%2Fp%2Ffuda-x%2Fboard',
+    )
+  })
+  it('follows the login address the server names', () => {
+    expect(loginPath('/', '/auth/azure/login')).toBe('/auth/azure/login?return=%2F')
+  })
 })

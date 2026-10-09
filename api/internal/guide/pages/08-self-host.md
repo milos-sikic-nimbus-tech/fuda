@@ -32,18 +32,19 @@ docker run -p 8080:8080 -v fuda-data:/data \
 | `FUDA_BASE_URL` | | Public address of fuda, used for the login callback |
 | `FUDA_COOKIE_SECRET` | | Encrypts the login cookie. Changing it logs everyone out |
 | `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET` | | The GitHub App's client id and secret |
-| `FUDA_AZURE_ORG`, `_PROJECT`, `_REPO`, `_PAT` | | Azure DevOps repository and personal access token (no login yet) |
-| `FUDA_TITLE` | repository name | Shown in the header of the `local` or `azure` Board |
+| `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (with `FUDA_SOURCE=azure`) |
+| `FUDA_AZURE_TENANT` | `organizations` | The Entra tenant that may log in. Use your tenant id for a single-tenant app |
+| `FUDA_TITLE` | repository name | Shown in the header of the `local` Board |
 | `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |
 | `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs and pull-request re-reads |
 | `FUDA_CACHE_DIR` | `/data` in the image | Where the last read copy is kept; served at startup until the next read |
 
-`/healthz` never asks for a login. The `local` and `azure` sources have no login yet, so keep such
+`/healthz` never asks for a login. The `local` source has no login, so keep such
 a server on a private network or behind your proxy's authentication.
 
 ## How people see Boards
 
-- Not logged in: every Board page sends you to GitHub to log in, then back.
+- Not logged in: every Board page sends you to GitHub or Microsoft to log in, then back.
 - After login the Board picker in the top bar lists the `fuda-` repositories the app is installed
   on and you can read. `/` opens the only Board, or lists them.
 - No access: the page says so. Check that the app is installed on the repository and that your

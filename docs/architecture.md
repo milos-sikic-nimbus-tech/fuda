@@ -56,7 +56,7 @@ declared where they are used.
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
 | `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
-| `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
+| `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
 | `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). |
@@ -83,9 +83,8 @@ files only if the head differs from the snapshot. A caller the host refuses gets
 repository for them), 403 or 401 and never sees the cached snapshot. A Board whose first read fails
 is forgotten again, so unknown paths do not pile up in memory.
 
-On GitHub the token comes from the person's login. The `local` and `azure` sources still read with
-the server's own access (`FUDA_LOCAL_PATH`, `FUDA_AZURE_PAT`) and have no login. With those sources
-the Board named by the environment is the only one listed.
+On GitHub and Azure DevOps the token comes from the person's login. The `local` source reads
+the folder in `FUDA_LOCAL_PATH` and has no login; its folder is the only Board listed.
 
 ## Login
 

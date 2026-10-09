@@ -7,8 +7,9 @@ export function boardPrefix(pathname: string): string {
   return '/' + [host, ...rest.slice(0, count)].join('/')
 }
 
-export function loginPath(returnTo: string): string {
-  return `/auth/github/login?return=${encodeURIComponent(returnTo)}`
+export function loginPath(returnTo: string, login?: string): string {
+  const base = login ?? `/auth/${returnTo.startsWith('/azure/') ? 'azure' : 'github'}/login`
+  return `${base}?return=${encodeURIComponent(returnTo)}`
 }
 
 export const BOARD_PREFIX =

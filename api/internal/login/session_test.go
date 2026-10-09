@@ -39,6 +39,10 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 			return
 		}
 		f.exchanged.Add(1)
+		if r.Form.Get("grant_type") != "authorization_code" {
+			_, _ = w.Write([]byte(`{"error":"unsupported_grant_type"}`))
+			return
+		}
 		sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
 		if base64.RawURLEncoding.EncodeToString(sum[:]) != f.challenge {
 			_, _ = w.Write([]byte(`{"error":"bad_verification_code"}`))
@@ -50,7 +54,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 	return f
 }
 
-func newLogin(t *testing.T, f *fakeGitHub) *GitHub {
+func newLogin(t *testing.T, f *fakeGitHub) *Web {
 	t.Helper()
 	g, err := NewGitHub(slog.New(slog.DiscardHandler), Config{ClientID: "id", ClientSecret: "secret", CookieSecret: "cookie-secret", BaseURL: "http://fuda.test"})
 	if err != nil {
@@ -63,7 +67,7 @@ func newLogin(t *testing.T, f *fakeGitHub) *GitHub {
 
 func cookiesOf(res *http.Response) []*http.Cookie { return res.Cookies() }
 
-func call(g *GitHub, method, target string, cookies ...*http.Cookie) *http.Response {
+func call(g *Web, method, target string, cookies ...*http.Cookie) *http.Response {
 	mux := http.NewServeMux()
 	g.Routes(mux)
 	r := httptest.NewRequest(method, target, nil)
@@ -75,7 +79,7 @@ func call(g *GitHub, method, target string, cookies ...*http.Cookie) *http.Respo
 	return w.Result()
 }
 
-func logIn(t *testing.T, g *GitHub, f *fakeGitHub, returnTo string) *http.Cookie {
+func logIn(t *testing.T, g *Web, f *fakeGitHub, returnTo string) *http.Cookie {
 	t.Helper()
 	start := call(g, "GET", "/auth/github/login?return="+url.QueryEscape(returnTo))
 	if start.StatusCode != http.StatusFound {
@@ -93,7 +97,7 @@ func logIn(t *testing.T, g *GitHub, f *fakeGitHub, returnTo string) *http.Cookie
 		t.Fatalf("callback: %d to %q", done.StatusCode, done.Header.Get("Location"))
 	}
 	for _, c := range done.Cookies() {
-		if c.Name == sessionCookie {
+		if c.Name == "fuda_github" {
 			if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || strings.Contains(c.Value, "user-token") {
 				t.Errorf("session cookie must be http-only, lax and sealed: %+v", c)
 			}
@@ -104,7 +108,7 @@ func logIn(t *testing.T, g *GitHub, f *fakeGitHub, returnTo string) *http.Cookie
 	return nil
 }
 
-func token(g *GitHub, cookie *http.Cookie) (string, *httptest.ResponseRecorder, error) {
+func token(g *Web, cookie *http.Cookie) (string, *httptest.ResponseRecorder, error) {
 	r := httptest.NewRequest("GET", "/", nil)
 	if cookie != nil {
 		r.AddCookie(cookie)
@@ -126,7 +130,7 @@ func TestLoginKeepsTheTokenInAnEncryptedCookie(t *testing.T) {
 	if _, _, err := token(g, nil); !errors.Is(err, ErrNotLoggedIn) {
 		t.Errorf("no cookie: %v", err)
 	}
-	if _, _, err := token(g, &http.Cookie{Name: sessionCookie, Value: "garbage"}); !errors.Is(err, ErrNotLoggedIn) {
+	if _, _, err := token(g, &http.Cookie{Name: "fuda_github", Value: "garbage"}); !errors.Is(err, ErrNotLoggedIn) {
 		t.Errorf("garbage cookie: %v", err)
 	}
 }
@@ -190,7 +194,7 @@ func TestAFailedRefreshSendsTheUserBackToLogin(t *testing.T) {
 	}
 	cleared := false
 	for _, c := range w.Result().Cookies() {
-		cleared = cleared || (c.Name == sessionCookie && c.MaxAge < 0)
+		cleared = cleared || (c.Name == "fuda_github" && c.MaxAge < 0)
 	}
 	if !cleared {
 		t.Error("the dead login cookie was kept")
@@ -202,5 +206,50 @@ func TestLogoutClearsTheCookie(t *testing.T) {
 	res := call(g, "POST", "/auth/github/logout")
 	if res.StatusCode != http.StatusNoContent || len(res.Cookies()) == 0 || res.Cookies()[0].MaxAge >= 0 {
 		t.Errorf("%d %+v", res.StatusCode, res.Cookies())
+	}
+}
+
+func TestAzureLoginAsksForTheAzureDevOpsScopeAndKeepsItsOwnCookie(t *testing.T) {
+	f := newFakeGitHub(t)
+	g, err := NewAzure(slog.New(slog.DiscardHandler), Config{Tenant: "organizations", ClientID: "id", ClientSecret: "secret", CookieSecret: "cookie-secret", BaseURL: "http://fuda.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.app.tokenURL = f.server.URL
+	g.app.client = f.server.Client()
+	start := call(g, "GET", "/auth/azure/login?return=/azure/o/p/fuda-x/board")
+	target, err := url.Parse(start.Header.Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Host != "login.microsoftonline.com" || target.Path != "/organizations/oauth2/v2.0/authorize" {
+		t.Errorf("authorize url: %s", target)
+	}
+	if target.Query().Get("response_type") != "code" {
+		t.Errorf("response_type: %q", target.Query().Get("response_type"))
+	}
+	if target.Query().Get("scope") != AzureScope || target.Query().Get("redirect_uri") != "http://fuda.test/auth/azure/callback" {
+		t.Errorf("query: %v", target.Query())
+	}
+	f.challenge = target.Query().Get("code_challenge")
+	done := call(g, "GET", "/auth/azure/callback?code=abc&state="+url.QueryEscape(target.Query().Get("state")), cookiesOf(start)...)
+	if done.StatusCode != http.StatusFound || done.Header.Get("Location") != "/azure/o/p/fuda-x/board" {
+		t.Fatalf("callback: %d %s", done.StatusCode, done.Header.Get("Location"))
+	}
+	var session *http.Cookie
+	for _, c := range cookiesOf(done) {
+		if c.Name == "fuda_azure" {
+			session = c
+		}
+	}
+	if session == nil {
+		t.Fatal("no fuda_azure cookie")
+	}
+	got, _, err := token(g, session)
+	if err != nil || got != "user-token" {
+		t.Errorf("token %q, %v", got, err)
+	}
+	if g.Host() != "azure" {
+		t.Errorf("host %q", g.Host())
 	}
 }

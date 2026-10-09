@@ -4,11 +4,11 @@
 
 **Blocked by:** 05: Assign on GitHub
 
-**Status:** ready-for-agent
+**Status:** in-progress: built and unit tested; the by-hand checks need a real Azure DevOps repository and Entra app
 
 - [ ] Login, Board list, Move and Assign work against a real Azure DevOps test repo (checked by hand)
-- [ ] Azure source satisfies the same board interfaces as GitHub
-- [ ] Guide and README updated
-- [ ] The desktop app logs in to Azure DevOps with MSAL device code; the token is in the OS keychain
+- [x] Azure source satisfies the same board interfaces as GitHub
+- [x] Guide and README updated
+- [x] The desktop app logs in to Azure DevOps with the device code (plain HTTP, not MSAL); the token is in the OS keychain (`FUDA_SOURCE=azure`)
 
 Spec: `.scratch/fuda-writes/spec.md`.

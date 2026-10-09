@@ -185,6 +185,40 @@ func (headerLogin) Token(_ http.ResponseWriter, r *http.Request) (string, error)
 
 func (headerLogin) Routes(*http.ServeMux) {}
 
+func (headerLogin) Host() string { return "github" }
+
+type azureHeaderLogin struct{ headerLogin }
+
+func (azureHeaderLogin) Host() string { return "azure" }
+
+func TestAnAzureLoginServesAzureBoardsOnly(t *testing.T) {
+	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
+	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
+		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+	}, func(context.Context) ([]board.BoardID, error) {
+		return []board.BoardID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
+	})
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, azureHeaderLogin{}))
+	defer server.Close()
+
+	status := func(path string) int {
+		req, _ := http.NewRequest(http.MethodGet, server.URL+path, nil)
+		req.Header.Set("X-Test-Token", "member")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		return res.StatusCode
+	}
+	if got := status("/api/azure/acme/Team/fuda-tasks/board"); got != http.StatusOK {
+		t.Errorf("azure board: %d", got)
+	}
+	if got := status("/api/github/o/fuda-tasks/board"); got != http.StatusNotFound {
+		t.Errorf("github board on an azure login: %d", got)
+	}
+}
+
 type memberSource struct{ files map[string][]byte }
 
 func (m memberSource) Head(ctx context.Context, _ string) (string, error) {

@@ -37,12 +37,12 @@ function RootLayout() {
         {error instanceof ApiError && error.status === 404 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No Board at this address, or you cannot see it. The repository name must start with{' '}
-            <code>fuda-</code>, the fuda GitHub App must be installed on it, and your GitHub account
-            must have access to it.
+            <code>fuda-</code>, on GitHub the fuda GitHub App must be installed on it, and your
+            account must have access to it.
           </p>
         ) : error instanceof ApiError && error.status === 403 ? (
           <p className="p-6 text-sm text-muted-foreground">
-            GitHub says you have no access to this Board. Ask the repository owner to give you
+            The host says you have no access to this Board. Ask the repository owner to give you
             access.
           </p>
         ) : (

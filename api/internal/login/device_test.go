@@ -183,3 +183,34 @@ func TestDeviceLogoutClearsTheStore(t *testing.T) {
 		t.Fatalf("err = %v, want ErrNotLoggedIn after logout", err)
 	}
 }
+
+func TestAzureDeviceLoginUsesItsOwnRoutesAndScope(t *testing.T) {
+	var scope string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if strings.HasSuffix(r.URL.Path, "/devicecode") {
+			scope = r.Form.Get("scope")
+			_, _ = w.Write([]byte(`{"device_code":"dev","user_code":"WXYZ","verification_uri":"https://microsoft.com/devicelogin","interval":5}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"azure-token","refresh_token":"r","expires_in":3600}`))
+	}))
+	t.Cleanup(server.Close)
+	store := &memoryStore{}
+	d := NewDevice(slog.New(slog.DiscardHandler), DeviceConfig{Host: "azure", Tenant: "organizations", ClientID: "id", Store: store})
+	d.app.deviceURL = server.URL + "/devicecode"
+	d.app.tokenURL = server.URL + "/token"
+	d.app.client = server.Client()
+
+	page := deviceCall(d, "GET", "/auth/azure/login?return=/azure/o/p/fuda-x/")
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "WXYZ") || !strings.Contains(page.Body.String(), "/auth/azure/device/poll") {
+		t.Fatalf("page: %d %s", page.Code, page.Body)
+	}
+	if scope != AzureScope {
+		t.Errorf("scope %q", scope)
+	}
+	w := deviceCall(d, "POST", "/auth/azure/device/poll")
+	if !strings.Contains(w.Body.String(), "done") || store.token.Access != "azure-token" {
+		t.Errorf("poll: %s, stored %q", w.Body, store.token.Access)
+	}
+}

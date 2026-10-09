@@ -25,16 +25,17 @@ func main() {
 	}
 }
 
-func newGitHubLogin(log *slog.Logger, cfg config.Config) (httpapi.GitHubLogin, error) {
-	if cfg.Source != config.SourceGitHub {
-		return nil, nil
+func newLogin(log *slog.Logger, cfg config.Config) (httpapi.Login, error) {
+	web := login.Config{CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL}
+	switch cfg.Source {
+	case config.SourceGitHub:
+		web.ClientID, web.ClientSecret = cfg.GitHubClientID, cfg.GitHubClientSecret
+		return login.NewGitHub(log, web)
+	case config.SourceAzure:
+		web.ClientID, web.ClientSecret, web.Tenant = cfg.AzureClientID, cfg.AzureClientSecret, cfg.AzureTenant
+		return login.NewAzure(log, web)
 	}
-	return login.NewGitHub(log, login.Config{
-		ClientID:     cfg.GitHubClientID,
-		ClientSecret: cfg.GitHubClientSecret,
-		CookieSecret: cfg.CookieSecret,
-		BaseURL:      cfg.BaseURL,
-	})
+	return nil, nil
 }
 
 func run(log *slog.Logger) error {
@@ -46,14 +47,14 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	githubLogin, err := newGitHubLogin(log, cfg)
+	hostLogin, err := newLogin(log, cfg)
 	if err != nil {
 		return err
 	}
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), githubLogin),
+		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg), web.Dist(), hostLogin),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,

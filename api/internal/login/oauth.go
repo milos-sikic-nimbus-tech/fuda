@@ -13,7 +13,7 @@ import (
 
 var (
 	errAuthorizationPending = errors.New("authorization pending")
-	errSlowDown             = errors.New("github asked to poll slower")
+	errSlowDown             = errors.New("the login server asked to poll slower")
 )
 
 type Token struct {
@@ -22,7 +22,10 @@ type Token struct {
 	Expires time.Time `json:"e,omitzero"`
 }
 
-type githubApp struct {
+type oauthApp struct {
+	name         string
+	label        string
+	scope        string
 	clientID     string
 	clientSecret string
 	redirectURL  string
@@ -33,8 +36,10 @@ type githubApp struct {
 	now          func() time.Time
 }
 
-func newGitHubApp(clientID, clientSecret, redirectURL string) *githubApp {
-	return &githubApp{
+func newGitHubApp(clientID, clientSecret, redirectURL string) *oauthApp {
+	return &oauthApp{
+		name:         "github",
+		label:        "GitHub",
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		redirectURL:  redirectURL,
@@ -46,34 +51,59 @@ func newGitHubApp(clientID, clientSecret, redirectURL string) *githubApp {
 	}
 }
 
-func (g *githubApp) authorize(state, challenge string) string {
+func newAzureApp(tenant, clientID, clientSecret, redirectURL string) *oauthApp {
+	authority := "https://login.microsoftonline.com/" + url.PathEscape(tenant) + "/oauth2/v2.0"
+	return &oauthApp{
+		name:         "azure",
+		label:        "Azure DevOps",
+		scope:        AzureScope,
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		redirectURL:  redirectURL,
+		authorizeURL: authority + "/authorize",
+		tokenURL:     authority + "/token",
+		deviceURL:    authority + "/devicecode",
+		client:       &http.Client{Timeout: 30 * time.Second},
+		now:          time.Now,
+	}
+}
+
+func (g *oauthApp) authorize(state, challenge string) string {
 	query := url.Values{
+		"response_type":         {"code"},
 		"client_id":             {g.clientID},
 		"redirect_uri":          {g.redirectURL},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 	}
+	if g.scope != "" {
+		query.Set("scope", g.scope)
+	}
 	return g.authorizeURL + "?" + query.Encode()
 }
 
-func (g *githubApp) exchange(ctx context.Context, code, verifier string) (Token, error) {
+func (g *oauthApp) exchange(ctx context.Context, code, verifier string) (Token, error) {
 	return g.token(ctx, url.Values{
+		"grant_type":    {"authorization_code"},
 		"code":          {code},
 		"redirect_uri":  {g.redirectURL},
 		"code_verifier": {verifier},
 	})
 }
 
-func (g *githubApp) refresh(ctx context.Context, refreshToken string) (Token, error) {
+func (g *oauthApp) refresh(ctx context.Context, refreshToken string) (Token, error) {
 	return g.token(ctx, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
 	})
 }
 
-func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
+func (g *oauthApp) token(ctx context.Context, form url.Values) (Token, error) {
 	form.Set("client_id", g.clientID)
+	if g.scope != "" {
+		form.Set("scope", g.scope)
+	}
 	if g.clientSecret != "" {
 		form.Set("client_secret", g.clientSecret)
 	}
@@ -96,7 +126,7 @@ func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
 		Description  string `json:"error_description"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return Token{}, fmt.Errorf("github token response: %w", err)
+		return Token{}, fmt.Errorf("%s token response: %w", g.label, err)
 	}
 	switch body.Error {
 	case "authorization_pending":
@@ -105,10 +135,10 @@ func (g *githubApp) token(ctx context.Context, form url.Values) (Token, error) {
 		return Token{}, errSlowDown
 	}
 	if body.Error != "" {
-		return Token{}, fmt.Errorf("github refused the token request: %s: %s", body.Error, body.Description)
+		return Token{}, fmt.Errorf("%s refused the token request: %s: %s", g.label, body.Error, body.Description)
 	}
 	if body.AccessToken == "" {
-		return Token{}, errors.New("github sent no access token")
+		return Token{}, fmt.Errorf("%s sent no access token", g.label)
 	}
 	token := Token{Access: body.AccessToken, Refresh: body.RefreshToken}
 	if body.ExpiresIn > 0 {
@@ -126,8 +156,11 @@ type deviceCode struct {
 	Description     string `json:"error_description"`
 }
 
-func (g *githubApp) startDevice(ctx context.Context) (deviceCode, error) {
+func (g *oauthApp) startDevice(ctx context.Context) (deviceCode, error) {
 	form := url.Values{"client_id": {g.clientID}}
+	if g.scope != "" {
+		form.Set("scope", g.scope)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.deviceURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return deviceCode{}, err
@@ -141,20 +174,22 @@ func (g *githubApp) startDevice(ctx context.Context) (deviceCode, error) {
 	defer func() { _ = res.Body.Close() }()
 	var code deviceCode
 	if err := json.NewDecoder(res.Body).Decode(&code); err != nil {
-		return deviceCode{}, fmt.Errorf("github device response: %w", err)
+		return deviceCode{}, fmt.Errorf("%s device response: %w", g.label, err)
 	}
 	if code.Error != "" {
-		return deviceCode{}, fmt.Errorf("github refused the device login: %s: %s", code.Error, code.Description)
+		return deviceCode{}, fmt.Errorf("%s refused the device login: %s: %s", g.label, code.Error, code.Description)
 	}
 	if code.DeviceCode == "" || code.UserCode == "" {
-		return deviceCode{}, errors.New("github sent no device code")
+		return deviceCode{}, fmt.Errorf("%s sent no device code", g.label)
 	}
 	return code, nil
 }
 
-func (g *githubApp) pollDevice(ctx context.Context, code string) (Token, error) {
+func (g *oauthApp) pollDevice(ctx context.Context, code string) (Token, error) {
 	return g.token(ctx, url.Values{
 		"device_code": {code},
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
 	})
 }
+
+const AzureScope = "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation offline_access"

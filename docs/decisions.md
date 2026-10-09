@@ -69,8 +69,7 @@ with a proposal.
 - **Filtering runs in the browser.** The board payload carries frontmatter only, and every filter
   is a URL parameter, so views are shareable and the server stays simple.
 - **No shared password and no server host token.** Access to a GitHub Board is decided by GitHub.
-  The `local` and `azure` sources still use the server's own access and have no login until the
-  tickets for them land; keep such a server on a private network.
+  The `local` source has no login until its ticket lands; keep such a server on a private network.
 - **Configuration is environment only.** Typed and validated at start; no config files for fuda
   itself.
 
@@ -108,21 +107,23 @@ updates [architecture.md](architecture.md).
     them in a picker in the top bar. URLs start with the host: `/github/<owner>/<repo>/`,
     `/azure/<org>/<project>/<repo>/`, `/local/<folder>/`. An empty `fuda-` repo is an empty Board
     with default Stages and a hint.
-  - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built.
-    Still to build: Microsoft Entra ID for Azure DevOps (confidential client on the web, MSAL device
-    code on desktop), logging in to both hosts at once, per-host logout, and writing with the
-    user's token on Azure DevOps. Read-only Boards are built for GitHub; Azure DevOps still needs its
-    write check.
-  - **Move and Assign (rest).** Built for GitHub, including read-only Boards: fuda asks GitHub
+  - **Login (rest).** GitHub web login and, on desktop, device flow with the OS keychain are built. So is Microsoft
+    Entra ID for Azure DevOps: a confidential client on the web, the OAuth device code on desktop
+    (plain HTTP, no MSAL library), scope `user_impersonation`. Each process serves one host
+    (`FUDA_SOURCE`). Still to build: logging in to both hosts at once and per-host logout. Whether
+    people can consent to the Azure DevOps scope without an admin depends on the tenant's consent
+    policy; not checked against a real tenant yet. A narrower `vso.code_write` scope is not used.
+    Read-only Boards: Azure DevOps asks the Contribute permission of the repository.
+  - **Move and Assign (rest).** Built for GitHub and Azure DevOps, including read-only Boards: fuda asks GitHub
     whether the account can push, keeps the answer for a minute, and refuses Move and Assign
-    for read-only accounts. The board shows a note and no card drags. Still to build: Azure
-    DevOps and Local Boards. No card order is stored.
+    for read-only accounts. The board shows a note and no card drags. Still to build: Local
+    Boards. No card order is stored.
   - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
     write the file on disk and the person commits. fuda polls the folder; same conflict rule.
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
-    UI. The web shell is self-hosted at the host's own cost. The desktop app is built for GitHub
-    only (device flow, keychain, self-update from GitHub Releases). Still to build there: "Open
-    folder…" and remembered folders, MSAL device code, per-host logout.
+    UI. The web shell is self-hosted at the host's own cost. The desktop app logs in to GitHub or Azure DevOps
+    (device flow, keychain, self-update from GitHub Releases). Still to build there: "Open
+    folder…" and remembered folders, both hosts at once, per-host logout.
   - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
     submodule) and a short section on `git submodule update --remote docs/board`. The code

@@ -28,11 +28,9 @@ type Config struct {
 	GitHubClientID     string `env:"FUDA_GITHUB_CLIENT_ID"`
 	GitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
 
-	AzureOrg     string `env:"FUDA_AZURE_ORG"`
-	AzureProject string `env:"FUDA_AZURE_PROJECT"`
-	AzureRepo    string `env:"FUDA_AZURE_REPO"`
-	AzurePAT     string `env:"FUDA_AZURE_PAT"`
-	AzureBearer  string `env:"FUDA_AZURE_BEARER"`
+	AzureTenant       string `env:"FUDA_AZURE_TENANT" envDefault:"organizations"`
+	AzureClientID     string `env:"FUDA_AZURE_CLIENT_ID"`
+	AzureClientSecret string `env:"FUDA_AZURE_CLIENT_SECRET"`
 
 	WatchMain    bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
 	SyncCooldown time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
@@ -58,11 +56,8 @@ func (c Config) validate() error {
 			return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID, FUDA_GITHUB_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
 		}
 	case SourceAzure:
-		if c.AzureOrg == "" || c.AzureProject == "" || c.AzureRepo == "" {
-			return fmt.Errorf("FUDA_SOURCE=azure needs FUDA_AZURE_ORG, FUDA_AZURE_PROJECT and FUDA_AZURE_REPO")
-		}
-		if c.AzurePAT == "" && c.AzureBearer == "" {
-			return fmt.Errorf("FUDA_SOURCE=azure needs FUDA_AZURE_PAT (or FUDA_AZURE_BEARER for local runs)")
+		if c.AzureClientID == "" || c.AzureClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {
+			return fmt.Errorf("FUDA_SOURCE=azure needs FUDA_AZURE_CLIENT_ID, FUDA_AZURE_CLIENT_SECRET, FUDA_COOKIE_SECRET and FUDA_BASE_URL")
 		}
 	default:
 		return fmt.Errorf("unknown FUDA_SOURCE %q: use local, github or azure", c.Source)

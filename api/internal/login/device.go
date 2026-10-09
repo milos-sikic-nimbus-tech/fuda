@@ -20,6 +20,8 @@ type TokenStore interface {
 }
 
 type DeviceConfig struct {
+	Host         string
+	Tenant       string
 	ClientID     string
 	ClientSecret string
 	Store        TokenStore
@@ -27,7 +29,7 @@ type DeviceConfig struct {
 }
 
 type Device struct {
-	app   *githubApp
+	app   *oauthApp
 	store TokenStore
 	open  func(string) error
 	log   *slog.Logger
@@ -45,8 +47,12 @@ type pendingDevice struct {
 }
 
 func NewDevice(log *slog.Logger, cfg DeviceConfig) *Device {
+	app := newGitHubApp(cfg.ClientID, cfg.ClientSecret, "")
+	if cfg.Host == "azure" {
+		app = newAzureApp(cfg.Tenant, cfg.ClientID, cfg.ClientSecret, "")
+	}
 	return &Device{
-		app:   newGitHubApp(cfg.ClientID, cfg.ClientSecret, ""),
+		app:   app,
 		store: cfg.Store,
 		open:  cfg.Open,
 		log:   log,
@@ -55,9 +61,9 @@ func NewDevice(log *slog.Logger, cfg DeviceConfig) *Device {
 }
 
 func (d *Device) Routes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /auth/github/login", d.login)
-	mux.HandleFunc("POST /auth/github/device/poll", d.poll)
-	mux.HandleFunc("POST /auth/github/logout", d.logout)
+	mux.HandleFunc("GET /auth/"+d.app.name+"/login", d.login)
+	mux.HandleFunc("POST /auth/"+d.app.name+"/device/poll", d.poll)
+	mux.HandleFunc("POST /auth/"+d.app.name+"/logout", d.logout)
 }
 
 func (d *Device) Token(_ http.ResponseWriter, r *http.Request) (string, error) {
@@ -67,7 +73,7 @@ func (d *Device) Token(_ http.ResponseWriter, r *http.Request) (string, error) {
 		stored, err := d.store.Load()
 		if err != nil {
 			if !errors.Is(err, ErrNoStoredToken) {
-				d.log.Warn("read stored github token", "error", err)
+				d.log.Warn("read stored "+d.app.name+" token", "error", err)
 			}
 			return "", ErrNotLoggedIn
 		}
@@ -78,7 +84,7 @@ func (d *Device) Token(_ http.ResponseWriter, r *http.Request) (string, error) {
 	}
 	next, err := d.refresh(r.Context())
 	if err != nil {
-		d.log.Info("github login expired and could not be refreshed", "error", err)
+		d.log.Info(d.app.name+" login expired and could not be refreshed", "error", err)
 		d.forget()
 		return "", ErrNotLoggedIn
 	}
@@ -96,18 +102,20 @@ func (d *Device) refresh(ctx context.Context) (Token, error) {
 func (d *Device) save(token Token) {
 	d.token = token
 	if err := d.store.Save(token); err != nil {
-		d.log.Error("store github token", "error", err)
+		d.log.Error("store "+d.app.name+" token", "error", err)
 	}
 }
 
 func (d *Device) forget() {
 	d.token = Token{}
 	if err := d.store.Delete(); err != nil {
-		d.log.Error("delete stored github token", "error", err)
+		d.log.Error("delete stored "+d.app.name+" token", "error", err)
 	}
 }
 
 type loginPage struct {
+	Label    string
+	Host     string
 	UserCode string
 	URL      string
 	Interval int
@@ -120,7 +128,7 @@ var loginTemplate = template.Must(template.New("login").Parse(`<!doctype html>
 <style>body{font-family:system-ui,sans-serif;max-width:28rem;margin:4rem auto;padding:0 1rem;text-align:center}
 code{display:block;font-size:2.25rem;letter-spacing:.2em;margin:1.5rem 0}</style></head>
 <body><h1>Log in to fuda</h1>
-<p>GitHub opened in your browser. Type this code there:</p>
+<p>{{.Label}} opened in your browser. Type this code there:</p>
 <code>{{.UserCode}}</code>
 <p>Browser did not open? Go to <a href="{{.URL}}">{{.URL}}</a>.</p>
 <p id="status">Waiting for you…</p>
@@ -128,7 +136,7 @@ code{display:block;font-size:2.25rem;letter-spacing:.2em;margin:1.5rem 0}</style
 const back = {{.Return}};
 let wait = {{.Interval}} * 1000;
 async function poll() {
-  const res = await fetch('/auth/github/device/poll', { method: 'POST' });
+  const res = await fetch('/auth/{{.Host}}/device/poll', { method: 'POST' });
   const body = await res.json();
   if (body.status === 'done') { location.replace(back); return; }
   if (body.status === 'failed') { document.getElementById('status').textContent = body.error; return; }
@@ -142,8 +150,8 @@ setTimeout(poll, wait);
 func (d *Device) login(w http.ResponseWriter, r *http.Request) {
 	code, err := d.app.startDevice(r.Context())
 	if err != nil {
-		d.log.Warn("github device login failed to start", "error", err)
-		http.Error(w, "GitHub login failed. Try again.", http.StatusBadGateway)
+		d.log.Warn(d.app.name+" device login failed to start", "error", err)
+		http.Error(w, d.app.label+" login failed. Try again.", http.StatusBadGateway)
 		return
 	}
 	interval := max(code.Interval, 5)
@@ -153,11 +161,13 @@ func (d *Device) login(w http.ResponseWriter, r *http.Request) {
 
 	if d.open != nil {
 		if err := d.open(code.VerificationURI); err != nil {
-			d.log.Warn("open browser for github login", "error", err)
+			d.log.Warn("open browser for "+d.app.name+" login", "error", err)
 		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = loginTemplate.Execute(w, loginPage{
+		Label:    d.app.label,
+		Host:     d.app.name,
 		UserCode: code.UserCode,
 		URL:      code.VerificationURI,
 		Interval: interval,
@@ -181,9 +191,9 @@ func (d *Device) poll(w http.ResponseWriter, r *http.Request) {
 		d.pending.interval += 5 * time.Second
 		writeStatus(w, map[string]any{"status": "pending", "interval": d.pending.interval.Seconds()})
 	case err != nil:
-		d.log.Warn("github device login failed", "error", err)
+		d.log.Warn(d.app.name+" device login failed", "error", err)
 		d.pending = nil
-		writeStatus(w, map[string]any{"status": "failed", "error": "GitHub did not let you in. Go back and try again."})
+		writeStatus(w, map[string]any{"status": "failed", "error": d.app.label + " did not let you in. Go back and try again."})
 	default:
 		d.pending = nil
 		d.save(token)
@@ -202,3 +212,5 @@ func writeStatus(w http.ResponseWriter, body map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(body)
 }
+
+func (d *Device) Host() string { return d.app.name }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 var (
 	version        = "dev"
 	githubClientID = ""
+	azureClientID  = ""
 )
 
 func main() {
@@ -45,13 +47,23 @@ func run(log *slog.Logger) error {
 		CacheDir:       filepath.Join(cacheRoot, "fuda"),
 	}
 
-	var desktop *application.App
-	device := login.NewDevice(log, login.DeviceConfig{
+	deviceConfig := login.DeviceConfig{
+		Host:         "github",
 		ClientID:     clientID,
 		ClientSecret: os.Getenv("FUDA_GITHUB_CLIENT_SECRET"),
-		Store:        keychain.New("github"),
-		Open:         func(url string) error { return desktop.Browser.OpenURL(url) },
-	})
+	}
+	if os.Getenv("FUDA_SOURCE") == string(config.SourceAzure) {
+		cfg.Source = config.SourceAzure
+		deviceConfig = login.DeviceConfig{
+			Host:     "azure",
+			ClientID: cmp.Or(os.Getenv("FUDA_AZURE_CLIENT_ID"), azureClientID),
+			Tenant:   cmp.Or(os.Getenv("FUDA_AZURE_TENANT"), "organizations"),
+		}
+	}
+	var desktop *application.App
+	deviceConfig.Store = keychain.New(deviceConfig.Host)
+	deviceConfig.Open = func(url string) error { return desktop.Browser.OpenURL(url) }
+	device := login.NewDevice(log, deviceConfig)
 	desktop = application.New(application.Options{
 		Name: "fuda",
 		Assets: application.AssetOptions{

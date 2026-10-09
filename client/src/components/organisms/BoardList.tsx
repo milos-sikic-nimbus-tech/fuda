@@ -19,8 +19,8 @@ export function BoardList() {
   if (boards.length === 0) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
-        No Boards yet. Create a repository whose name starts with <code>fuda-</code> and install the
-        fuda GitHub App on it.
+        No Boards yet. Create a repository whose name starts with <code>fuda-</code> (on GitHub,
+        install the fuda GitHub App on it).
       </p>
     )
   }

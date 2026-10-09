@@ -18,16 +18,17 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 	return h
 }
 
-type GitHubLogin interface {
+type Login interface {
+	Host() string
 	Token(w http.ResponseWriter, r *http.Request) (string, error)
 	Routes(mux *http.ServeMux)
 }
 
-func NewHandler(log *slog.Logger, boards *board.Boards, spa fs.FS, github GitHubLogin) http.Handler {
+func NewHandler(log *slog.Logger, boards *board.Boards, spa fs.FS, login Login) http.Handler {
 	mux := http.NewServeMux()
-	api{log: log, boards: boards, github: github}.routes(mux)
-	if github != nil {
-		github.Routes(mux)
+	api{log: log, boards: boards, login: login}.routes(mux)
+	if login != nil {
+		login.Routes(mux)
 	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

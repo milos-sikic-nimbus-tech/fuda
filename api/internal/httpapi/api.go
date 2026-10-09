@@ -16,7 +16,7 @@ import (
 type api struct {
 	log    *slog.Logger
 	boards *board.Boards
-	github GitHubLogin
+	login  Login
 }
 
 type boardHost struct {
@@ -64,7 +64,7 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 		for i, param := range host.params {
 			parts[i] = r.PathValue(param)
 		}
-		ctx, err := a.withToken(w, r, host.name == "github")
+		ctx, err := a.withToken(w, r, host.name)
 		if err != nil {
 			a.result(w, nil, err)
 			return
@@ -78,14 +78,14 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 	}
 }
 
-func (a api) withToken(w http.ResponseWriter, r *http.Request, needed bool) (context.Context, error) {
-	if !needed {
+func (a api) withToken(w http.ResponseWriter, r *http.Request, host string) (context.Context, error) {
+	if host == "local" {
 		return r.Context(), nil
 	}
-	if a.github == nil {
+	if a.login == nil || a.login.Host() != host {
 		return nil, board.ErrNotFound
 	}
-	token, err := a.github.Token(w, r)
+	token, err := a.login.Token(w, r)
 	if err != nil {
 		return nil, board.ErrUnauthorized
 	}
@@ -101,9 +101,9 @@ type boardListing struct {
 
 func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if a.github != nil {
+	if a.login != nil {
 		var err error
-		if ctx, err = a.withToken(w, r, true); err != nil {
+		if ctx, err = a.withToken(w, r, a.login.Host()); err != nil {
 			a.result(w, nil, err)
 			return
 		}
@@ -229,7 +229,11 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 	case errors.Is(err, board.ErrNotFound):
 		a.json(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	case errors.Is(err, board.ErrUnauthorized):
-		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
+		body := map[string]string{"error": "login required"}
+		if a.login != nil {
+			body["login"] = "/auth/" + a.login.Host() + "/login"
+		}
+		a.json(w, http.StatusUnauthorized, body)
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
 	case errors.Is(err, board.ErrLocked):

@@ -31,9 +31,19 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 |---|---|
 | `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_CLIENT_SECRET`, plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
 | `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. |
-| `azure` | `FUDA_AZURE_ORG`, `FUDA_AZURE_PROJECT`, `FUDA_AZURE_REPO`, and `FUDA_AZURE_PAT` (Code: Read). Locally you can use `FUDA_AZURE_BEARER` from `az account get-access-token`. No login yet. |
+| `azure` | A Microsoft Entra ID app: `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET`, optionally `FUDA_AZURE_TENANT` (default `organizations`), plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
 
 All settings are in [`.env.example`](.env.example).
+
+## Entra ID app locally
+
+Register an app in Microsoft Entra ID (App registrations) with:
+
+- A Web redirect URI `http://localhost:5173/auth/azure/callback`, and a client secret.
+- API permission: Azure DevOps, delegated `user_impersonation`. Whether people can consent to it
+  themselves or an admin must grant it depends on the tenant's consent policy.
+- For the desktop app: "Allow public client flows" on, and run it with `FUDA_SOURCE=azure` and
+  `FUDA_AZURE_CLIENT_ID`. It logs in with the device code and keeps the token in the OS keychain.
 
 ## GitHub App locally
 
