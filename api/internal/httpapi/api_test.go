@@ -335,3 +335,42 @@ func TestMoveThroughTheHandler(t *testing.T) {
 		t.Errorf("conflict body: %s", body)
 	}
 }
+
+func TestAssignThroughTheHandler(t *testing.T) {
+	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
+	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
+		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+	}, nil)
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
+	defer server.Close()
+
+	assign := func(token, body string, status int) string {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/github/o/fuda-tasks/tasks/A-1/assign", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("X-Test-Token", token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = res.Body.Close() }()
+		out, _ := io.ReadAll(res.Body)
+		if res.StatusCode != status {
+			t.Fatalf("status %d, want %d: %s", res.StatusCode, status, out)
+		}
+		return string(out)
+	}
+
+	assign("", `{"seen":[],"owners":["Ann"]}`, http.StatusUnauthorized)
+	assign("member", `{"seen":[],"owners":["Ann"]}`, http.StatusNoContent)
+	if !strings.Contains(source.content, "owner: Ann\n") {
+		t.Errorf("file after the assign: %q", source.content)
+	}
+
+	body := assign("member", `{"seen":[],"owners":["Cy"]}`, http.StatusConflict)
+	if !strings.Contains(body, "Ben set the owners to Ann just now") {
+		t.Errorf("conflict body: %s", body)
+	}
+}

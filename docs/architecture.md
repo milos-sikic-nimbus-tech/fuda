@@ -52,8 +52,8 @@ declared where they are used.
 |---|---|
 | `cmd/fuda` | Reads config, picks the source, wires the service and the HTTP server, graceful shutdown. |
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
-| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
-| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. `edit.go`: the pure Move edit, which changes the `status` line (and adds `claimed` once) and leaves every other byte alone. |
+| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
+| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
 | `internal/source/local` | A checkout on disk: the working tree for develop (uncommitted edits included), `git archive` for other branches. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1: refs, items zip of `/docs`, active PRs, latest iteration changes, item at a commit. PAT (Basic) or a bearer token for local runs. |
@@ -263,6 +263,18 @@ overlaid on the polled board (`applyPendingMoves`), which also stops the card be
 again. When the request ends, the board is refetched and the overlay is gone, so a failed Move
 shows the card back in its real column.
 
+## Assign
+
+An Assign is the same kind of commit on the `owner` field. `board.Service.Assign` checks that the
+Task is not archived, then runs the retry loop it shares with Move. The request carries the Owners
+the client showed (`seen`). If the current Owners differ from `seen` (compared as sets, after
+`people.md` aliases are folded), the first write wins: 409 with "Ben set the owners to Cy just
+now". Otherwise `taskfiles.ApplyAssign` rewrites the line: comma text, a block list or a flow
+list keeps its style, a new line is comma text after `status`, and an empty set deletes the line.
+
+The client overlays pending Assigns on the polled board and on the Task panel the same way as
+Moves (`applyPendingAssigns`), and disables the picker while its save runs.
+
 ## HTTP API
 
 Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<owner>/<repo>/board`. An unknown Board, or one the caller cannot read, is 404. No login is 401 (`login required`); a host refusal is 403 (`no access`).
@@ -278,6 +290,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
 | `POST …/sync` | 202, or 429 inside the cooldown. |
 | `POST …/tasks/{id}/move` | Body `{"seen": "<status the client showed>", "column": "<column id>"}`, `application/json`. 204 when committed. 409 with a message when `status` changed first. 403 for archived Tasks, PR-derived Stages and sources that cannot write. 401 when the login expired. |
+| `POST …/tasks/{id}/assign` | Body `{"seen": ["<owners the client showed>"], "owners": ["<short names>"]}`, `application/json`. 204 when committed. 409 with a message when the owners changed first. 403 for archived Tasks and sources that cannot write. 401 when the login expired. |
 | `GET /api/boards` | The Boards the caller can open: `host`, `repo`, `path`, `title`. On GitHub this is the caller's `fuda-` repositories; 401 when not logged in. |
 | `GET /auth/github/login?return=`, `GET /auth/github/callback`, `POST /auth/github/logout` | The GitHub login flow (only with `FUDA_SOURCE=github`). `return` must be a path on this site. |
 | `GET /healthz` | 200. |

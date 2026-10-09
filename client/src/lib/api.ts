@@ -126,6 +126,16 @@ export const api = {
       },
       { redirectToLogin: false },
     ),
+  assign: (id: string, seen: string[], owners: string[]) =>
+    request<void>(
+      `${scoped}/tasks/${encodeURIComponent(id)}/assign`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen, owners }),
+      },
+      { redirectToLogin: false },
+    ),
   sync: () => request<void>(`${scoped}/sync`, { method: 'POST' }),
   guide: () => request<GuidePage[]>('/api/guide'),
   guidePage: (slug: string) => request<GuideContent>(`/api/guide/${encodeURIComponent(slug)}`),

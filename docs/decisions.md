@@ -6,18 +6,23 @@ with a proposal.
 
 ## Product
 
-- **fuda writes Moves, and later Assigns, through git.** A person drags a card and fuda commits one
+- **fuda writes Moves and Assigns through git.** A person drags a card and fuda commits one
   changed `status` line (plus `claimed` the first time the Task leaves the first Stage) to the
-  Task file as that person, through the host's web API, as a compare-and-swap, never a
+  Task file as that person. Picking Owners commits one changed `owner` line the same way, through the host's web API, as a compare-and-swap, never a
   force-push. Git stays the only source of truth; people and agents keep editing files. fuda
-  never creates Tasks or edits their text. Built for Moves on GitHub; see
+  never creates Tasks or edits their text. Built for Moves and Assigns on GitHub; see
   [Moves and Assigns from the app](#moves-and-assigns-from-the-app) for the rest and ADRs
   [0001](adr/0001-fuda-writes-moves-and-assigns.md) and
   [0002](adr/0002-tasks-in-their-own-repository.md).
-- **A Move that loses a conflict goes back.** If other lines of the file changed first, fuda
+- **Assign writes `owner` in the file's own style.** Comma text stays comma text, a YAML list
+  stays a YAML list, and a new `owner` line is comma text right after `status`. Removing every
+  Owner deletes the line. The names come from `people.md`, or from the names already on the board
+  when there is none. Archived Tasks cannot be assigned.
+- **A Move or Assign that loses a conflict goes back.** If other lines of the file changed first, fuda
   applies the edit again, up to four times. If `status` changed first, the first write wins: the
-  card goes back with a message such as "Ben moved this to Testing just now". Archived Tasks and
-  the PR-derived Stage cannot be Move targets.
+  card goes back with a message such as "Ben moved this to Testing just now". An Assign works the
+  same on `owner`: if the Owners changed first, fuda says "Ben set the owners to Cy just
+  now". Archived Tasks and the PR-derived Stage cannot be Move targets.
 - **develop is the board.** Columns and filters come from develop. Claims are committed to develop
   so everyone sees them. main is optional and only adds the "in prod" badge; it never moves a
   card, because anything on main is on develop too.
@@ -104,11 +109,9 @@ updates [architecture.md](architecture.md).
     Still to build: Microsoft Entra ID for Azure DevOps (confidential client on the web, MSAL device
     code on desktop), logging in to both hosts at once, per-host logout, and writing with the
     user's token on Azure DevOps. Read-only board if the user cannot write.
-  - **Move (rest).** Built for GitHub. Still to build: Azure DevOps and Local Boards, and
-    read-only Boards for accounts that cannot write (today a refused write shows as an error).
-    **Assign** writes `owner` in the file's own style (comma text or YAML list) with short names
-    from `people.md`, with the same compare-and-swap and conflict rule on the `owner` field. No
-    card order is stored.
+  - **Move and Assign (rest).** Built for GitHub. Still to build: Azure DevOps and Local Boards,
+    and read-only Boards for accounts that cannot write (today a refused write shows as an
+    error). No card order is stored.
   - **In review.** Code repositories are listed in the board config (`code_repos: [org/app]`).
     An open PR in any of them, on any base, puts every Task whose id is in its title or branch
     name In review. Such cards cannot be dragged. When the PR closes the card returns to its

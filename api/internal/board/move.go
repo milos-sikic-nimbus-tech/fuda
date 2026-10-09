@@ -17,7 +17,7 @@ type Writer interface {
 
 var ErrChanged = errors.New("file changed since it was read")
 
-var ErrLocked = errors.New("this task cannot be moved")
+var ErrLocked = errors.New("this task cannot be changed")
 
 type ConflictError struct{ Message string }
 
@@ -55,29 +55,39 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 		return ErrLocked
 	}
 
-	for range moveAttempts {
-		content, version, err := writer.ReadFile(ctx, s.opts.WorkBranch, task.Path)
-		if err != nil {
-			return err
-		}
-		current, err := taskfiles.ParseOne(task.Path, content)
-		if err != nil {
-			return fmt.Errorf("%s: %w", task.Path, err)
-		}
+	return s.commit(ctx, writer, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
 		if normalizeStatus(current.Status) != normalizeStatus(req.Seen) {
-			s.refresh(ctx)
-			return s.lostMove(ctx, writer, snap, task.Path, current.Status)
+			return nil, "", s.lostMove(ctx, writer, snap, task.Path, current.Status)
 		}
-
 		move := taskfiles.Move{Status: target.Statuses[0]}
 		if current.Claimed == "" && snap.inFirstColumn(current.Status) && !snap.inFirstColumn(move.Status) {
 			move.Claimed = s.now().Format(time.DateOnly)
 		}
 		edited, err := taskfiles.ApplyMove(content, move)
+		return edited, fmt.Sprintf("Move %s to %s", task.ID, target.Name), err
+	})
+}
+
+func (s *Service) commit(ctx context.Context, writer Writer, path string, edit func(content []byte, current taskfiles.Task) ([]byte, string, error)) error {
+	for range moveAttempts {
+		content, version, err := writer.ReadFile(ctx, s.opts.WorkBranch, path)
 		if err != nil {
-			return fmt.Errorf("%s: %w", task.Path, err)
+			return err
 		}
-		err = writer.WriteFile(ctx, s.opts.WorkBranch, task.Path, edited, version, fmt.Sprintf("Move %s to %s", task.ID, target.Name))
+		current, err := taskfiles.ParseOne(path, content)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		edited, message, err := edit(content, current)
+		var conflict *ConflictError
+		if errors.As(err, &conflict) {
+			s.refresh(ctx)
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		err = writer.WriteFile(ctx, s.opts.WorkBranch, path, edited, version, message)
 		if errors.Is(err, ErrChanged) {
 			continue
 		}
@@ -93,7 +103,7 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 
 func (s *Service) refresh(ctx context.Context) {
 	if err := s.Sync(ctx); err != nil {
-		s.opts.Logger.Warn("the board was not refreshed after a move", "error", err)
+		s.opts.Logger.Warn("the board was not refreshed after a write", "error", err)
 	}
 }
 

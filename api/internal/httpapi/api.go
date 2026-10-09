@@ -39,14 +39,15 @@ func (a api) routes(mux *http.ServeMux) {
 			prefix += "/{" + param + "}"
 		}
 		for pattern, handler := range map[string]boardHandler{
-			"GET /board":            a.board,
-			"GET /tasks/{id}":       a.task,
-			"POST /tasks/{id}/move": a.move,
-			"GET /search":           a.search,
-			"GET /archive":          a.archive,
-			"GET /docs":             a.doc,
-			"GET /files":            a.file,
-			"POST /sync":            a.sync,
+			"GET /board":              a.board,
+			"GET /tasks/{id}":         a.task,
+			"POST /tasks/{id}/move":   a.move,
+			"POST /tasks/{id}/assign": a.assign,
+			"GET /search":             a.search,
+			"GET /archive":            a.archive,
+			"GET /docs":               a.doc,
+			"GET /files":              a.file,
+			"POST /sync":              a.sync,
 		} {
 			method, suffix, _ := strings.Cut(pattern, " ")
 			mux.HandleFunc(method+" "+prefix+suffix, a.onBoard(host, handler))
@@ -130,17 +131,37 @@ func (a api) task(w http.ResponseWriter, r *http.Request, service *board.Service
 }
 
 func (a api) move(w http.ResponseWriter, r *http.Request, service *board.Service) {
-	if r.Header.Get("Content-Type") != "application/json" {
-		a.json(w, http.StatusUnsupportedMediaType, map[string]string{"error": "send application/json"})
-		return
-	}
 	var req board.MoveRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
-		a.json(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+	if !a.decode(w, r, &req) {
 		return
 	}
 	req.TaskID = r.PathValue("id")
-	if err := service.Move(r.Context(), req); err != nil {
+	a.saved(w, service.Move(r.Context(), req))
+}
+
+func (a api) assign(w http.ResponseWriter, r *http.Request, service *board.Service) {
+	var req board.AssignRequest
+	if !a.decode(w, r, &req) {
+		return
+	}
+	req.TaskID = r.PathValue("id")
+	a.saved(w, service.Assign(r.Context(), req))
+}
+
+func (a api) decode(w http.ResponseWriter, r *http.Request, into any) bool {
+	if r.Header.Get("Content-Type") != "application/json" {
+		a.json(w, http.StatusUnsupportedMediaType, map[string]string{"error": "send application/json"})
+		return false
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(into); err != nil {
+		a.json(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return false
+	}
+	return true
+}
+
+func (a api) saved(w http.ResponseWriter, err error) {
+	if err != nil {
 		a.result(w, nil, err)
 		return
 	}

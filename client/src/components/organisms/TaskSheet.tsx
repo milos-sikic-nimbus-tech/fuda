@@ -4,6 +4,7 @@ import { LabelChip } from '@/components/atoms/LabelChip'
 import { PersonChip } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { TaskLink } from '@/components/atoms/TaskLink'
+import { OwnerPicker } from '@/components/molecules/OwnerPicker'
 import { RichContent } from '@/components/molecules/RichContent'
 import {
   Sheet,
@@ -12,9 +13,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useLeaveWarning } from '@/hooks/useLeaveWarning'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import { listOf } from '@/lib/filters'
-import { useTask } from '@/lib/queries'
+import { useAssign, useBoard, usePendingAssigns, useTask } from '@/lib/queries'
 import { prHref } from '@/lib/api'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -39,7 +41,12 @@ function Ids({ ids }: { ids: string[] }) {
 export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: string }) {
   const { search, toggle, openTask } = useBoardSearch()
   const { data: task, isError } = useTask(search.task)
+  const { data: board } = useBoard()
+  const assign = useAssign()
+  const pending = usePendingAssigns().find((a) => a.cardId === search.task)
   const labels = listOf(search.label)
+  useLeaveWarning(!!pending)
+  const owners = pending?.owners ?? task?.owners ?? []
 
   return (
     <Sheet open={!!search.task} onOpenChange={(open) => !open && openTask(undefined)}>
@@ -61,13 +68,17 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
         {task && (
           <div className="space-y-5 p-4">
             <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2">
-              {task.owners.length > 0 && (
-                <Field label="Owner">
-                  {task.owners.map((o) => (
-                    <PersonChip key={o} name={o} onClick={() => toggle('owner', o)} />
-                  ))}
-                </Field>
-              )}
+              <Field label="Owner">
+                {owners.map((o) => (
+                  <PersonChip key={o} name={o} onClick={() => toggle('owner', o)} />
+                ))}
+                <OwnerPicker
+                  people={board?.facets.people ?? []}
+                  owners={owners}
+                  saving={!!pending}
+                  onChange={(next) => assign.mutate({ card: task, owners: next })}
+                />
+              </Field>
               {task.testers.length > 0 && (
                 <Field label="Tester">
                   {task.testers.map((o) => (

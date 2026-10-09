@@ -4,11 +4,11 @@
 
 **Blocked by:** 03: Move on GitHub
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Pure edit tests for comma style, YAML list style, new line, delete line
-- [ ] Board service tests: Assign happy path and same-field conflict
-- [ ] Owner picker in the UI with saving and rollback like Move
-- [ ] Guide page updated
+- [x] Pure edit tests for comma style, YAML list style, new line, delete line
+- [x] Board service tests: Assign happy path and same-field conflict
+- [x] Owner picker in the UI with saving and rollback like Move
+- [x] Guide page updated
 
 Spec: `.scratch/fuda-writes/spec.md`.

@@ -10,7 +10,11 @@ card to another column. fuda then commits one change to the task file as the per
 the `status` line, and `claimed` set to today the first time the task leaves the first column.
 Nothing else in the file changes, and fuda never force-pushes. If someone changed the task's
 status first, the card goes back and a message says who moved it. Archived tasks and the
-In review column cannot be dragged to or from. The browser asks for changes about every 5 seconds, so the board follows a push within
+In review column cannot be dragged to or from. In the task panel, the Owner field has a picker: choose
+people from `people.md` (or the names already on the board when there is no `people.md`). fuda
+rewrites only the `owner` line, in the file's own style (comma text or a YAML list), adds it after
+`status` when it is new, and deletes it when you remove every owner. A change to the owners that
+someone else made first wins, with a message saying who set which owners. The browser asks for changes about every 5 seconds, so the board follows a push within
 about 10 seconds.
 
 ```mermaid
