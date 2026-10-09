@@ -134,6 +134,15 @@ updates [architecture.md](architecture.md).
   - **Removed.** Nothing left to remove. The server's host token, `FUDA_AUTH_USER`/
     `FUDA_AUTH_PASSWORD`, webhooks and matching PRs by their version of the Task file are gone.
 
+### Signing and notarizing the macOS app
+
+- **Settled:** `fuda.app` ships unsigned. People right-click, Open the first time.
+- **Open:** whether to pay for an Apple Developer account.
+- **Proposal:** Sign `fuda.app` with a Developer ID certificate and notarize it in the `release`
+  workflow (`codesign`, `xcrun notarytool`, `stapler`), with the certificate and App Store Connect
+  key as repository secrets. Then the first-run warning goes away. Self-update replaces the inner
+  binary, which breaks the signature, so it must move to replacing the whole bundle first.
+
 ### History-based dates and insights
 
 - **Settled:** fuda only knows the dates written in frontmatter (`added`, `claimed`, `done`).

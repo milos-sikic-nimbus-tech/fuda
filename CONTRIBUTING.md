@@ -21,7 +21,7 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 | `make fmt` | Formats Go and client code. |
 | `make build` | Builds the client into `api/internal/web/dist`, then the binary `bin/fuda`. |
 | `make docker` | Builds the image (`fuda`). |
-| `make desktop-macos` | The desktop app for macOS in `bin/fuda-desktop`. Needs a Mac with Xcode command line tools. `ARCH=amd64` for Intel. |
+| `make desktop-macos` | The desktop app for macOS as the bundle `bin/fuda.app`. Needs a Mac with Xcode command line tools. `ARCH=amd64` for Intel. |
 | `make desktop-windows` | The desktop app for Windows in `bin/fuda-desktop.exe`. Cross-builds from any host. |
 | `make clean` | Removes build output and the local cache. |
 
@@ -145,9 +145,16 @@ sips -s format png -z 1024 1024 ../../../client/public/favicon.svg --out icon.pn
 sips -s format png -z 824 824 ../../../client/public/favicon.svg --out /tmp/art.png
 python3 -c "from PIL import Image; a=Image.open('/tmp/art.png').convert('RGBA'); c=Image.new('RGBA',(1024,1024),(0,0,0,0)); c.paste(a,(100,100),a); c.save('icon-macos.png')"
 go run github.com/tc-hib/go-winres@v0.3.3 simply --icon icon.png --arch amd64,arm64 --out rsrc
+d=$(mktemp -d)/fuda.iconset && mkdir $d
+for s in 16 32 128 256 512; do
+  sips -z $s $s icon-macos.png --out $d/icon_${s}x${s}.png
+  sips -z $((s*2)) $((s*2)) icon-macos.png --out $d/icon_${s}x${s}@2x.png
+done
+iconutil -c icns $d -o icon.icns
 ```
 
 `icon.png` is for the window and Windows. `icon-macos.png` has a transparent margin, for the Dock.
+`icon.icns` goes in `fuda.app`; `Info.plist` next to it describes the bundle.
 The `rsrc_windows_*.syso` files put the icon in `fuda-desktop.exe`; Go links them on its own.
 
 ## Layout

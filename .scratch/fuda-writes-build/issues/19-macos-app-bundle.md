@@ -14,9 +14,9 @@ Decided with the user, 2026-10-09:
 - **Signing:** stay unsigned. Update the README: "right-click, Open" the first time. Add real signing and notarization (needs an Apple Developer account) under TBD in `docs/decisions.md`, with a proposal.
 - **Windows:** unchanged. The `.exe` stays a bare file.
 
-- [ ] `make desktop-macos` produces `fuda.app` that shows the icon in Finder and the Dock
-- [ ] The release archive holds `fuda.app`
+- [x] `make desktop-macos` produces `fuda.app` that shows the icon in Finder and the Dock
+- [x] The release archive holds `fuda.app`
 - [ ] Update from a newer GitHub Release works with the bundle (checked by hand)
-- [ ] README and `docs/decisions.md` match the new behaviour
+- [x] README and `docs/decisions.md` match the new behaviour
 
 Spec: `.scratch/fuda-writes/spec.md`.

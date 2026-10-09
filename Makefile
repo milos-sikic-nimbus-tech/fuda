@@ -43,7 +43,10 @@ desktop: desktop-macos desktop-windows
 
 desktop-macos: client
 	CGO_ENABLED=1 GOOS=darwin GOARCH=$(ARCH) MACOSX_DEPLOYMENT_TARGET=13.0 CGO_LDFLAGS=-mmacosx-version-min=13.0 \
-		go -C api build -trimpath -ldflags="-s -w $(DESKTOP_LDFLAGS)" -o ../bin/fuda-desktop ./cmd/fuda-desktop
+		go -C api build -trimpath -ldflags="-s -w $(DESKTOP_LDFLAGS)" -o ../bin/fuda.app/Contents/MacOS/fuda-desktop ./cmd/fuda-desktop
+	mkdir -p bin/fuda.app/Contents/Resources
+	cp api/cmd/fuda-desktop/icon.icns bin/fuda.app/Contents/Resources/icon.icns
+	sed 's/@VERSION@/$(VERSION)/' api/cmd/fuda-desktop/Info.plist > bin/fuda.app/Contents/Info.plist
 
 desktop-windows: client
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \

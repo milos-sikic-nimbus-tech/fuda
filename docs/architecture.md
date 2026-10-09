@@ -59,7 +59,7 @@ declared where they are used.
 | `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
-| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). |
+| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). On macOS it ships as `fuda.app` (`Info.plist`, `icon.icns`); update replaces the binary inside it. |
 | `internal/app` | Builds the set of Boards from config: which source serves which Board. Shared by both shells. |
 | `internal/login` | GitHub App login. `session.go`: web login with PKCE, the encrypted session cookie, token refresh. `device.go`: desktop device flow, token kept in a `TokenStore`. Knows nothing about Boards. |
 | `internal/keychain` | A `login.TokenStore` in the OS keychain (macOS Keychain, Windows Credential Manager). |

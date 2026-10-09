@@ -52,7 +52,7 @@ jobs:
             7z a "$name.zip" fuda-desktop.exe
             asset="$name.zip"
           else
-            tar -czf "$name.tar.gz" fuda-desktop
+            tar -czf "$name.tar.gz" fuda.app
             asset="$name.tar.gz"
           fi
           gh release upload "$GITHUB_REF_NAME" "$asset" --clobber
