@@ -15,9 +15,21 @@ import { BOARD_PREFIX } from '@/lib/boardPath'
 import { groupBoards, pickerButtonLabel } from '@/lib/hosts'
 import { useBoardListing } from '@/lib/queries'
 
+function PickerPlaceholder() {
+  return (
+    <>
+      <span className="hidden text-border sm:inline">/</span>
+      <div className="h-7 w-28 animate-pulse rounded-full bg-muted" aria-hidden="true" />
+    </>
+  )
+}
+
 export function WorkspacePicker({ board }: { board?: BoardData }) {
   const { data } = useBoardListing()
-  if (!data || (data.boards.length === 0 && data.hosts.length === 0)) return null
+  if (!data) return BOARD_PREFIX ? <PickerPlaceholder /> : null
+  if (data.boards.length === 0 && data.hosts.length === 0) return null
+  const listed = data.boards.find((entry) => entry.path === BOARD_PREFIX)
+  const host = board?.origin.host ?? listed?.host
   return (
     <>
       <span className="hidden text-border sm:inline">/</span>
@@ -28,8 +40,8 @@ export function WorkspacePicker({ board }: { board?: BoardData }) {
             className="h-7 min-w-0 max-w-40 gap-1.5 rounded-full px-2.5 text-[13px] shadow-xs md:max-w-none"
             aria-label="Switch Board"
           >
-            {board && <HostIcon host={board.origin.host} className="size-3.5 shrink-0" />}
-            <span className="truncate font-medium">{pickerButtonLabel(board)}</span>
+            {host && <HostIcon host={host} className="size-3.5 shrink-0" />}
+            <span className="truncate font-medium">{pickerButtonLabel(board, listed)}</span>
             {board && (
               <span className="hidden font-normal text-muted-foreground md:inline">
                 {board.sync.develop.branch}

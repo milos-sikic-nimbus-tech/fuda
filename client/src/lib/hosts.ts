@@ -38,8 +38,12 @@ export function groupBoards(boards: BoardListing[]) {
     .filter((group) => group.boards.length > 0)
 }
 
-export function pickerButtonLabel(board?: { title: string; origin: { repo: string } }): string {
-  return board ? board.title || board.origin.repo : 'Select a Board'
+export function pickerButtonLabel(
+  board?: { title: string; origin: { repo: string } },
+  listed?: { title: string },
+): string {
+  if (board) return board.title || board.origin.repo
+  return listed?.title ?? 'Select a Board'
 }
 
 export function showLogOutAll(hosts: HostStatus[]): boolean {

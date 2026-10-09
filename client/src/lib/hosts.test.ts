@@ -72,6 +72,9 @@ describe('pickerButtonLabel', () => {
   it('falls back to the repository', () => {
     expect(pickerButtonLabel({ title: '', origin: { repo: 'o/fuda-x' } })).toBe('o/fuda-x')
   })
+  it('uses the listed Board while the Board itself loads', () => {
+    expect(pickerButtonLabel(undefined, { title: 'Listed' })).toBe('Listed')
+  })
   it('asks to select a Board when none is open', () => {
     expect(pickerButtonLabel(undefined)).toBe('Select a Board')
   })
