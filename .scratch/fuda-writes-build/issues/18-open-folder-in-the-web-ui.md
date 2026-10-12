@@ -4,7 +4,7 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] The desktop app serves `POST /api/local/open-folder`. It shows the native folder dialog and adds the folder with `app.Folders.Add`. The web server does not register the endpoint
 - [ ] The endpoint returns JSON: the new Board path on success, `{cancelled: true}` when the person closes the dialog, or an error code (no `tasks/` or `docs/board/tasks/` folder; any other failure with its message)
@@ -27,3 +27,7 @@ Spec: `.scratch/fuda-writes/spec.md`.
 - Detect: a flag in the existing hosts/boards response, not a 404 probe.
 - Result: JSON plus inline page message plus router navigation, not native pop-ups.
 - File menu item: removed. No replacement shortcut.
+
+## Comments
+
+- 2026-10-12: Closed as wontfix. The File menu item stays. The current design is simpler. We can revisit it later.
