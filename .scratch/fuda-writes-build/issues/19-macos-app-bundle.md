@@ -4,7 +4,7 @@
 
 **Blocked by:** 14: Desktop app icon
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Decided with the user, 2026-10-09:
 

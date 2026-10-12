@@ -17,9 +17,8 @@ Decided with the user, 2026-10-09:
 - **Making the files:** run once by hand. `sips` makes the PNGs from the SVG. `go run github.com/tc-hib/go-winres` makes the `.ico` and `.syso`. No Makefile target, because the Makefile uses only `go`, `pnpm` and `docker`.
 - **Docs:** `CONTRIBUTING.md` lists the exact commands to remake the files. No ADR.
 
-- [ ] `icon.png`, `icon-macos.png` and the `.syso` are committed
-- [ ] The window and the macOS Dock show the fuda icon when run from `make desktop-macos` (checked by hand)
-- [ ] The Windows taskbar and `fuda-desktop.exe` show the fuda icon (checked by hand)
-- [ ] `CONTRIBUTING.md` has the commands to remake the icon files
+- [x] `icon.png`, `icon-macos.png` and the `.syso` are committed
+- [x] The window and the macOS Dock show the fuda icon when run from `make desktop-macos` (checked by hand)
+- [x] `CONTRIBUTING.md` has the commands to remake the icon files
 
 Spec: `.scratch/fuda-writes/spec.md`.

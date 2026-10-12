@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Decided with the user:
 
@@ -19,7 +19,7 @@ Decided with the user:
 - [ ] Web: with only `FUDA_GITHUB_CLIENT_ID` set, Sign in works and survives a server restart
 - [ ] Desktop: Sign in works and the token is in the keychain
 - [ ] Web and desktop show the same device-code screen
-- [ ] Removed vars are ignored with one warning; Azure login still works
-- [ ] Dockerfile declares the cache volume
-- [ ] `make check` passes
-- [ ] README, Guide self-host page, `.env.example`, `CONTRIBUTING.md`, `docs/architecture.md` and `docs/decisions.md` match the code (move the TBD item "One device-flow login for GitHub" to Settled)
+- [x] Removed vars are ignored with one warning; Azure login still works
+- [x] Dockerfile declares the cache volume
+- [x] `make check` passes
+- [x] README, Guide self-host page, `.env.example`, `CONTRIBUTING.md`, `docs/architecture.md` and `docs/decisions.md` match the code (move the TBD item "One device-flow login for GitHub" to Settled)
