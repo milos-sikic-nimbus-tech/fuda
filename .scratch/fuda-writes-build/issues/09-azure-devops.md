@@ -4,7 +4,9 @@
 
 **Blocked by:** 05: Assign on GitHub
 
-**Status:** in-progress: built and unit tested; the by-hand checks need a real Azure DevOps repository and Entra app
+**Status:** ready-for-human
+
+Left to do by hand: built and unit tested; the by-hand checks need a real Azure DevOps repository and Entra app
 
 - [ ] Login, Board list, Move and Assign work against a real Azure DevOps test repo (checked by hand)
 - [x] Azure source satisfies the same board interfaces as GitHub

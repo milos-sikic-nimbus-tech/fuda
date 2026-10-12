@@ -4,7 +4,7 @@
 
 **Blocked by:** 03: Move on GitHub
 
-**Status:** resolved
+**Status:** done
 
 - [x] Pure edit tests for comma style, YAML list style, new line, delete line
 - [x] Board service tests: Assign happy path and same-field conflict

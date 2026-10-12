@@ -4,7 +4,9 @@
 
 **Blocked by:** 09: Azure DevOps login, Boards and writes
 
-**Status:** in-progress: built and tested; the by-hand check needs real GitHub and Azure DevOps logins
+**Status:** ready-for-human
+
+Left to do by hand: built and tested; the by-hand check needs real GitHub and Azure DevOps logins
 
 - [x] Picker shows Boards from both hosts
 - [x] Logging out of one host keeps the other working
