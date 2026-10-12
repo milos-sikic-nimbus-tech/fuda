@@ -3,7 +3,8 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardData, BoardListing } from '@/lib/api'
-import type { BoardListData, HostStatus } from '@/lib/hosts'
+import type { BoardListData } from '@/lib/hosts'
+import { github } from '@/test/hosts'
 import { renderWithListing } from '@/test/render'
 
 const hub: BoardListing = {
@@ -19,7 +20,6 @@ const tool: BoardListing = {
   title: 'Tool',
 }
 const notes: BoardListing = { host: 'local', repo: 'notes', path: '/local/notes', title: 'Notes' }
-const github: HostStatus = { host: 'github', loggedIn: true, login: '/auth/github/login' }
 
 function fakeBoard(listing: BoardListing, url?: string) {
   return {
@@ -46,14 +46,14 @@ describe('WorkspacePicker', () => {
   })
 
   it('says "Select a Board" when no Board is open', async () => {
-    await renderPicker({ boards: [hub], hosts: [github] })
+    await renderPicker({ boards: [hub], hosts: [github()] })
     expect(screen.getByRole('button', { name: 'Switch Board' }).textContent).toContain(
       'Select a Board',
     )
   })
 
   it('groups Boards under a label per host, then Local', async () => {
-    await renderPicker({ boards: [notes, hub, tool], hosts: [github] })
+    await renderPicker({ boards: [notes, hub, tool], hosts: [github()] })
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))
     const before = (first: HTMLElement, second: HTMLElement) =>
       Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -65,7 +65,7 @@ describe('WorkspacePicker', () => {
   })
 
   it('checks the current Board', async () => {
-    await renderPicker({ boards: [hub, tool], hosts: [github] }, { listed: hub })
+    await renderPicker({ boards: [hub, tool], hosts: [github()] }, { listed: hub })
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))
     const current = screen.getByRole('menuitem', { name: 'App' })
     const other = screen.getByRole('menuitem', { name: 'Tool' })
@@ -75,7 +75,7 @@ describe('WorkspacePicker', () => {
 
   it('links "Open repo" in a new tab when the Board has a URL', async () => {
     await renderPicker(
-      { boards: [hub], hosts: [github] },
+      { boards: [hub], hosts: [github()] },
       { listed: hub, url: 'https://github.com/acme/app' },
     )
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))

@@ -2,20 +2,10 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { azure, github } from '@/test/hosts'
 import { renderWithListing } from '@/test/render'
 import type { HostStatus } from '@/lib/hosts'
 import { AccountMenu } from './AccountMenu'
-
-const github = (loggedIn: boolean): HostStatus => ({
-  host: 'github',
-  loggedIn,
-  login: '/auth/github/login',
-})
-const azure = (loggedIn: boolean): HostStatus => ({
-  host: 'azure',
-  loggedIn,
-  login: '/auth/azure/login',
-})
 
 async function openMenu(hosts: HostStatus[]) {
   renderWithListing(<AccountMenu />, { boards: [], hosts })
