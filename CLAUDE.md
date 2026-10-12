@@ -10,6 +10,8 @@ A read-only kanban board and doc reader over a git repo's markdown task files
   task and board-config files), `source/{azure,github,local}`, `markdown`, `httpapi`, `web` (embedded
   SPA), `guide` (embedded Guide pages).
 - `client/` — Vite + React + TypeScript app. Builds into `api/internal/web/dist`; never contains Go.
+- `.scratch/<feature>/issues/` — this repo's own tickets, not `docs/board/tasks`. See
+  `docs/agents/issue-tracker.md`.
 - `docs/` — `architecture.md` (how it works, with diagrams) and `decisions.md` (why, plus TBD items
   with proposals). Read them before structural changes. `CONTRIBUTING.md` — setup, rules, PRs.
 

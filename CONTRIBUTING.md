@@ -191,6 +191,8 @@ use fuda on their repository, not for people changing fuda.
    and `docs/decisions.md` when a decision changes.
 4. Commit messages say what changed and why, in the imperative ("Restore the last board from the
    cache at startup").
+5. A change to the client is tried in the running app (`make dev`) before the PR, not only by tests.
+6. The PR description has a "How to test" section. For desktop changes it names `make desktop-macos`.
 
 `main` is protected: every PR needs an approving review from a maintainer, and review threads must
 be resolved before merging.
