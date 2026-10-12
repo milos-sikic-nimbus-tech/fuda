@@ -179,6 +179,11 @@ use fuda on their repository, not for people changing fuda.
   last snapshot.
 - **Tests where the logic is.** Unit tests for parsing and rules, small fixtures in `testdata/`, no
   mocking framework.
+- **Component tests:** put `// @vitest-environment jsdom` on the first line of a `*.test.tsx` file;
+  other tests stay in fast Node. Render with `renderWithListing` from `client/src/test/render.tsx`,
+  which seeds the Board listing in a `QueryClient`. Open dropdowns with `userEvent`. Code that
+  reads `BOARD_PREFIX` needs `history.replaceState`, `vi.resetModules()` and a dynamic import (see
+  `WorkspacePicker.test.tsx`).
 - **Client:** shadcn components (`components/ui` is generated, don't edit it), Tailwind tokens from
   `index.css`, every view state in the URL.
 - **The Makefile uses only `go`, `pnpm` and `docker`.**
