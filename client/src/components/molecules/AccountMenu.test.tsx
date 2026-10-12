@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { renderWithListing } from '@/test/render'
 import type { HostStatus } from '@/lib/hosts'
 import { AccountMenu } from './AccountMenu'
@@ -21,8 +21,6 @@ async function openMenu(hosts: HostStatus[]) {
   renderWithListing(<AccountMenu />, { boards: [], hosts })
   await userEvent.click(screen.getByRole('button', { name: 'Account' }))
 }
-
-afterEach(cleanup)
 
 describe('AccountMenu', () => {
   it('renders no button without hosts', () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardData, BoardListing } from '@/lib/api'
 import type { BoardListData, HostStatus } from '@/lib/hosts'
 import { renderWithListing } from '@/test/render'
@@ -21,7 +21,7 @@ const tool: BoardListing = {
 const notes: BoardListing = { host: 'local', repo: 'notes', path: '/local/notes', title: 'Notes' }
 const github: HostStatus = { host: 'github', loggedIn: true, login: '/auth/github/login' }
 
-function boardAt(listing: BoardListing, url?: string) {
+function fakeBoard(listing: BoardListing, url?: string) {
   return {
     title: listing.title,
     origin: { host: listing.host, repo: listing.repo, url },
@@ -29,15 +29,15 @@ function boardAt(listing: BoardListing, url?: string) {
   } as BoardData
 }
 
-async function renderPicker(listing: BoardListData, path = '/', board?: BoardData) {
-  window.history.replaceState(null, '', path)
+async function renderPicker(listing: BoardListData, open?: { listed: BoardListing; url?: string }) {
+  window.history.replaceState(null, '', open?.listed.path ?? '/')
   vi.resetModules()
   const { WorkspacePicker } = await import('./WorkspacePicker')
+  const board = open && fakeBoard(open.listed, open.url)
   renderWithListing(<WorkspacePicker board={board} />, listing)
 }
 
 beforeEach(() => window.history.replaceState(null, '', '/'))
-afterEach(cleanup)
 
 describe('WorkspacePicker', () => {
   it('renders no button without Boards or hosts', async () => {
@@ -65,19 +65,18 @@ describe('WorkspacePicker', () => {
   })
 
   it('checks the current Board', async () => {
-    await renderPicker({ boards: [hub, tool], hosts: [github] }, hub.path, boardAt(hub))
+    await renderPicker({ boards: [hub, tool], hosts: [github] }, { listed: hub })
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))
     const current = screen.getByRole('menuitem', { name: 'App' })
     const other = screen.getByRole('menuitem', { name: 'Tool' })
-    expect(current.querySelector('svg.lucide-check')).not.toBeNull()
-    expect(other.querySelector('svg.lucide-check')).toBeNull()
+    expect(current.getAttribute('aria-current')).toBe('true')
+    expect(other.getAttribute('aria-current')).toBeNull()
   })
 
   it('links "Open repo" in a new tab when the Board has a URL', async () => {
     await renderPicker(
       { boards: [hub], hosts: [github] },
-      hub.path,
-      boardAt(hub, 'https://github.com/acme/app'),
+      { listed: hub, url: 'https://github.com/acme/app' },
     )
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))
     const link = screen.getByRole('menuitem', { name: 'Open repo' })
@@ -86,7 +85,7 @@ describe('WorkspacePicker', () => {
   })
 
   it('hides "Open repo" when the Board has no URL', async () => {
-    await renderPicker({ boards: [notes], hosts: [] }, notes.path, boardAt(notes))
+    await renderPicker({ boards: [notes], hosts: [] }, { listed: notes })
     await userEvent.click(screen.getByRole('button', { name: 'Switch Board' }))
     expect(screen.queryByText('Open repo')).toBeNull()
   })

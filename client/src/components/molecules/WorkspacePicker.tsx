@@ -60,7 +60,7 @@ export function WorkspacePicker({ board }: { board?: BoardData }) {
                 return (
                   <Fragment key={entry.path}>
                     <DropdownMenuItem asChild className="gap-2">
-                      <a href={entry.path}>
+                      <a href={entry.path} aria-current={current ? 'true' : undefined}>
                         <HostIcon host={entry.host} className="size-3.5 shrink-0" />
                         <span className="truncate">{entry.title}</span>
                         {current && <Check className="ml-auto size-3.5" />}
