@@ -4,9 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Checklist and submodule section in `CONTRIBUTING.md`, linked from the README
-- [ ] Agent rule text ready to copy into a code repository's `CLAUDE.md`/`AGENTS.md`
+- [x] Checklist and submodule section in `CONTRIBUTING.md`, linked from the README
+- [x] Agent rule text ready to copy into a code repository's `CLAUDE.md`/`AGENTS.md`
 
 Spec: `.scratch/fuda-writes/spec.md`.

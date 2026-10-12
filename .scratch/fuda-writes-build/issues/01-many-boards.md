@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Opening `/github/<owner>/<repo>/board` shows that repository's Board
-- [ ] Two Boards can be open at once, each with its own snapshot and cache
-- [ ] Unknown Board path gives a clear not-found page
-- [ ] Existing board and service tests pass; new tests cover two Boards side by side
-- [ ] `docs/architecture.md` updated
+- [x] Opening `/github/<owner>/<repo>/board` shows that repository's Board
+- [x] Two Boards can be open at once, each with its own snapshot and cache
+- [x] Unknown Board path gives a clear not-found page
+- [x] Existing board and service tests pass; new tests cover two Boards side by side
+- [x] `docs/architecture.md` updated
 
 Spec: `.scratch/fuda-writes/spec.md`.
