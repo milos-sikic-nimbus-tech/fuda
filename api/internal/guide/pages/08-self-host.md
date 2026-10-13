@@ -15,6 +15,8 @@ Create one app for fuda (Settings → Developer settings → GitHub Apps):
 
 Install the app on the organisation or user that owns the `fuda-` repositories, for those repositories only. fuda then sees only those. Find the install page at `github.com/apps/<slug>/installations/new`.
 
+To find the slug, open [github.com/settings/apps](https://github.com/settings/apps) as the person who created the App (for an organisation's App, its Settings → Developer settings → GitHub Apps). Click the App and read its public link: `https://github.com/apps/<slug>`. The slug is the last part.
+
 ```sh
 docker run -p 8080:8080 -v fuda-data:/data \
   -e FUDA_GITHUB_CLIENT_ID=<client id> \
