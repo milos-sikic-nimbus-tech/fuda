@@ -122,6 +122,11 @@ logs one warning if they are set. If the API answers 401, the client goes to `/a
 so one expired host never logs the person out of another. Each host has its own cookie
 (`fuda_github`, `fuda_azure`), so logging out of one leaves the other alone.
 
+After login, `GET /api/boards` also calls GitHub's `GET /user/installations` with the person's own
+token and returns `appInstalled` (true, false, or absent when the call fails) in the GitHub host
+status, with `installUrl` built from `FUDA_GITHUB_APP_SLUG`. The client shows a banner under the app
+bar when it is false. The desktop build embeds the slug (`GITHUB_APP_SLUG` in the Makefile).
+
 On desktop `GET /auth/github/login` also opens GitHub's device page in the system browser. The
 token goes to the OS keychain; nothing is written to disk. Each host has its own keychain entry
 (`fuda` / `github`, `fuda` / `azure`). The app serves every host whose client id is set

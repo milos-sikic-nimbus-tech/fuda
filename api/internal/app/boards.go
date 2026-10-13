@@ -100,6 +100,13 @@ func NewBoards(log *slog.Logger, cfg config.Config, folders *Folders) *board.Boa
 	if ids := folders.List(); cfg.Has(config.SourceLocal) && len(ids) > 0 {
 		home = ids[0]
 	}
+	var options []board.BoardsOption
+	if cfg.Has(config.SourceGitHub) && cfg.GitHubAppSlug != "" {
+		options = append(options, board.WithAppInstall("github", board.AppInstall{
+			URL:       "https://github.com/apps/" + cfg.GitHubAppSlug + "/installations/new",
+			Installed: github.AppInstalled,
+		}))
+	}
 	return board.NewBoards(log, func(id board.BoardID) (*board.Service, error) {
 		source, links, err := newSource(cfg, folders, id)
 		if err != nil {
@@ -124,5 +131,5 @@ func NewBoards(log *slog.Logger, cfg config.Config, folders *Folders) *board.Boa
 			PRLink:     links.pr,
 			Origin:     links.origin,
 		}), nil
-	}, listBoards(cfg, folders))
+	}, listBoards(cfg, folders), options...)
 }

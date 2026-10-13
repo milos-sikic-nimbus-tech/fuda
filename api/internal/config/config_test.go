@@ -5,6 +5,7 @@ import "testing"
 func TestSourceTakesAList(t *testing.T) {
 	t.Setenv("FUDA_SOURCE", "github,azure")
 	t.Setenv("FUDA_GITHUB_CLIENT_ID", "g")
+	t.Setenv("FUDA_GITHUB_APP_SLUG", "fuda")
 	t.Setenv("FUDA_AZURE_CLIENT_ID", "a")
 	t.Setenv("FUDA_AZURE_CLIENT_SECRET", "a")
 	t.Setenv("FUDA_COOKIE_SECRET", "c")
@@ -21,6 +22,7 @@ func TestSourceTakesAList(t *testing.T) {
 func TestEachSourceNeedsItsOwnSettings(t *testing.T) {
 	t.Setenv("FUDA_SOURCE", "github,azure")
 	t.Setenv("FUDA_GITHUB_CLIENT_ID", "g")
+	t.Setenv("FUDA_GITHUB_APP_SLUG", "fuda")
 	t.Setenv("FUDA_COOKIE_SECRET", "c")
 	t.Setenv("FUDA_BASE_URL", "http://fuda.test")
 	if _, err := Load(); err == nil {
@@ -36,9 +38,13 @@ func TestLocalStandsAlone(t *testing.T) {
 	}
 }
 
-func TestGitHubNeedsOnlyTheClientId(t *testing.T) {
+func TestGitHubNeedsTheClientIdAndTheAppSlug(t *testing.T) {
 	t.Setenv("FUDA_SOURCE", "github")
 	t.Setenv("FUDA_GITHUB_CLIENT_ID", "g")
+	if _, err := Load(); err == nil {
+		t.Error("github without the app slug passed")
+	}
+	t.Setenv("FUDA_GITHUB_APP_SLUG", "fuda")
 	if _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -47,6 +53,7 @@ func TestGitHubNeedsOnlyTheClientId(t *testing.T) {
 func TestRemovedVarsAreReported(t *testing.T) {
 	t.Setenv("FUDA_SOURCE", "github")
 	t.Setenv("FUDA_GITHUB_CLIENT_ID", "g")
+	t.Setenv("FUDA_GITHUB_APP_SLUG", "fuda")
 	t.Setenv("FUDA_GITHUB_CLIENT_SECRET", "s")
 	t.Setenv("FUDA_COOKIE_SECRET", "c")
 	t.Setenv("FUDA_BASE_URL", "http://fuda.test")
@@ -62,6 +69,7 @@ func TestRemovedVarsAreReported(t *testing.T) {
 func TestAzureKeepsTheCookieVars(t *testing.T) {
 	t.Setenv("FUDA_SOURCE", "github,azure")
 	t.Setenv("FUDA_GITHUB_CLIENT_ID", "g")
+	t.Setenv("FUDA_GITHUB_APP_SLUG", "fuda")
 	t.Setenv("FUDA_AZURE_CLIENT_ID", "a")
 	t.Setenv("FUDA_AZURE_CLIENT_SECRET", "a")
 	t.Setenv("FUDA_COOKIE_SECRET", "c")

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { groupBoards, onlyBoard, pickerButtonLabel, showLogOutAll } from './hosts'
+import {
+  groupBoards,
+  installUrl,
+  missingInstallUrl,
+  onlyBoard,
+  pickerButtonLabel,
+  showLogOutAll,
+} from './hosts'
 
 const github = { host: 'github', loggedIn: true, login: '/auth/github/login' } as const
 const azure = { host: 'azure', loggedIn: false, login: '/auth/azure/login' } as const
@@ -61,5 +68,26 @@ describe('showLogOutAll', () => {
     expect(showLogOutAll([github, azure])).toBe(false)
     expect(showLogOutAll([github, { ...azure, loggedIn: true }])).toBe(true)
     expect(showLogOutAll([github])).toBe(false)
+  })
+})
+
+describe('install links', () => {
+  const link = 'https://github.com/apps/fuda/installations/new'
+  const withApp = (appInstalled?: boolean) => ({
+    boards: [],
+    hosts: [azure, { ...github, installUrl: link, appInstalled }],
+  })
+
+  it('finds the install link on any host', () => {
+    expect(installUrl(withApp(true))).toBe(link)
+    expect(installUrl({ boards: [], hosts: [azure] })).toBeUndefined()
+    expect(installUrl(undefined)).toBeUndefined()
+  })
+  it.each([
+    [false, link],
+    [true, undefined],
+    [undefined, undefined],
+  ])('reports a missing install only when appInstalled is %s', (appInstalled, expected) => {
+    expect(missingInstallUrl(withApp(appInstalled))).toBe(expected)
   })
 })

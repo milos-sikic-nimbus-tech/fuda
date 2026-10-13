@@ -40,7 +40,8 @@ jobs:
         shell: bash
         run: |
           test -n "${{ vars.FUDA_GITHUB_CLIENT_ID }}" || { echo "Set the FUDA_GITHUB_CLIENT_ID repository variable"; exit 1; }
-          make ${{ matrix.target }} ARCH=${{ matrix.arch }} VERSION=${GITHUB_REF_NAME#v} GITHUB_CLIENT_ID=${{ vars.FUDA_GITHUB_CLIENT_ID }}
+          test -n "${{ vars.FUDA_GITHUB_APP_SLUG }}" || { echo "Set the FUDA_GITHUB_APP_SLUG repository variable"; exit 1; }
+          make ${{ matrix.target }} ARCH=${{ matrix.arch }} VERSION=${GITHUB_REF_NAME#v} GITHUB_CLIENT_ID=${{ vars.FUDA_GITHUB_CLIENT_ID }} GITHUB_APP_SLUG=${{ vars.FUDA_GITHUB_APP_SLUG }}
       - name: Pack and upload
         shell: bash
         env:

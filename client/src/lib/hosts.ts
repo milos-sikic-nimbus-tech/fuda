@@ -2,7 +2,14 @@ import type { BoardListing } from './api'
 
 export type HostName = 'github' | 'azure'
 
-export type HostStatus = { host: HostName; loggedIn: boolean; login: string; error?: string }
+export type HostStatus = {
+  host: HostName
+  loggedIn: boolean
+  login: string
+  error?: string
+  installUrl?: string
+  appInstalled?: boolean
+}
 
 export type BoardListData = { boards: BoardListing[]; hosts: HostStatus[] }
 
@@ -43,4 +50,12 @@ export function pickerButtonLabel(
 
 export function showLogOutAll(hosts: HostStatus[]): boolean {
   return hosts.filter((host) => host.loggedIn).length > 1
+}
+
+export function installUrl(data?: BoardListData): string | undefined {
+  return data?.hosts.find((host) => host.installUrl)?.installUrl
+}
+
+export function missingInstallUrl(data?: BoardListData): string | undefined {
+  return data?.hosts.find((host) => host.appInstalled === false)?.installUrl
 }

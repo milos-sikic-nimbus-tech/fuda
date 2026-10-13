@@ -23,6 +23,7 @@ import (
 var (
 	version        = "dev"
 	githubClientID = ""
+	githubAppSlug  = ""
 	azureClientID  = ""
 )
 
@@ -55,6 +56,8 @@ func run(log *slog.Logger) error {
 	cfg := config.Config{
 		SyncCooldown: 30 * time.Second,
 		CacheDir:     filepath.Join(cacheRoot, "fuda"),
+
+		GitHubAppSlug: cmp.Or(os.Getenv("FUDA_GITHUB_APP_SLUG"), githubAppSlug),
 	}
 
 	var desktop *application.App

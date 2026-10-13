@@ -5,10 +5,11 @@ ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 VERSION ?= dev
 GITHUB_CLIENT_ID ?=
+GITHUB_APP_SLUG ?=
 AZURE_CLIENT_ID ?=
 ARCH ?= $(shell go env GOARCH)
-DESKTOP_IDS := $(ENV) github_id="$(GITHUB_CLIENT_ID)"; azure_id="$(AZURE_CLIENT_ID)";
-DESKTOP_LDFLAGS := -X main.version=$(VERSION) -X main.githubClientID=$${github_id:-$$FUDA_GITHUB_CLIENT_ID} -X main.azureClientID=$${azure_id:-$$FUDA_AZURE_CLIENT_ID}
+DESKTOP_IDS := $(ENV) github_id="$(GITHUB_CLIENT_ID)"; github_slug="$(GITHUB_APP_SLUG)"; azure_id="$(AZURE_CLIENT_ID)";
+DESKTOP_LDFLAGS := -X main.version=$(VERSION) -X main.githubClientID=$${github_id:-$$FUDA_GITHUB_CLIENT_ID} -X main.githubAppSlug=$${github_slug:-$$FUDA_GITHUB_APP_SLUG} -X main.azureClientID=$${azure_id:-$$FUDA_AZURE_CLIENT_ID}
 
 dev:
 	$(MAKE) -j2 dev-api dev-client

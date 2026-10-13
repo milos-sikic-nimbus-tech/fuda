@@ -114,6 +114,9 @@ type hostStatus struct {
 	LoggedIn bool   `json:"loggedIn"`
 	Login    string `json:"login"`
 	Error    string `json:"error,omitempty"`
+
+	InstallURL   string `json:"installUrl,omitempty"`
+	AppInstalled *bool  `json:"appInstalled,omitempty"`
 }
 
 type boardListResponse struct {
@@ -127,7 +130,7 @@ func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 		response.Boards = append(response.Boards, listings(ids)...)
 	}
 	for _, login := range a.logins {
-		status := hostStatus{Host: login.Host(), Login: "/auth/" + login.Host() + "/login"}
+		status := hostStatus{Host: login.Host(), Login: "/auth/" + login.Host() + "/login", InstallURL: a.boards.InstallURL(login.Host())}
 		ctx, err := a.withToken(w, r, login.Host())
 		if err == nil {
 			var ids []board.BoardID
@@ -137,6 +140,7 @@ func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case err == nil:
 			status.LoggedIn = true
+			status.AppInstalled = a.boards.AppInstalled(ctx, login.Host())
 		case errors.Is(err, board.ErrUnauthorized):
 		default:
 			a.log.Warn("could not list Boards", "host", login.Host(), "error", err)

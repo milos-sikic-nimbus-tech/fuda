@@ -31,7 +31,8 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 ```sh
 docker run -p 8080:8080 -v fuda-data:/data \
-  -e FUDA_GITHUB_CLIENT_ID=<GitHub App client id> fuda
+  -e FUDA_GITHUB_CLIENT_ID=<GitHub App client id> \
+  -e FUDA_GITHUB_APP_SLUG=<GitHub App slug> fuda
 ```
 
 Keep the volume: fuda saves its login cookie key there, and a new key logs everyone out. Serve fuda
@@ -40,7 +41,8 @@ over HTTPS; login cookies are `Secure` except on localhost.
 People log in with the fuda GitHub App. fuda lists every `fuda-` repository they can read and the
 App is installed on, and reads each Board with that person's own token. There is no server token and
 no shared password. Boards open at `/github/<owner>/<repo>/`; `/` lists them, or opens the only one.
-Set up the App in the [Self-host guide](api/internal/guide/pages/08-self-host.md).
+The App must be installed on the organisation or user that owns the `fuda-` repositories. If it is not,
+fuda shows a banner with an install link (built from `FUDA_GITHUB_APP_SLUG`). Set up the App in the [Self-host guide](api/internal/guide/pages/08-self-host.md).
 
 ## Desktop app
 

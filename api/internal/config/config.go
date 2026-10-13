@@ -27,6 +27,7 @@ type Config struct {
 	LocalPath string   `env:"FUDA_LOCAL_PATH"`
 
 	GitHubClientID            string `env:"FUDA_GITHUB_CLIENT_ID"`
+	GitHubAppSlug             string `env:"FUDA_GITHUB_APP_SLUG"`
 	IgnoredGitHubClientSecret string `env:"FUDA_GITHUB_CLIENT_SECRET"`
 
 	AzureTenant       string `env:"FUDA_AZURE_TENANT" envDefault:"organizations"`
@@ -77,8 +78,8 @@ func (c Config) validate() error {
 				return fmt.Errorf("FUDA_SOURCE=local needs FUDA_LOCAL_PATH")
 			}
 		case SourceGitHub:
-			if c.GitHubClientID == "" {
-				return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID")
+			if c.GitHubClientID == "" || c.GitHubAppSlug == "" {
+				return fmt.Errorf("FUDA_SOURCE=github needs FUDA_GITHUB_CLIENT_ID and FUDA_GITHUB_APP_SLUG")
 			}
 		case SourceAzure:
 			if c.AzureClientID == "" || c.AzureClientSecret == "" || c.CookieSecret == "" || c.BaseURL == "" {

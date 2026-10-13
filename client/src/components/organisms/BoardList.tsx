@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { HostIcon } from '@/components/atoms/HostIcon'
 import { Button } from '@/components/ui/button'
 import { loginPath } from '@/lib/boardPath'
-import { hostLabel, logOut, onlyBoard } from '@/lib/hosts'
+import { hostLabel, logOut, missingInstallUrl, onlyBoard } from '@/lib/hosts'
 import { useBoardListing } from '@/lib/queries'
 
 export function BoardList() {
@@ -22,11 +22,21 @@ export function BoardList() {
     return <p className="p-6 text-sm text-muted-foreground">Loading Boards…</p>
   }
   const { boards, hosts } = data
+  const missingApp = missingInstallUrl(data)
   if (boards.length === 0 && hosts.every((host) => host.loggedIn)) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
         No Boards yet. Create a repository whose name starts with <code>fuda-</code> (on GitHub,
         install the fuda GitHub App on it).
+        {missingApp && (
+          <>
+            {' '}
+            <a href={missingApp} className="underline underline-offset-2">
+              Install the fuda GitHub App
+            </a>
+            .
+          </>
+        )}
       </p>
     )
   }

@@ -42,7 +42,7 @@ The tasks folder is flat: no sub-folders, grouping is done with labels. The boar
 3. Copy the workflow into `TASKS.md` and add the agent guide and the `CLAUDE.md` pointer.
 4. Make CI skip changes that only touch `docs/board/` ([Workflow](/guide/workflow#ci-cd)).
 5. Try it locally ([Run locally](/guide/run-locally)) and fix anything listed under Problems.
-6. Name the repository `fuda-<something>`, install the fuda GitHub App on it and deploy fuda
+6. Name the repository `fuda-<something>`, install the fuda GitHub App on the organisation or user that owns it, and deploy fuda
    ([Self-host](/guide/self-host)). Everyone who can read the repository sees it as a Board.
 
 A repository with no task files, or with no `develop` branch yet, is not an error. It shows an empty board with the default stages

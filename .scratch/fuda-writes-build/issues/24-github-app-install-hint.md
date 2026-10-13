@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Decided with the user, 2026-10-13:
 
@@ -15,10 +15,11 @@ Decided with the user, 2026-10-13:
 - **Existing hints get the link.** The empty Board list (`BoardList.tsx`) and the 404 text (`__root.tsx`) keep their text and add the install link. "Installed, but zero `fuda-` Boards" keeps the current text.
 - **Docs for operators:** `README.md`, `.env.example`, Guide `08-self-host.md` and `02-setup-a-repo.md`, `docs/architecture.md`, `docs/decisions.md`. Say where to install the App (the org or user that owns the `fuda-` repos) and add the slug var.
 
-- [ ] fuda refuses to start for a GitHub host without `FUDA_GITHUB_APP_SLUG`
-- [ ] The desktop build embeds the slug
-- [ ] Host status returns `appInstalled`; unit tests cover installed, not installed, and call failed (unknown)
-- [ ] The banner shows only when `appInstalled` is false, has the install link, and can be closed until reload
-- [ ] The empty Board list and the 404 page show the install link
-- [ ] Docs listed above are updated; release notes mention the new required var
-- [ ] `make check` passes
+- [x] fuda refuses to start for a GitHub host without `FUDA_GITHUB_APP_SLUG`
+- [x] The desktop build embeds the slug
+- [x] Host status returns `appInstalled`; unit tests cover installed, not installed, and call failed (unknown)
+- [x] The banner shows only when `appInstalled` is false, has the install link, and can be closed until reload
+- [x] The empty Board list and the 404 page show the install link
+- [x] Docs listed above are updated
+- [ ] Release notes mention the new required var (a person writes them when tagging; also set the `FUDA_GITHUB_APP_SLUG` repository variable, the release workflow now needs it)
+- [x] `make check` passes

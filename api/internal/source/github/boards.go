@@ -42,3 +42,18 @@ func (s *Source) listBoards(ctx context.Context) ([]string, error) {
 		}
 	}
 }
+
+func AppInstalled(ctx context.Context) (bool, error) {
+	source := &Source{base: apiBase, client: &http.Client{Timeout: 60 * time.Second}}
+	return source.appInstalled(ctx)
+}
+
+func (s *Source) appInstalled(ctx context.Context) (bool, error) {
+	var out struct {
+		TotalCount int `json:"total_count"`
+	}
+	if err := s.getJSON(ctx, "/user/installations?per_page=1", &out); err != nil {
+		return false, err
+	}
+	return out.TotalCount > 0, nil
+}

@@ -29,7 +29,7 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 
 | `FUDA_SOURCE` | Needs |
 |---|---|
-| `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID` only. People log in with device flow; there is no server token. |
+| `github` (default) | A GitHub App: `FUDA_GITHUB_CLIENT_ID` and `FUDA_GITHUB_APP_SLUG`. People log in with device flow; there is no server token. |
 | `local` | `FUDA_LOCAL_PATH`: a checkout on disk. Shows the working tree, uncommitted edits included. No login. Moves and Assigns write the file on disk; you commit. A folder with `tasks/` also works. On desktop, File → Open folder… does this. |
 | `azure` | A Microsoft Entra ID app: `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET`, optionally `FUDA_AZURE_TENANT` (default `organizations`), plus `FUDA_BASE_URL` and `FUDA_COOKIE_SECRET`. People log in; there is no server token. |
 
@@ -59,7 +59,7 @@ Create a GitHub App (Settings → Developer settings → GitHub Apps) with:
 - Repository permissions: Contents read, Pull requests read, Metadata read.
 - No webhook.
 
-Install it on your `fuda-` repositories, then set `FUDA_GITHUB_CLIENT_ID` in your local env file.
+Install it on your `fuda-` repositories, then set `FUDA_GITHUB_CLIENT_ID` and `FUDA_GITHUB_APP_SLUG` (the last part of `github.com/apps/<slug>`) in your local env file. The desktop build embeds both: `make desktop-macos` reads them from the env file, or pass `GITHUB_CLIENT_ID=` and `GITHUB_APP_SLUG=`.
 
 The browser polls the Board about every 5 seconds. The server asks GitHub for the head commit first
 (a conditional request, free when nothing changed) and reads files only when it moved. With the local
@@ -124,12 +124,12 @@ Tasks are the markdown files in `docs/board/tasks/`. `docs/board` is a git submo
 ## Desktop app
 
 Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run `bin/fuda-desktop`, or
-build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. With no id, the app shows a dialog and quits. The App needs "Expire user
+build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>`, `GITHUB_APP_SLUG=<slug>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. `FUDA_GITHUB_APP_SLUG` gives the install link; without it the app shows no install banner. With no id, the app shows a dialog and quits. The App needs "Expire user
 authorization tokens" off: there is no client secret, so fuda cannot refresh a token.
 
 To release, push a tag such as `v0.1.0`. The `release` workflow builds macOS (arm64, amd64) and
 Windows, and uploads `fuda-desktop_<os>_<arch>` archives to the GitHub Release. Set the repository
-variable `FUDA_GITHUB_CLIENT_ID` first. The app checks the latest release on start and from
+variables `FUDA_GITHUB_CLIENT_ID` and `FUDA_GITHUB_APP_SLUG` first. The app checks the latest release on start and from
 Help → Check for updates…, then replaces its own binary. A build made with `VERSION=dev` never updates.
 
 ### Desktop icon

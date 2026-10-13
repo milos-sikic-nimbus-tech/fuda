@@ -13,11 +13,12 @@ Create one app for fuda (Settings → Developer settings → GitHub Apps):
 - **Webhook:** off.
 - **Repository permissions:** Contents read, Pull requests read, Metadata read.
 
-Install the app on your organisation for the `fuda-` repositories only. fuda then sees only those.
+Install the app on the organisation or user that owns the `fuda-` repositories, for those repositories only. fuda then sees only those. Find the install page at `github.com/apps/<slug>/installations/new`.
 
 ```sh
 docker run -p 8080:8080 -v fuda-data:/data \
   -e FUDA_GITHUB_CLIENT_ID=<client id> \
+  -e FUDA_GITHUB_APP_SLUG=<app slug> \
   fuda
 ```
 
@@ -33,6 +34,7 @@ such as `http://192.168.1.5:8080` has no working login.
 |---|---|---|
 | `FUDA_SOURCE` | `github` | `github`, `azure`, `local`, or `github,azure` for both hosts at once |
 | `FUDA_GITHUB_CLIENT_ID` | | The GitHub App's client id |
+| `FUDA_GITHUB_APP_SLUG` | | The GitHub App's slug, the last part of `github.com/apps/<slug>`. Required with `github`: fuda does not start without it. It builds the install link |
 | `FUDA_BASE_URL`, `FUDA_COOKIE_SECRET` | | Only for `azure`: the public address (login callback) and the key that encrypts its login cookie. Not used for GitHub |
 | `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (when `FUDA_SOURCE` includes `azure`) |
 | `FUDA_AZURE_TENANT` | `organizations` | The Entra tenant that may log in. Use your tenant id for a single-tenant app |
@@ -49,6 +51,7 @@ a server on a private network or behind your proxy's authentication.
 - Not logged in: a Board page sends you to the login page. For GitHub it shows a code to type on github.com. Then you come back.
 - After login the Board button in the top bar lists the `fuda-` repositories the app is installed
   on and you can read. `/` opens the only Board, or lists them.
+- App not installed: login still works, but the list is empty. fuda checks this after login and shows a banner with the install link. People who cannot install the App can send the link to an owner of the organisation.
 - No access: the page says so. Check that the app is installed on the repository and that your
   account can read it.
 - The token lives in an encrypted cookie. fuda stores no user secret.

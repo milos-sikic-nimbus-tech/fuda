@@ -69,6 +69,10 @@ with a proposal.
 - **A Board is a `fuda-` repository the person can read.** The Board dropdown lists them from
   `GET /user/repos`, which only returns repositories the app is installed on. `/` opens the only
   Board or lists them.
+- **The App slug is required, and install is checked after login.** `FUDA_GITHUB_APP_SLUG` is
+  required with the GitHub source; without it there is no install link, so fuda does not start.
+  The host status carries `appInstalled` from `GET /user/installations`; when that call fails the
+  value is absent and no banner shows. People can close the banner; it returns on reload.
 - **Plain Go packages by responsibility.** No ports-and-adapters layering. `board` holds the
   behaviour and declares the small interfaces it needs; sources satisfy them implicitly. Handlers
   stay thin.

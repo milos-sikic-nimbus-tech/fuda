@@ -133,3 +133,31 @@ func TestMissingRepositoryStaysMissing(t *testing.T) {
 		t.Fatalf("head: %v", err)
 	}
 }
+
+func TestAppInstalledReadsTheInstallationCount(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+		failed bool
+	}{
+		{"installed", 200, `{"total_count":2,"installations":[{"id":1}]}`, true, false},
+		{"not installed", 200, `{"total_count":0,"installations":[]}`, false, false},
+		{"call failed", 500, `boom`, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := serve(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/user/installations" || r.Header.Get("Authorization") != "Bearer user-token" {
+					t.Errorf("request: %s, %q", r.URL.Path, r.Header.Get("Authorization"))
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			})
+			got, err := s.appInstalled(board.WithToken(context.Background(), "user-token"))
+			if got != tc.want || (err != nil) != tc.failed {
+				t.Errorf("got %v, %v", got, err)
+			}
+		})
+	}
+}

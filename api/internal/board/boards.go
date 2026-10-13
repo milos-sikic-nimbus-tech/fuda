@@ -39,13 +39,47 @@ type Boards struct {
 	list func(ctx context.Context, host string) ([]BoardID, error)
 	log  *slog.Logger
 
+	installs map[string]AppInstall
+
 	opening  singleflight.Group
 	mu       sync.Mutex
 	services map[BoardID]*Service
 }
 
-func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(ctx context.Context, host string) ([]BoardID, error)) *Boards {
-	return &Boards{open: open, list: list, log: log, services: map[BoardID]*Service{}}
+type AppInstall struct {
+	URL       string
+	Installed func(ctx context.Context) (bool, error)
+}
+
+type BoardsOption func(*Boards)
+
+func WithAppInstall(host string, install AppInstall) BoardsOption {
+	return func(b *Boards) { b.installs[host] = install }
+}
+
+func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(ctx context.Context, host string) ([]BoardID, error), options ...BoardsOption) *Boards {
+	b := &Boards{open: open, list: list, log: log, installs: map[string]AppInstall{}, services: map[BoardID]*Service{}}
+	for _, option := range options {
+		option(b)
+	}
+	return b
+}
+
+func (b *Boards) InstallURL(host string) string {
+	return b.installs[host].URL
+}
+
+func (b *Boards) AppInstalled(ctx context.Context, host string) *bool {
+	install, ok := b.installs[host]
+	if !ok || install.Installed == nil {
+		return nil
+	}
+	installed, err := install.Installed(ctx)
+	if err != nil {
+		b.log.Warn("could not check the app installation", "host", host, "error", err)
+		return nil
+	}
+	return &installed
 }
 
 func (b *Boards) List(ctx context.Context, host string) ([]BoardID, error) {

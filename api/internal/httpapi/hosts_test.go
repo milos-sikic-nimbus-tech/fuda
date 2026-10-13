@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -38,7 +39,7 @@ type hostsServer struct {
 	loggedOut *atomic.Int32
 }
 
-func newHostsServer(t *testing.T) hostsServer {
+func newHostsServer(t *testing.T, options ...board.BoardsOption) hostsServer {
 	t.Helper()
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
@@ -51,7 +52,7 @@ func newHostsServer(t *testing.T) hostsServer {
 			return []board.BoardID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
 		}
 		return nil, nil
-	})
+	}, options...)
 	loggedOut := &atomic.Int32{}
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{},
 		hostLogin{"github", "X-Github-Token", loggedOut}, hostLogin{"azure", "X-Azure-Token", loggedOut}))
@@ -65,6 +66,9 @@ type listing struct {
 		Host     string
 		LoggedIn bool
 		Login    string
+
+		InstallURL   string
+		AppInstalled *bool
 	}
 }
 
@@ -129,5 +133,32 @@ func TestLogOutOfAllClearsEveryHost(t *testing.T) {
 	}
 	if got := server.loggedOut.Load(); got != 2 {
 		t.Errorf("hosts logged out: %d, want 2", got)
+	}
+}
+
+func TestHostStatusSaysWhetherTheAppIsInstalled(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		installed func(context.Context) (bool, error)
+		want      *bool
+	}{
+		{"installed", func(context.Context) (bool, error) { return true, nil }, new(true)},
+		{"not installed", func(context.Context) (bool, error) { return false, nil }, new(false)},
+		{"call failed", func(context.Context) (bool, error) { return false, errors.New("boom") }, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newHostsServer(t, board.WithAppInstall("github", board.AppInstall{URL: "https://github.com/apps/fuda/installations/new", Installed: tc.installed}))
+			_, got := server.do(t, "GET", "/api/boards", map[string]string{"X-Github-Token": "member", "X-Azure-Token": "member"})
+			github, azure := got.Hosts[0], got.Hosts[1]
+			if github.InstallURL != "https://github.com/apps/fuda/installations/new" {
+				t.Errorf("install url: %q", github.InstallURL)
+			}
+			if (github.AppInstalled == nil) != (tc.want == nil) || (tc.want != nil && *github.AppInstalled != *tc.want) {
+				t.Errorf("appInstalled: %v, want %v", github.AppInstalled, tc.want)
+			}
+			if azure.AppInstalled != nil || azure.InstallURL != "" {
+				t.Errorf("azure: %+v", azure)
+			}
+		})
 	}
 }
