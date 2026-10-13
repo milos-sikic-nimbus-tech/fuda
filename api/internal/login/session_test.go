@@ -56,7 +56,7 @@ func newFakeAzure(t *testing.T) *fakeAzure {
 
 func newLogin(t *testing.T, f *fakeAzure) *Web {
 	t.Helper()
-	g, err := NewAzure(slog.New(slog.DiscardHandler), Config{Tenant: "organizations", ClientID: "id", ClientSecret: "secret", CookieSecret: "cookie-secret", BaseURL: "http://fuda.test"})
+	g, err := NewCookieOAuth(slog.New(slog.DiscardHandler), Config{Tenant: "organizations", ClientID: "id", ClientSecret: "secret", CookieSecret: "cookie-secret", BaseURL: "http://fuda.test"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -65,7 +65,7 @@ func (h *fakeHost) WriteFile(_ context.Context, _, path string, content []byte, 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if version != fmt.Sprint(h.versions[path]) {
-		return ErrChanged
+		return ErrStale
 	}
 	h.files[path] = content
 	h.versions[path]++
@@ -122,7 +122,7 @@ func TestMoveWritesTheStatusAndClaimsTheTask(t *testing.T) {
 	host := newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})
 	s := newMoveService(t, host)
 
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestMoveClaimsOnlyWhenLeavingTheFirstStage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			host := newFakeHost(map[string]string{taskPath: taskContent(tt.status, tt.extra)})
 			s := newMoveService(t, host)
-			if err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: tt.status, Column: tt.to}); err != nil {
+			if err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: tt.status, ToColumn: tt.to}); err != nil {
 				t.Fatal(err)
 			}
 			check(t, "file", host.file(), tt.want)
@@ -162,7 +162,7 @@ func TestMoveRetriesSilentlyWhenAnotherLineChanged(t *testing.T) {
 		})
 	}
 
-	if err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"}); err != nil {
+	if err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -180,7 +180,7 @@ func TestMoveLosesWhenStatusChangedFirst(t *testing.T) {
 		})
 	}
 
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 
 	var conflict *ConflictError
 	if !errors.As(err, &conflict) {
@@ -196,7 +196,7 @@ func TestMoveLosesWhenStatusChangedBeforeTheRead(t *testing.T) {
 	s := newMoveService(t, host)
 	host.edit(func(c string) string { return strings.Replace(c, "status: backlog", "status: testing", 1) })
 
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 
 	var conflict *ConflictError
 	if !errors.As(err, &conflict) {
@@ -217,7 +217,7 @@ func TestMoveGivesUpInsteadOfForcing(t *testing.T) {
 		})
 	}
 
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 
 	var conflict *ConflictError
 	if !errors.As(err, &conflict) {
@@ -243,10 +243,10 @@ func TestMoveRefusals(t *testing.T) {
 		req  MoveRequest
 		want error
 	}{
-		{"an archived task", MoveRequest{TaskID: "T-2", Seen: "done", Column: "backlog"}, ErrLocked},
-		{"a stage that only open PRs fill", MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-review"}, ErrLocked},
-		{"an unknown task", MoveRequest{TaskID: "T-9", Seen: "backlog", Column: "backlog"}, ErrNotFound},
-		{"an unknown stage", MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "nowhere"}, ErrNotFound},
+		{"an archived task", MoveRequest{TaskID: "T-2", FromStatus: "done", ToColumn: "backlog"}, ErrNotMovable},
+		{"a stage that only open PRs fill", MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-review"}, ErrNotMovable},
+		{"an unknown task", MoveRequest{TaskID: "T-9", FromStatus: "backlog", ToColumn: "backlog"}, ErrNotFound},
+		{"an unknown stage", MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "nowhere"}, ErrNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -263,7 +263,7 @@ func TestMoveNeedsASourceThatWrites(t *testing.T) {
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 	if !errors.Is(err, ErrForbidden) {
 		t.Errorf("got %v, want ErrForbidden", err)
 	}
@@ -274,7 +274,7 @@ func TestReadOnlyAccountsCannotMoveOrAssign(t *testing.T) {
 	host.readOnly = true
 	s := newMoveService(t, host)
 
-	moveErr := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	moveErr := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 	assignErr := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Owners: []string{"Ann"}})
 
 	if !errors.Is(moveErr, ErrForbidden) || !errors.Is(assignErr, ErrForbidden) {

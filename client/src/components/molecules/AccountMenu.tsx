@@ -24,26 +24,31 @@ export function AccountMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-64">
-        {data.hosts.map((host) => (
-          <div key={host.host} className="flex items-center gap-2 px-2 py-1.5 text-sm">
-            <HostIcon host={host.host} className="size-3.5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate">{hostLabel(host.host)}</div>
-              <div className="text-xs text-muted-foreground">
-                {host.loggedIn ? 'Logged in' : 'Logged out'}
+        {data.hosts.map((host) => {
+          const row = (
+            <>
+              <HostIcon host={host.host} className="size-3.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate">{hostLabel(host.host)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {host.loggedIn ? 'Logged in' : 'Logged out'}
+                </div>
               </div>
-            </div>
-            {host.loggedIn ? (
-              <Button variant="ghost" size="sm" onClick={() => void logOut(host.host)}>
-                Log out
-              </Button>
-            ) : (
-              <Button variant="ghost" size="sm" asChild>
-                <a href={loginPath(returnTo, host.login)}>Log in</a>
-              </Button>
-            )}
-          </div>
-        ))}
+              <span className="text-xs text-muted-foreground">
+                {host.loggedIn ? 'Log out' : 'Log in'}
+              </span>
+            </>
+          )
+          return host.loggedIn ? (
+            <DropdownMenuItem key={host.host} onSelect={() => void logOut(host.host)}>
+              {row}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={host.host} asChild>
+              <a href={loginPath(returnTo, host.login)}>{row}</a>
+            </DropdownMenuItem>
+          )
+        })}
         {showLogOutAll(data.hosts) && (
           <>
             <DropdownMenuSeparator />

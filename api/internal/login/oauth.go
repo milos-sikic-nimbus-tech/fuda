@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"fuda/internal/board"
 )
 
 var (
@@ -22,7 +24,7 @@ type Token struct {
 	Expires time.Time `json:"e,omitzero"`
 }
 
-type oauthApp struct {
+type provider struct {
 	name         string
 	label        string
 	scope        string
@@ -36,9 +38,9 @@ type oauthApp struct {
 	now          func() time.Time
 }
 
-func newGitHubApp(clientID string) *oauthApp {
-	return &oauthApp{
-		name:      "github",
+func newGitHubApp(clientID string) *provider {
+	return &provider{
+		name:      string(board.HostGitHub),
 		label:     "GitHub",
 		clientID:  clientID,
 		tokenURL:  "https://github.com/login/oauth/access_token",
@@ -48,10 +50,10 @@ func newGitHubApp(clientID string) *oauthApp {
 	}
 }
 
-func newAzureApp(tenant, clientID, clientSecret, redirectURL string) *oauthApp {
+func newAzureApp(tenant, clientID, clientSecret, redirectURL string) *provider {
 	authority := "https://login.microsoftonline.com/" + url.PathEscape(tenant) + "/oauth2/v2.0"
-	return &oauthApp{
-		name:         "azure",
+	return &provider{
+		name:         string(board.HostAzure),
 		label:        "Azure DevOps",
 		scope:        AzureScope,
 		clientID:     clientID,
@@ -65,7 +67,7 @@ func newAzureApp(tenant, clientID, clientSecret, redirectURL string) *oauthApp {
 	}
 }
 
-func (g *oauthApp) authorize(state, challenge string) string {
+func (g *provider) authorize(state, challenge string) string {
 	query := url.Values{
 		"response_type":         {"code"},
 		"client_id":             {g.clientID},
@@ -80,7 +82,7 @@ func (g *oauthApp) authorize(state, challenge string) string {
 	return g.authorizeURL + "?" + query.Encode()
 }
 
-func (g *oauthApp) exchange(ctx context.Context, code, verifier string) (Token, error) {
+func (g *provider) exchange(ctx context.Context, code, verifier string) (Token, error) {
 	return g.token(ctx, url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -89,14 +91,14 @@ func (g *oauthApp) exchange(ctx context.Context, code, verifier string) (Token, 
 	})
 }
 
-func (g *oauthApp) refresh(ctx context.Context, refreshToken string) (Token, error) {
+func (g *provider) refresh(ctx context.Context, refreshToken string) (Token, error) {
 	return g.token(ctx, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
 	})
 }
 
-func (g *oauthApp) token(ctx context.Context, form url.Values) (Token, error) {
+func (g *provider) token(ctx context.Context, form url.Values) (Token, error) {
 	form.Set("client_id", g.clientID)
 	if g.scope != "" {
 		form.Set("scope", g.scope)
@@ -153,7 +155,7 @@ type deviceCode struct {
 	Description     string `json:"error_description"`
 }
 
-func (g *oauthApp) startDevice(ctx context.Context) (deviceCode, error) {
+func (g *provider) startDevice(ctx context.Context) (deviceCode, error) {
 	form := url.Values{"client_id": {g.clientID}}
 	if g.scope != "" {
 		form.Set("scope", g.scope)
@@ -182,7 +184,7 @@ func (g *oauthApp) startDevice(ctx context.Context) (deviceCode, error) {
 	return code, nil
 }
 
-func (g *oauthApp) pollDevice(ctx context.Context, code string) (Token, error) {
+func (g *provider) pollDevice(ctx context.Context, code string) (Token, error) {
 	return g.token(ctx, url.Values{
 		"device_code": {code},
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},

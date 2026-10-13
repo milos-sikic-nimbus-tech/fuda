@@ -9,30 +9,31 @@ import (
 	"fuda/internal/taskfiles"
 )
 
-type Writer interface {
+type TaskEditor interface {
+	CanWrite(ctx context.Context) (bool, error)
 	ReadFile(ctx context.Context, branch, path string) (content []byte, version string, err error)
 	WriteFile(ctx context.Context, branch, path string, content []byte, version, message string) error
 	LastEditor(ctx context.Context, branch, path string) (string, error)
 }
 
-var ErrChanged = errors.New("file changed since it was read")
+var ErrStale = errors.New("file changed since it was read")
 
-var ErrLocked = errors.New("this task cannot be changed")
+var ErrNotMovable = errors.New("this task cannot be changed")
 
 type ConflictError struct{ Message string }
 
 func (e *ConflictError) Error() string { return e.Message }
 
 type MoveRequest struct {
-	TaskID string `json:"-"`
-	Seen   string `json:"seen"`
-	Column string `json:"column"`
+	TaskID     string `json:"-"`
+	FromStatus string `json:"seen"`
+	ToColumn   string `json:"column"`
 }
 
-const moveAttempts = 4
+const writeAttempts = 4
 
 func (s *Service) Move(ctx context.Context, req MoveRequest) error {
-	writer, err := s.requireWriter(ctx)
+	editor, err := s.requireEditor(ctx)
 	if err != nil {
 		return err
 	}
@@ -45,21 +46,21 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 		return ErrNotFound
 	}
 	if task.Archived || len(snap.reviews[task.ID]) > 0 {
-		return ErrLocked
+		return ErrNotMovable
 	}
-	target, ok := snap.column(req.Column)
+	target, ok := snap.column(req.ToColumn)
 	if !ok {
 		return ErrNotFound
 	}
 	if target.PROpen || len(target.Statuses) == 0 {
-		return ErrLocked
+		return ErrNotMovable
 	}
 
-	return s.commit(ctx, writer, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
-		if normalizeStatus(current.Status) != normalizeStatus(req.Seen) {
-			return nil, "", s.lostMove(ctx, writer, snap, task.Path, current.Status)
+	return s.commit(ctx, editor, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
+		if normalizeStatus(current.Status) != normalizeStatus(req.FromStatus) {
+			return nil, "", s.lostMove(ctx, editor, snap, task.Path, current.Status)
 		}
-		move := taskfiles.Move{Status: target.Statuses[0]}
+		move := taskfiles.StatusEdit{Status: target.Statuses[0]}
 		if current.Claimed == "" && snap.inFirstColumn(current.Status) && !snap.inFirstColumn(move.Status) {
 			move.Claimed = s.now().Format(time.DateOnly)
 		}
@@ -68,55 +69,63 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 	})
 }
 
-func (s *Service) commit(ctx context.Context, writer Writer, path string, edit func(content []byte, current taskfiles.Task) ([]byte, string, error)) error {
-	for range moveAttempts {
-		content, version, err := writer.ReadFile(ctx, s.opts.WorkBranch, path)
+func (s *Service) commit(ctx context.Context, editor TaskEditor, path string, edit func(content []byte, current taskfiles.Task) ([]byte, string, error)) error {
+	for range writeAttempts {
+		content, version, err := editor.ReadFile(ctx, s.opts.WorkBranch, path)
 		if err != nil {
 			return err
 		}
-		current, err := taskfiles.ParseOne(path, content)
+		current, err := taskfiles.ParseTask(path, content)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		edited, message, err := edit(content, current)
 		var conflict *ConflictError
 		if errors.As(err, &conflict) {
-			s.refresh(ctx)
+			s.syncAfterWrite(ctx)
 			return err
 		}
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		err = writer.WriteFile(ctx, s.opts.WorkBranch, path, edited, version, message)
-		if errors.Is(err, ErrChanged) {
+		if _, err := taskfiles.ParseTask(path, edited); err != nil {
+			return fmt.Errorf("%s: the edit would break the file: %w", path, err)
+		}
+		err = editor.WriteFile(ctx, s.opts.WorkBranch, path, edited, version, message)
+		if errors.Is(err, ErrStale) {
 			continue
 		}
 		if err != nil {
 			return err
 		}
-		s.refresh(ctx)
+		s.syncAfterWrite(ctx)
 		return nil
 	}
-	s.refresh(ctx)
+	s.syncAfterWrite(ctx)
 	return &ConflictError{Message: "This task keeps changing. Try again."}
 }
 
-func (s *Service) refresh(ctx context.Context) {
+func (s *Service) syncAfterWrite(ctx context.Context) {
 	if err := s.Sync(ctx); err != nil {
 		s.opts.Logger.Warn("the board was not refreshed after a write", "error", err)
 	}
 }
 
-func (s *Service) lostMove(ctx context.Context, writer Writer, snap *snapshot, path, status string) error {
-	who, err := writer.LastEditor(ctx, s.opts.WorkBranch, path)
-	if err != nil || who == "" {
-		who = "Someone"
-	}
+func (s *Service) lostMove(ctx context.Context, editor TaskEditor, snap *snapshot, path, status string) error {
+	who := s.lastEditor(ctx, editor, path)
 	stage := status
 	if col, ok := snap.columnOf(status); ok {
 		stage = col.Name
 	}
 	return &ConflictError{Message: fmt.Sprintf("%s moved this to %s just now", who, stage)}
+}
+
+func (s *Service) lastEditor(ctx context.Context, editor TaskEditor, path string) string {
+	who, err := editor.LastEditor(ctx, s.opts.WorkBranch, path)
+	if err != nil || who == "" {
+		return "Someone"
+	}
+	return who
 }
 
 func (snap *snapshot) column(id string) (Column, bool) {

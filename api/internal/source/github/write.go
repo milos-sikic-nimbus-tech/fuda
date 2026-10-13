@@ -52,7 +52,7 @@ func (s *Source) WriteFile(ctx context.Context, branch, path string, content []b
 	}
 	switch {
 	case res.status == http.StatusConflict, res.status == http.StatusUnprocessableEntity && bytes.Contains(res.body, []byte("does not match")):
-		return board.ErrChanged
+		return board.ErrStale
 	case res.status >= 300:
 		return res.failure()
 	}

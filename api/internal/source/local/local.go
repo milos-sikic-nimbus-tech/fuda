@@ -15,6 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"fuda/internal/board"
 )
@@ -25,10 +26,13 @@ type Source struct {
 	boardDir   string
 	workBranch string
 	tasksRepo  bool
+	writable   bool
+
+	writing sync.Mutex
 }
 
-func New(root, docsRoot, boardDir, workBranch string) *Source {
-	s := &Source{root: root, docsRoot: docsRoot, boardDir: boardDir, workBranch: workBranch}
+func New(root, docsRoot, boardDir, workBranch string, writable bool) *Source {
+	s := &Source{root: root, docsRoot: docsRoot, boardDir: boardDir, workBranch: workBranch, writable: writable}
 	s.tasksRepo = !isDir(filepath.Join(root, filepath.FromSlash(boardDir), "tasks")) && isDir(filepath.Join(root, "tasks"))
 	return s
 }

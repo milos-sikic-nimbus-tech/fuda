@@ -34,19 +34,20 @@ such as `http://192.168.1.5:8080` has no working login.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FUDA_SOURCE` | `github` | `github`, `azure`, `local`, or `github,azure` for both hosts at once |
+| `FUDA_HOSTS` | `github` | `github`, `azure`, `local`, or `github,azure` for both hosts at once. The old name `FUDA_SOURCE` still works |
 | `FUDA_GITHUB_CLIENT_ID` | | The GitHub App's client id |
 | `FUDA_GITHUB_APP_SLUG` | | The GitHub App's slug, the last part of `github.com/apps/<slug>`. Required with `github`: fuda does not start without it. It builds the install link |
-| `FUDA_BASE_URL`, `FUDA_COOKIE_SECRET` | | Only for `azure`: the public address (login callback) and the key that encrypts its login cookie. Not used for GitHub |
-| `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (when `FUDA_SOURCE` includes `azure`) |
+| `FUDA_BASE_URL`, `FUDA_COOKIE_SECRET` | | Only for `azure`: the public address (login callback) and the key that encrypts its login cookie, at least 32 characters. Not used for GitHub |
+| `FUDA_AZURE_CLIENT_ID`, `FUDA_AZURE_CLIENT_SECRET` | | The Microsoft Entra ID app's client id and secret (when `FUDA_HOSTS` includes `azure`) |
 | `FUDA_AZURE_TENANT` | `organizations` | The Entra tenant that may log in. Use your tenant id for a single-tenant app |
 | `FUDA_TITLE` | repository name | Shown in the header of the `local` Board |
 | `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |
 | `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs and pull-request re-reads |
 | `FUDA_CACHE_DIR` | `/data` in the image | Where the last read copy and the GitHub login cookie key are kept. Must persist |
 
-`/healthz` never asks for a login. The `local` source has no login, so keep such
-a server on a private network or behind your proxy's authentication.
+`/healthz` never asks for a login. The `local` host has no login and a server shows it read-only (only
+the desktop app writes to local folders), so keep such a server on a private network or behind your
+proxy's authentication.
 
 ## How people see Boards
 

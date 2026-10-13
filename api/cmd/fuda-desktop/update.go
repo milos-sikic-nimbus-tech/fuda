@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/creativeprojects/go-selfupdate"
@@ -33,24 +32,12 @@ func checkForUpdates(desktop *application.App, log *slog.Logger, userRequested b
 	}
 
 	question := desktop.Dialog.Question().SetTitle("fuda").
-		SetMessage(fmt.Sprintf("fuda %s is ready. You have %s. Update now?", latest.Version(), version))
-	question.AddButton("Update").OnClick(func() { install(desktop, log, latest) })
+		SetMessage(fmt.Sprintf("fuda %s is ready. You have %s. Open the download page?", latest.Version(), version))
+	question.AddButton("Open page").OnClick(func() {
+		if err := desktop.Browser.OpenURL(latest.URL); err != nil {
+			log.Error("open the release page", "error", err)
+		}
+	})
 	question.AddButton("Not now").SetAsCancel()
 	question.Show()
-}
-
-func install(desktop *application.App, log *slog.Logger, latest *selfupdate.Release) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	exe, err := os.Executable()
-	if err == nil {
-		err = selfupdate.UpdateTo(ctx, latest.AssetURL, latest.AssetName, exe)
-	}
-	if err != nil {
-		log.Error("update fuda", "error", err)
-		desktop.Dialog.Warning().SetTitle("fuda").SetMessage("The update failed. Try again later.").Show()
-		return
-	}
-	desktop.Dialog.Info().SetTitle("fuda").SetMessage("Updated. Close fuda and open it again to use " + latest.Version() + ".").Show()
 }

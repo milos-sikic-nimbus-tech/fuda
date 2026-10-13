@@ -19,13 +19,13 @@ func chain(h http.Handler, mws ...middleware) http.Handler {
 }
 
 type Login interface {
-	Host() string
+	Host() board.Host
 	Token(w http.ResponseWriter, r *http.Request) (string, error)
 	Logout(w http.ResponseWriter, r *http.Request)
 	Routes(mux *http.ServeMux)
 }
 
-func NewHandler(log *slog.Logger, boards *board.Boards, spa fs.FS, logins ...Login) http.Handler {
+func NewHandler(log *slog.Logger, boards *board.Registry, spa fs.FS, logins ...Login) http.Handler {
 	mux := http.NewServeMux()
 	api{log: log, boards: boards, logins: logins}.routes(mux)
 	for _, login := range logins {

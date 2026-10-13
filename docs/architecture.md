@@ -28,8 +28,9 @@ flowchart LR
   end
   subgraph fuda["fuda (one container)"]
     SRC["source: github · azure · local"]
+    REG["board.Registry<br/>one Service per Board"]
     SVC["board.Service<br/>sync · snapshot · rules"]
-    HTTP["httpapi<br/>API · SPA · GitHub login"]
+    HTTP["httpapi<br/>API · SPA · logins"]
     DISK[("FUDA_CACHE_DIR<br/>snapshot.gob")]
   end
   UI["browser: React app"]
@@ -38,30 +39,32 @@ flowchart LR
   MAIN --> SRC
   PR --> SRC
   SRC --> SVC
+  REG --> SVC
   SVC <--> DISK
-  SVC --> HTTP --> UI
+  REG --> HTTP --> UI
 ```
 
 ## Packages
 
 Dependencies point one way: `cmd/fuda → httpapi → board → (taskfiles, markdown)`, and
-`cmd/fuda → source/* → board` (sources satisfy interfaces `board` declares). Interfaces are
-declared where they are used.
+`cmd/fuda → workspace → source/* → board` (sources satisfy interfaces `board` declares). Interfaces
+are declared where they are used. The host names (`board.HostGitHub`, `board.HostAzure`,
+`board.HostLocal`) are defined once, in `board`, and used by every package.
 
 | Package | Owns |
 |---|---|
-| `cmd/fuda` | Reads config, picks the source, wires the service and the HTTP server, graceful shutdown. |
-| `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per source. |
-| `internal/board` | All behaviour. `token.go`: the caller's host token travels in the request context. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `Writer`. |
-| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. Move changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
+| `cmd/fuda` | Reads config, builds the logins and the Board registry, wires the HTTP server, graceful shutdown. |
+| `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per host. `FUDA_HOSTS` lists the hosts (`FUDA_SOURCE` still works as the old name). `LoadDesktop` does the same for the desktop app, with the values built into the binary as defaults. |
+| `internal/board` | All behaviour. `context.go`: the caller's host token travels in the request context. `boards.go`: `Registry`, the open Boards. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `TaskEditor` (read a file, write it, name its last editor, say whether the caller may write). |
+| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
 | `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place. No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
-| `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved. |
+| `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
-| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. Menu, self-update from GitHub Releases (`update.go`). On macOS it ships as `fuda.app` (`Info.plist`, `icon.icns`); update replaces the binary inside it. |
-| `internal/app` | Builds the set of Boards from config: which source serves which Board. Shared by both shells. |
-| `internal/login` | Login. `device.go`: device flow for GitHub on web and desktop (Azure on desktop), with the token kept in a `TokenStore` (desktop) or a sealed cookie (`cookies.go`, web). `key.go`: the web cookie key. `session.go`: the Azure web login with PKCE and refresh. Knows nothing about Boards. |
+| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. `menu.go`: the menu. `update.go`: "Check for updates" asks GitHub Releases for a newer version and opens its release page; it does not install anything. On macOS it ships as `fuda.app` (`Info.plist`, `icon.icns`). The GitHub client id and app slug are built in; the build fails without them. |
+| `internal/workspace` | Builds the Board registry from config (which source serves which Board) and keeps the list of local folders (`Folders`). Shared by both shells. |
+| `internal/login` | Login. `device.go`: device flow for GitHub on web (`NewCookieDevice`, sealed cookie, `cookies.go`) and for GitHub or Azure on desktop (`NewKeychainDevice`, a `TokenStore`). `session.go`: the Azure web login with PKCE (`NewCookieOAuth`, sealed cookie). `oauth.go`: a `provider` holds one host's endpoints. `refresh.go`: one refresh at a time per refresh token, shared by the web and device logins. `key.go`: the web cookie key. Knows nothing about Boards. |
 | `internal/keychain` | A `login.TokenStore` in the OS keychain (macOS Keychain, Windows Credential Manager). |
 | `internal/web` | `go:embed` of the built client (`dist/`). |
 | `internal/guide` | `go:embed` of the Guide pages, rendered with `markdown`. |
@@ -74,19 +77,21 @@ window in-process instead of listening on a port.
 
 ## Boards
 
-`board.Boards` creates one `board.Service` per Board the first time its path is requested, and keeps
+`board.Registry` creates one `board.Service` per Board the first time its path is requested, and keeps
 it. Each Service has its own snapshot and cache (`FUDA_CACHE_DIR/<host>/<repo>`).
 
-Every request for a Board calls `Service.Poll` with the caller's token in the context. Poll asks the
-host for the branch head first, which also proves the caller may read the repository, then reads
-files only if the head differs from the snapshot. A caller the host refuses gets 404 (no such
+Every request for a Board goes through `Registry.Get`, which calls `Service.Poll` with the caller's
+token in the context. Poll asks the host for the branch head first, which also proves the caller may
+read the repository, then reads files only if the head differs from the snapshot. A passed check is
+remembered for 3 seconds per token and Board, so the several requests of one page do not each call
+the host. A caller the host refuses gets 404 (no such
 repository for them), 403 or 401 and never sees the cached snapshot. A Board whose first read fails
 is forgotten again, so unknown paths do not pile up in memory.
 
 On GitHub and Azure DevOps the token comes from the person's login for that Board's host. A person can
-be logged in to both at once: `FUDA_SOURCE=github,azure` starts one login per host. Local Boards have no
-login. Their folders come from `FUDA_LOCAL_PATH` (with `FUDA_SOURCE=local`, which stands alone) or, on desktop,
-from "Open folder…"; the desktop app remembers them in `folders.json` in the user config directory. `app.Folders`
+be logged in to both at once: `FUDA_HOSTS=github,azure` starts one login per host. Local Boards have no
+login. Their folders come from `FUDA_LOCAL_PATH` (with `FUDA_HOSTS=local`, which stands alone) or, on desktop,
+from "Open folder…"; the desktop app remembers them in `folders.json` in the user config directory. `workspace.Folders`
 names each folder after its directory (a second one with the same name gets `-2`) and lists them all in the
 Board dropdown's "Local" group.
 
@@ -118,27 +123,29 @@ are AES-GCM sealed and HTTP-only, `SameSite=Lax`. The key is made on first start
 logs everyone out (the image declares it as a volume). Cookies are `Secure` except on `localhost`,
 `127.0.0.1` and `::1`; on a plain-HTTP LAN address the browser drops them and login does not work.
 `FUDA_COOKIE_SECRET`, `FUDA_BASE_URL` and `FUDA_GITHUB_CLIENT_SECRET` are not read for GitHub; fuda
-logs one warning if they are set. If the API answers 401, the client goes to `/auth/<host>/login`,
+logs one warning if they are set. A `cookie.key` file that exists but is empty is filled with a new key. If the API answers 401, the client goes to `/auth/<host>/login`,
 so one expired host never logs the person out of another. Each host has its own cookie
 (`fuda_github`, `fuda_azure`), so logging out of one leaves the other alone.
 
 After login, `GET /api/boards` also calls GitHub's `GET /user/installations` with the person's own
 token and returns `appInstalled` (true, false, or absent when the call fails) in the GitHub host
 status, with `installUrl` built from `FUDA_GITHUB_APP_SLUG`. The client shows a banner under the app
-bar when it is false. The desktop build embeds the slug (`GITHUB_APP_SLUG` in the Makefile).
+bar when it is false. The desktop build embeds the slug and the client id (`GITHUB_APP_SLUG` and `GITHUB_CLIENT_ID` in the Makefile); `make desktop-*` fails when either is missing.
 
 On desktop `GET /auth/github/login` also opens GitHub's device page in the system browser. The
 token goes to the OS keychain; nothing is written to disk. Each host has its own keychain entry
-(`fuda` / `github`, `fuda` / `azure`). The app serves every host whose client id is set
-(`FUDA_GITHUB_CLIENT_ID`, `FUDA_AZURE_CLIENT_ID`, or the built-in ones).
+(`fuda` / `github`, `fuda` / `azure`). The app always serves GitHub, and Azure when an Azure
+client id is set (`FUDA_AZURE_CLIENT_ID`, or the one built in). Environment variables win over the
+built-in values. Local Boards work without logging in to anything.
 
 ### Azure DevOps on the web
 
 Azure keeps the redirect flow with PKCE and a client secret. `/auth/azure/login` redirects to
 Microsoft, the callback exchanges the code, and the session cookie (`fuda_azure`) is sealed with a
-key derived from `FUDA_COOKIE_SECRET`. It holds the access token, the refresh token and the expiry.
+key derived from `FUDA_COOKIE_SECRET`, which must be at least 32 characters. It holds the access token, the refresh token and the expiry.
 A token that expires within a minute is refreshed; one refresh at a time runs and its result is
-remembered for a minute for requests still carrying the old cookie. If refresh fails the cookie is
+remembered for a minute for requests still carrying the old cookie (GitHub and Azure device logins
+do the same, so two requests never spend one refresh token twice). If refresh fails the cookie is
 cleared and the API answers 401. On desktop Azure uses device flow with the keychain, and refreshes
 a token that expires within a minute.
 
@@ -160,7 +167,9 @@ Task bodies and docs are rendered to HTML per request; the board itself is pre-b
 ```mermaid
 flowchart TD
   START["process start"] --> R["restore snapshot.gob<br/>from FUDA_CACHE_DIR, if any"] --> REQ
-  REQ["every Board request<br/>(the client polls about every 5 s)"] --> H["Poll: head SHA of develop with the caller's token"]
+  REQ["every Board request<br/>(the client polls about every 5 s)"] --> GATE{"this token checked this Board<br/>in the last 3 s?"}
+  GATE -- yes --> ANS
+  GATE -- no --> H["Poll: head SHA of develop with the caller's token"]
   H --> SAME{"same head as<br/>the snapshot?"}
   SAME -- yes --> DUE{"PRs last read more than<br/>FUDA_SYNC_COOLDOWN ago?"}
   DUE -- yes --> BG["sync in the background"] --> S
@@ -259,10 +268,13 @@ The statuses and who changes them are in the Guide's workflow page.
 
 ## Read-only Boards
 
-`board.Service.CanWrite` asks the source whether the caller may write (an optional `Access`
-interface; GitHub reads `permissions.push` of the repository). The answer is kept for a minute per
-token. Move and Assign return `ErrForbidden` for a read-only account, and `GET /board` sets
-`readOnly`, so the client shows a note and no drag handles.
+`board.Service.CanWrite` asks the source whether the caller may write (`TaskEditor.CanWrite`; GitHub
+reads `permissions.push` of the repository). A source without `TaskEditor` is read-only. The answer is
+kept for a minute per token. Move and Assign return `ErrForbidden` for a read-only account, and
+`GET /board` sets `readOnly`, so the client shows a note and no drag handles.
+
+Local Boards are writable only in the desktop app (`Config.LocalWrites`). A server with
+`FUDA_HOSTS=local` serves them read-only, because Local Boards have no login.
 
 ## Move
 
@@ -276,7 +288,7 @@ flowchart TD
   C -- no --> READ["read the file and its version"]
   READ --> SAME{"status still<br/>equals seen?"}
   SAME -- no --> L["409: who moved it, and to where"]
-  SAME -- yes --> EDIT["taskfiles.ApplyMove: status line,<br/>claimed once"] --> W["write, compare-and-swap<br/>on the file version"]
+  SAME -- yes --> EDIT["taskfiles.ApplyMove: status line,<br/>claimed once"] --> PARSE["parse the edited file<br/>(refuse a broken result)"] --> W["write, compare-and-swap<br/>on the file version"]
   W -- changed since read --> N{"4 tries used?"}
   N -- no --> READ
   N -- yes --> L2["409: the task keeps changing"]
@@ -285,9 +297,9 @@ flowchart TD
 
 `claimed` is set to today only when the Task leaves the first column, has no `claimed` value, and
 moves to another column. fuda never changes a `claimed` value that exists. The write goes to the
-work branch (`develop`). GitHub implements `Writer` with the contents API (the file's blob SHA is
-the version; a 409 is "changed since read"). Azure DevOps uses the pushes API. The Local source compares the
-file's hash with the one it read, then replaces the file through a temporary file and a rename, so an editor's change
+work branch (`develop`). GitHub implements `TaskEditor` with the contents API (the file's blob SHA is
+the version; a 409 is `ErrStale`, "changed since read"). Azure DevOps uses the pushes API. The Local source compares the
+file's hash with the one it read, then replaces the file through a temporary file and a rename, one write at a time, so an editor's change
 made before the write is never overwritten; it does not commit, and it cannot name who changed the file
 ("Someone moved this to …").
 
@@ -325,7 +337,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `POST …/tasks/{id}/move` | Body `{"seen": "<status the client showed>", "column": "<column id>"}`, `application/json`. 204 when committed. 409 with a message when `status` changed first. 403 for archived Tasks, PR-derived Stages and sources that cannot write. 401 when the login expired. |
 | `POST …/tasks/{id}/assign` | Body `{"seen": ["<owners the client showed>"], "owners": ["<short names>"]}`, `application/json`. 204 when committed. 409 with a message when the owners changed first. 403 for archived Tasks and sources that cannot write. 401 when the login expired. |
 | `GET /api/boards` | `{boards, hosts}`. `boards` are the Boards the caller can open on every host they are logged in to: `host`, `repo`, `path`, `title`. `hosts` has one entry per login host: `host`, `loggedIn`, `login` (where to log in), and `error` when that host's list failed. Always 200: a host without a login only shows `loggedIn: false`. |
-| `GET /auth/<host>/login?return=`, `GET /auth/<host>/callback`, `POST /auth/<host>/logout` | The login flow of `github` or `azure` (only when `FUDA_SOURCE` includes it). `return` must be a path on this site. Logout clears only that host. |
+| `GET /auth/<host>/login?return=`, `GET /auth/<host>/callback`, `POST /auth/<host>/logout` | The login flow of `github` or `azure` (only when `FUDA_HOSTS` includes it). `return` must be a path on this site. Logout clears only that host. |
 | `POST /auth/logout` | Clears every host's login. 204. |
 | `GET /healthz` | 200. |
 | anything else | The SPA. Hashed files under `/assets/` are cached for a year; `index.html` is `no-cache`. |
@@ -338,7 +350,7 @@ Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 - **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`. Outside a
   Board, `/` lists the caller's Boards, or opens the only one. One top-bar button shows the current Board (host icon, name, branch) and, as a dropdown grouped by host
   then "Local", switches Boards with a full page load; its current row has "Open repo". An account menu next
-  to the theme toggle lists each host with Log in or Log out, and "Log out of all". Any 401 sends the browser to the login, which returns to the same
+  to the theme toggle lists each host with Log in or Log out as menu items (so the keyboard reaches them), and "Log out of all". The task sheet has a Stage row with a "Move to" menu, the keyboard and touch way to do what drag and drop does. Any 401 sends the browser to the login, which returns to the same
   page. The board refetches every 5 seconds; when its head moves, tasks, archive and docs refetch.
 - **State lives in the URL:** every filter, the sort, the view, the open task (`?task=`) and the
   Insights range, so a link reproduces the view.

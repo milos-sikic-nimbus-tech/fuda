@@ -7,22 +7,31 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 )
 
-type BoardID struct {
-	Host string
+type Host string
+
+const (
+	HostGitHub Host = "github"
+	HostAzure  Host = "azure"
+	HostLocal  Host = "local"
+)
+
+type ID struct {
+	Host Host
 	Repo string
 }
 
 var segment = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ -]*$`)
 
-func (id BoardID) Path() string {
-	return (&url.URL{Path: "/" + id.Host + "/" + id.Repo}).EscapedPath()
+func (id ID) Path() string {
+	return (&url.URL{Path: "/" + string(id.Host) + "/" + id.Repo}).EscapedPath()
 }
 
-func (id BoardID) valid() bool {
+func (id ID) valid() bool {
 	if id.Host == "" || id.Repo == "" {
 		return false
 	}
@@ -34,16 +43,26 @@ func (id BoardID) valid() bool {
 	return true
 }
 
-type Boards struct {
-	open func(BoardID) (*Service, error)
-	list func(ctx context.Context, host string) ([]BoardID, error)
+type Registry struct {
+	open func(ID) (*Service, error)
+	list func(ctx context.Context, host Host) ([]ID, error)
 	log  *slog.Logger
 
-	installs map[string]AppInstall
+	installs map[Host]AppInstall
+
+	now func() time.Time
 
 	opening  singleflight.Group
 	mu       sync.Mutex
-	services map[BoardID]*Service
+	services map[ID]*Service
+	gate     map[gateKey]time.Time
+}
+
+const gateTTL = 3 * time.Second
+
+type gateKey struct {
+	id    ID
+	token string
 }
 
 type AppInstall struct {
@@ -51,25 +70,15 @@ type AppInstall struct {
 	Installed func(ctx context.Context) (bool, error)
 }
 
-type BoardsOption func(*Boards)
-
-func WithAppInstall(host string, install AppInstall) BoardsOption {
-	return func(b *Boards) { b.installs[host] = install }
+func NewRegistry(log *slog.Logger, open func(ID) (*Service, error), list func(ctx context.Context, host Host) ([]ID, error), installs map[Host]AppInstall) *Registry {
+	return &Registry{open: open, list: list, log: log, installs: installs, now: time.Now, gate: map[gateKey]time.Time{}, services: map[ID]*Service{}}
 }
 
-func NewBoards(log *slog.Logger, open func(BoardID) (*Service, error), list func(ctx context.Context, host string) ([]BoardID, error), options ...BoardsOption) *Boards {
-	b := &Boards{open: open, list: list, log: log, installs: map[string]AppInstall{}, services: map[BoardID]*Service{}}
-	for _, option := range options {
-		option(b)
-	}
-	return b
-}
-
-func (b *Boards) InstallURL(host string) string {
+func (b *Registry) InstallURL(host Host) string {
 	return b.installs[host].URL
 }
 
-func (b *Boards) AppInstalled(ctx context.Context, host string) *bool {
+func (b *Registry) AppInstalled(ctx context.Context, host Host) *bool {
 	install, ok := b.installs[host]
 	if !ok || install.Installed == nil {
 		return nil
@@ -82,11 +91,11 @@ func (b *Boards) AppInstalled(ctx context.Context, host string) *bool {
 	return &installed
 }
 
-func (b *Boards) List(ctx context.Context, host string) ([]BoardID, error) {
+func (b *Registry) List(ctx context.Context, host Host) ([]ID, error) {
 	return b.list(ctx, host)
 }
 
-func (b *Boards) Get(ctx context.Context, id BoardID) (*Service, error) {
+func (b *Registry) Get(ctx context.Context, id ID) (*Service, error) {
 	if !id.valid() {
 		return nil, ErrNotFound
 	}
@@ -100,23 +109,46 @@ func (b *Boards) Get(ctx context.Context, id BoardID) (*Service, error) {
 		return nil, err
 	}
 	service := value.(*Service)
+	key := gateKey{id: id, token: tokenDigest(ctx)}
+	if b.gateOpen(key) {
+		return service, nil
+	}
 	if err := service.Poll(ctx); err != nil {
 		if _, ready := service.Board(); !ready {
 			b.forget(id)
 		}
 		return nil, err
 	}
+	b.openGate(key)
 	return service, nil
 }
 
-func (b *Boards) cached(id BoardID) (*Service, bool) {
+func (b *Registry) gateOpen(key gateKey) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	checked, ok := b.gate[key]
+	return ok && b.now().Sub(checked) < gateTTL
+}
+
+func (b *Registry) openGate(key gateKey) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for old, checked := range b.gate {
+		if b.now().Sub(checked) >= gateTTL {
+			delete(b.gate, old)
+		}
+	}
+	b.gate[key] = b.now()
+}
+
+func (b *Registry) cached(id ID) (*Service, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	service, ok := b.services[id]
 	return service, ok
 }
 
-func (b *Boards) start(id BoardID) (*Service, error) {
+func (b *Registry) start(id ID) (*Service, error) {
 	service, err := b.open(id)
 	if err != nil {
 		return nil, err
@@ -130,7 +162,7 @@ func (b *Boards) start(id BoardID) (*Service, error) {
 	return service, nil
 }
 
-func (b *Boards) forget(id BoardID) {
+func (b *Registry) forget(id ID) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.services, id)

@@ -29,19 +29,21 @@ func (s *Source) ReadFile(_ context.Context, _, boardPath string) ([]byte, strin
 }
 
 func (s *Source) WriteFile(_ context.Context, _, boardPath string, content []byte, version, _ string) error {
+	s.writing.Lock()
+	defer s.writing.Unlock()
 	disk, err := s.diskPath(boardPath)
 	if err != nil {
 		return err
 	}
 	current, err := os.ReadFile(disk)
 	if errors.Is(err, fs.ErrNotExist) {
-		return board.ErrChanged
+		return board.ErrStale
 	}
 	if err != nil {
 		return err
 	}
 	if versionOf(current) != version {
-		return board.ErrChanged
+		return board.ErrStale
 	}
 	info, err := os.Stat(disk)
 	if err != nil {
@@ -80,6 +82,9 @@ func replaceFile(disk string, content []byte, mode fs.FileMode) error {
 }
 
 func (s *Source) CanWrite(context.Context) (bool, error) {
+	if !s.writable {
+		return false, nil
+	}
 	dir, err := s.diskPath(path.Join(s.boardDir, "tasks", "x"))
 	if err != nil {
 		return false, err

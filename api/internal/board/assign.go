@@ -10,13 +10,13 @@ import (
 )
 
 type AssignRequest struct {
-	TaskID string   `json:"-"`
-	Seen   []string `json:"seen"`
-	Owners []string `json:"owners"`
+	TaskID     string   `json:"-"`
+	FromOwners []string `json:"seen"`
+	Owners     []string `json:"owners"`
 }
 
 func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
-	writer, err := s.requireWriter(ctx)
+	editor, err := s.requireEditor(ctx)
 	if err != nil {
 		return err
 	}
@@ -29,16 +29,13 @@ func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 		return ErrNotFound
 	}
 	if task.Archived {
-		return ErrLocked
+		return ErrNotMovable
 	}
 
 	known := newPeople(snap.develop.Config.People, snap.develop.Tasks)
-	return s.commit(ctx, writer, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
-		if !sameNames(known.canonical(current.Owners), known.canonical(req.Seen)) {
-			who, err := writer.LastEditor(ctx, s.opts.WorkBranch, task.Path)
-			if err != nil || who == "" {
-				who = "Someone"
-			}
+	return s.commit(ctx, editor, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
+		if !sameNames(known.canonical(current.Owners), known.canonical(req.FromOwners)) {
+			who := s.lastEditor(ctx, editor, task.Path)
 			now := "no one"
 			if owners := known.canonical(current.Owners); len(owners) > 0 {
 				now = strings.Join(owners, ", ")

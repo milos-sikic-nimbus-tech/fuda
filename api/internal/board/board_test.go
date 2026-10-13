@@ -98,13 +98,13 @@ func TestConfiguredStagesWithSeveralStatuses(t *testing.T) {
 
 func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 	tasks := []taskfiles.Task{task("A1", "in progress")}
-	prs := map[string][]OpenPR{"A1": {{Number: 42}}}
+	prs := map[string][]LinkedPR{"A1": {{Number: 42}}}
 
 	withReview := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks}, OpenPRs: prs})
 	if columnOf(withReview, "A1") != "in-review" {
 		t.Error("default stages include In review")
 	}
-	if got := card(withReview, "A1").OpenPRs; !reflect.DeepEqual(got, []OpenPR{{Number: 42}}) {
+	if got := card(withReview, "A1").OpenPRs; !reflect.DeepEqual(got, []LinkedPR{{Number: 42}}) {
 		t.Errorf("open PRs %v", got)
 	}
 

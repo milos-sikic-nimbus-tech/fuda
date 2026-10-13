@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"fuda/internal/board"
 )
 
 var ErrNoStoredToken = errors.New("no stored token")
@@ -19,7 +21,7 @@ type TokenStore interface {
 }
 
 type DeviceConfig struct {
-	Host     string
+	Host     board.Host
 	Tenant   string
 	ClientID string
 	Store    TokenStore
@@ -41,25 +43,27 @@ type sessions interface {
 }
 
 type Device struct {
-	app      *oauthApp
+	app      *provider
 	sessions sessions
 	open     func(string) error
 	log      *slog.Logger
 	now      func() time.Time
+
+	refreshes *refreshMemo
 }
 
-func NewDevice(log *slog.Logger, cfg DeviceConfig) *Device {
+func NewKeychainDevice(log *slog.Logger, cfg DeviceConfig) *Device {
 	app := newGitHubApp(cfg.ClientID)
-	if cfg.Host == "azure" {
+	if cfg.Host == board.HostAzure {
 		app = newAzureApp(cfg.Tenant, cfg.ClientID, "", "")
 	}
-	return &Device{
-		app:      app,
-		sessions: &storeSessions{name: app.name, store: cfg.Store, log: log},
-		open:     cfg.Open,
-		log:      log,
-		now:      time.Now,
-	}
+	return assembleDevice(app, &storeSessions{name: app.name, store: cfg.Store, log: log}, cfg.Open, log)
+}
+
+func assembleDevice(app *provider, sessions sessions, open func(string) error, log *slog.Logger) *Device {
+	d := &Device{app: app, sessions: sessions, open: open, log: log, now: time.Now}
+	d.refreshes = newRefreshMemo(app, func() time.Time { return d.now() })
+	return d
 }
 
 type WebDeviceConfig struct {
@@ -67,18 +71,14 @@ type WebDeviceConfig struct {
 	Key      string
 }
 
-func NewWebDevice(log *slog.Logger, cfg WebDeviceConfig) (*Device, error) {
+func NewCookieDevice(log *slog.Logger, cfg WebDeviceConfig) (*Device, error) {
 	sealer, err := newSealer(cfg.Key)
 	if err != nil {
 		return nil, err
 	}
 	app := newGitHubApp(cfg.ClientID)
-	return &Device{
-		app:      app,
-		sessions: &cookieSessions{session: "fuda_" + app.name, device: "fuda_" + app.name + "_device", path: "/auth/" + app.name, sealer: sealer},
-		log:      log,
-		now:      time.Now,
-	}, nil
+	sessions := &cookieSessions{session: "fuda_" + app.name, device: "fuda_" + app.name + "_device", path: "/auth/" + app.name, sealer: sealer}
+	return assembleDevice(app, sessions, nil, log), nil
 }
 
 func (d *Device) Routes(mux *http.ServeMux) {
@@ -100,7 +100,7 @@ func (d *Device) Token(w http.ResponseWriter, r *http.Request) (string, error) {
 		d.sessions.forget(w, r)
 		return "", ErrNotLoggedIn
 	}
-	next, err := d.app.refresh(r.Context(), token.Refresh)
+	next, err := d.refreshes.refresh(r.Context(), token.Refresh)
 	if err != nil {
 		d.log.Info(d.app.name+" login expired and could not be refreshed", "error", err)
 		d.sessions.forget(w, r)
@@ -211,7 +211,7 @@ func writeStatus(w http.ResponseWriter, body map[string]any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func (d *Device) Host() string { return d.app.name }
+func (d *Device) Host() board.Host { return board.Host(d.app.name) }
 
 type storeSessions struct {
 	name  string

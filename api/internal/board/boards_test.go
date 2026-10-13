@@ -32,9 +32,9 @@ func taskFile(id string) map[string][]byte {
 	return map[string][]byte{"docs/board/tasks/" + id + ".md": []byte("---\nid: " + id + "\ntitle: " + id + "\nstatus: backlog\n---\n")}
 }
 
-func newTestBoards(t *testing.T, repos fakeRepos) *Boards {
+func newTestRegistry(t *testing.T, repos fakeRepos) *Registry {
 	t.Helper()
-	return NewBoards(slog.New(slog.DiscardHandler), func(id BoardID) (*Service, error) {
+	return NewRegistry(slog.New(slog.DiscardHandler), func(id ID) (*Service, error) {
 		files, ok := repos[id.Repo]
 		if !ok {
 			return nil, ErrNotFound
@@ -44,17 +44,17 @@ func newTestBoards(t *testing.T, repos fakeRepos) *Boards {
 			source = missingSource{}
 		}
 		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Origin: Origin{Path: id.Path()}}), nil
-	}, nil)
+	}, nil, nil)
 }
 
 func TestTwoBoardsKeepTheirOwnTasks(t *testing.T) {
-	boards := newTestBoards(t, fakeRepos{"a/one": taskFile("ONE-1"), "a/two": taskFile("TWO-1")})
+	boards := newTestRegistry(t, fakeRepos{"a/one": taskFile("ONE-1"), "a/two": taskFile("TWO-1")})
 
-	one, err := boards.Get(context.Background(), BoardID{"github", "a/one"})
+	one, err := boards.Get(context.Background(), ID{"github", "a/one"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	two, err := boards.Get(context.Background(), BoardID{"github", "a/two"})
+	two, err := boards.Get(context.Background(), ID{"github", "a/two"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,17 +73,17 @@ func TestTwoBoardsKeepTheirOwnTasks(t *testing.T) {
 }
 
 func TestGetReturnsTheSameServiceEachTime(t *testing.T) {
-	boards := newTestBoards(t, fakeRepos{"a/one": taskFile("ONE-1")})
-	first, _ := boards.Get(context.Background(), BoardID{"github", "a/one"})
-	second, _ := boards.Get(context.Background(), BoardID{"github", "a/one"})
+	boards := newTestRegistry(t, fakeRepos{"a/one": taskFile("ONE-1")})
+	first, _ := boards.Get(context.Background(), ID{"github", "a/one"})
+	second, _ := boards.Get(context.Background(), ID{"github", "a/one"})
 	if first != second {
 		t.Error("a Board was opened twice")
 	}
 }
 
 func TestGetUnknownBoardIsNotFound(t *testing.T) {
-	boards := newTestBoards(t, fakeRepos{"a/gone": nil})
-	for _, id := range []BoardID{
+	boards := newTestRegistry(t, fakeRepos{"a/gone": nil})
+	for _, id := range []ID{
 		{"github", "a/nothing"},
 		{"github", "a/gone"},
 		{"github", "../etc"},
@@ -111,11 +111,11 @@ func (m memberSource) Head(ctx context.Context, branch string) (string, error) {
 }
 
 func TestACachedBoardIsNotShownToSomeoneWithoutAccess(t *testing.T) {
-	boards := NewBoards(slog.New(slog.DiscardHandler), func(BoardID) (*Service, error) {
+	boards := NewRegistry(slog.New(slog.DiscardHandler), func(ID) (*Service, error) {
 		source := memberSource{fakeSource{taskFile("ONE-1")}, "member"}
 		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, nil)
-	id := BoardID{"github", "a/one"}
+	}, nil, nil)
+	id := ID{"github", "a/one"}
 
 	if _, err := boards.Get(WithToken(context.Background(), "member"), id); err != nil {
 		t.Fatal(err)
@@ -205,5 +205,44 @@ func TestInvalidBoardConfigIsAProblemOnAnEmptyBoard(t *testing.T) {
 	}
 	if len(view.Columns) == 0 {
 		t.Error("default stages must still apply")
+	}
+}
+
+func TestAccessIsCheckedOncePerTokenInAFewSeconds(t *testing.T) {
+	source := &countingSource{}
+	boards := NewRegistry(slog.New(slog.DiscardHandler), func(ID) (*Service, error) {
+		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Cooldown: time.Hour}), nil
+	}, nil, nil)
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	boards.now = func() time.Time { return now }
+	id := ID{HostGitHub, "a/one"}
+	ann := WithToken(context.Background(), "ann")
+
+	if _, err := boards.Get(ann, id); err != nil {
+		t.Fatal(err)
+	}
+	opened := source.heads.Load()
+	for range 3 {
+		if _, err := boards.Get(ann, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := source.heads.Load(); got != opened {
+		t.Errorf("head checks within the window: %d more", got-opened)
+	}
+
+	if _, err := boards.Get(WithToken(context.Background(), "ben"), id); err != nil {
+		t.Fatal(err)
+	}
+	if got := source.heads.Load(); got != opened+1 {
+		t.Errorf("a second token is checked on its own: %d more, want 1", got-opened)
+	}
+
+	now = now.Add(gateTTL)
+	if _, err := boards.Get(ann, id); err != nil {
+		t.Fatal(err)
+	}
+	if got := source.heads.Load(); got != opened+2 {
+		t.Errorf("head checks after the window: %d more, want 2", got-opened)
 	}
 }

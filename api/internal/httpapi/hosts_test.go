@@ -16,12 +16,12 @@ import (
 )
 
 type hostLogin struct {
-	host      string
+	host      board.Host
 	header    string
 	loggedOut *atomic.Int32
 }
 
-func (l hostLogin) Host() string { return l.host }
+func (l hostLogin) Host() board.Host { return l.host }
 
 func (l hostLogin) Token(_ http.ResponseWriter, r *http.Request) (string, error) {
 	if token := r.Header.Get(l.header); token != "" {
@@ -39,20 +39,20 @@ type hostsServer struct {
 	loggedOut *atomic.Int32
 }
 
-func newHostsServer(t *testing.T, options ...board.BoardsOption) hostsServer {
+func newHostsServer(t *testing.T, installs map[board.Host]board.AppInstall) hostsServer {
 	t.Helper()
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
-	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
 		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, func(_ context.Context, host string) ([]board.BoardID, error) {
+	}, func(_ context.Context, host board.Host) ([]board.ID, error) {
 		switch host {
-		case "github":
-			return []board.BoardID{{Host: "github", Repo: "o/fuda-tasks"}}, nil
-		case "azure":
-			return []board.BoardID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
+		case board.HostGitHub:
+			return []board.ID{{Host: board.HostGitHub, Repo: "o/fuda-tasks"}}, nil
+		case board.HostAzure:
+			return []board.ID{{Host: board.HostAzure, Repo: "acme/Team/fuda-tasks"}}, nil
 		}
 		return nil, nil
-	}, options...)
+	}, installs)
 	loggedOut := &atomic.Int32{}
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{},
 		hostLogin{"github", "X-Github-Token", loggedOut}, hostLogin{"azure", "X-Azure-Token", loggedOut}))
@@ -89,7 +89,7 @@ func (h hostsServer) do(t *testing.T, method, path string, headers map[string]st
 }
 
 func TestThePickerListsBoardsFromEveryHostTheUserIsLoggedInTo(t *testing.T) {
-	server := newHostsServer(t)
+	server := newHostsServer(t, nil)
 	status, got := server.do(t, "GET", "/api/boards", map[string]string{"X-Github-Token": "member", "X-Azure-Token": "member"})
 	if status != http.StatusOK || len(got.Boards) != 2 || got.Boards[0].Host != "github" || got.Boards[1].Host != "azure" {
 		t.Fatalf("%d %+v", status, got)
@@ -102,7 +102,7 @@ func TestThePickerListsBoardsFromEveryHostTheUserIsLoggedInTo(t *testing.T) {
 }
 
 func TestAHostWithoutALoginDoesNotHideTheOtherHost(t *testing.T) {
-	server := newHostsServer(t)
+	server := newHostsServer(t, nil)
 	status, got := server.do(t, "GET", "/api/boards", map[string]string{"X-Github-Token": "member"})
 	if status != http.StatusOK || len(got.Boards) != 1 || got.Boards[0].Host != "github" {
 		t.Fatalf("%d %+v", status, got)
@@ -116,7 +116,7 @@ func TestAHostWithoutALoginDoesNotHideTheOtherHost(t *testing.T) {
 }
 
 func TestEachBoardChecksTheLoginOfItsOwnHost(t *testing.T) {
-	server := newHostsServer(t)
+	server := newHostsServer(t, nil)
 	githubOnly := map[string]string{"X-Github-Token": "member"}
 	if status, _ := server.do(t, "GET", "/api/github/o/fuda-tasks/board", githubOnly); status != http.StatusOK {
 		t.Errorf("github board: %d", status)
@@ -127,7 +127,7 @@ func TestEachBoardChecksTheLoginOfItsOwnHost(t *testing.T) {
 }
 
 func TestLogOutOfAllClearsEveryHost(t *testing.T) {
-	server := newHostsServer(t)
+	server := newHostsServer(t, nil)
 	if status, _ := server.do(t, "POST", "/auth/logout", nil); status != http.StatusNoContent {
 		t.Fatalf("status %d", status)
 	}
@@ -147,7 +147,7 @@ func TestHostStatusSaysWhetherTheAppIsInstalled(t *testing.T) {
 		{"call failed", func(context.Context) (bool, error) { return false, errors.New("boom") }, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			server := newHostsServer(t, board.WithAppInstall("github", board.AppInstall{URL: "https://github.com/apps/fuda/installations/new", Installed: tc.installed}))
+			server := newHostsServer(t, map[board.Host]board.AppInstall{board.HostGitHub: {URL: "https://github.com/apps/fuda/installations/new", Installed: tc.installed}})
 			_, got := server.do(t, "GET", "/api/boards", map[string]string{"X-Github-Token": "member", "X-Azure-Token": "member"})
 			github, azure := got.Hosts[0], got.Hosts[1]
 			if github.InstallURL != "https://github.com/apps/fuda/installations/new" {

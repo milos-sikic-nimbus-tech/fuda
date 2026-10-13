@@ -1,6 +1,6 @@
-import type { BoardListing } from './api'
+import type { BoardListing, Host } from './api'
 
-export type HostName = 'github' | 'azure'
+export type HostName = Exclude<Host, 'local'>
 
 export type HostStatus = {
   host: HostName

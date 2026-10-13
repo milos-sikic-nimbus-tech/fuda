@@ -10,20 +10,12 @@ import (
 
 var ErrNoStatusLine = errors.New("the frontmatter has no status line")
 
-type Move struct {
+type StatusEdit struct {
 	Status  string
 	Claimed string
 }
 
-func ParseOne(p string, content []byte) (Task, error) {
-	t, reason := parseTask(p, content, false)
-	if reason != "" {
-		return Task{}, errors.New(reason)
-	}
-	return t, nil
-}
-
-func ApplyMove(content []byte, m Move) ([]byte, error) {
+func ApplyMove(content []byte, m StatusEdit) ([]byte, error) {
 	lines := bytes.SplitAfter(content, []byte("\n"))
 	front := frontmatterLines(lines)
 	statusAt, claimedAt := -1, -1

@@ -26,6 +26,14 @@ type Repo struct {
 	Name    string
 }
 
+func ParseRepo(id string) (Repo, bool) {
+	parts := strings.Split(id, "/")
+	if len(parts) != 3 {
+		return Repo{}, false
+	}
+	return Repo{Org: parts[0], Project: parts[1], Name: parts[2]}, true
+}
+
 const (
 	hostBase     = "https://dev.azure.com"
 	accountsBase = "https://app.vssps.visualstudio.com"

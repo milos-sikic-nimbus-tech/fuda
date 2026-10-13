@@ -11,7 +11,8 @@ import (
 
 func LoadOrCreateKey(path string) (string, error) {
 	stored, err := os.ReadFile(path)
-	if err == nil {
+	exists := err == nil
+	if exists {
 		if key := strings.TrimSpace(string(stored)); key != "" {
 			return key, nil
 		}
@@ -26,7 +27,11 @@ func LoadOrCreateKey(path string) (string, error) {
 		return "", err
 	}
 	key := base64.RawURLEncoding.EncodeToString(raw)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	if exists {
+		flags = os.O_WRONLY | os.O_TRUNC
+	}
+	file, err := os.OpenFile(path, flags, 0o600)
 	if errors.Is(err, os.ErrExist) {
 		return LoadOrCreateKey(path)
 	}

@@ -8,8 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
+
+	"fuda/internal/board"
 )
 
 var ErrNotLoggedIn = errors.New("not logged in")
@@ -31,19 +32,13 @@ type Config struct {
 type Web struct {
 	session string
 	flow    string
-	app     *oauthApp
+	app     *provider
 	sealer  sealer
 	secure  bool
 	log     *slog.Logger
 	now     func() time.Time
 
-	mu     sync.Mutex
-	recent map[string]refreshed
-}
-
-type refreshed struct {
-	token Token
-	at    time.Time
+	refreshes *refreshMemo
 }
 
 type flow struct {
@@ -52,7 +47,7 @@ type flow struct {
 	Return   string `json:"r"`
 }
 
-func NewAzure(log *slog.Logger, cfg Config) (*Web, error) {
+func NewCookieOAuth(log *slog.Logger, cfg Config) (*Web, error) {
 	sealer, err := newSealer(cfg.CookieSecret)
 	if err != nil {
 		return nil, err
@@ -60,7 +55,7 @@ func NewAzure(log *slog.Logger, cfg Config) (*Web, error) {
 	base := strings.TrimRight(cfg.BaseURL, "/")
 	app := newAzureApp(cfg.Tenant, cfg.ClientID, cfg.ClientSecret, "")
 	app.redirectURL = base + "/auth/" + app.name + "/callback"
-	return &Web{
+	web := &Web{
 		session: "fuda_" + app.name,
 		flow:    "fuda_" + app.name + "_flow",
 		app:     app,
@@ -68,8 +63,9 @@ func NewAzure(log *slog.Logger, cfg Config) (*Web, error) {
 		secure:  strings.HasPrefix(base, "https://"),
 		log:     log,
 		now:     time.Now,
-		recent:  map[string]refreshed{},
-	}, nil
+	}
+	web.refreshes = newRefreshMemo(app, func() time.Time { return web.now() })
+	return web, nil
 }
 
 func (g *Web) Routes(mux *http.ServeMux) {
@@ -91,7 +87,7 @@ func (g *Web) Token(w http.ResponseWriter, r *http.Request) (string, error) {
 	if token.Expires.IsZero() || token.Expires.After(g.now().Add(refreshMargin)) {
 		return token.Access, nil
 	}
-	next, err := g.refreshOnce(r, token.Refresh)
+	next, err := g.refreshes.refresh(r.Context(), token.Refresh)
 	if err != nil {
 		g.log.Info("login expired and could not be refreshed", "error", err)
 		g.clear(w, g.session, "/")
@@ -99,28 +95,6 @@ func (g *Web) Token(w http.ResponseWriter, r *http.Request) (string, error) {
 	}
 	g.storeSession(w, next)
 	return next.Access, nil
-}
-
-func (g *Web) refreshOnce(r *http.Request, refreshToken string) (Token, error) {
-	if refreshToken == "" {
-		return Token{}, errors.New("no refresh token")
-	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	for key, entry := range g.recent {
-		if g.now().Sub(entry.at) > memoLifetime {
-			delete(g.recent, key)
-		}
-	}
-	if entry, ok := g.recent[refreshToken]; ok {
-		return entry.token, nil
-	}
-	token, err := g.app.refresh(r.Context(), refreshToken)
-	if err != nil {
-		return Token{}, err
-	}
-	g.recent[refreshToken] = refreshed{token: token, at: g.now()}
-	return token, nil
 }
 
 func (g *Web) login(w http.ResponseWriter, r *http.Request) {
@@ -204,4 +178,4 @@ func randomString() string {
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
-func (g *Web) Host() string { return g.app.name }
+func (g *Web) Host() board.Host { return board.Host(g.app.name) }

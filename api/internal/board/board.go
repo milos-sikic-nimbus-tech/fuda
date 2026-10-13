@@ -20,27 +20,27 @@ type Column struct {
 }
 
 type Card struct {
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Status       string   `json:"status"`
-	Column       string   `json:"column"`
-	Owners       []string `json:"owners"`
-	Testers      []string `json:"testers"`
-	Labels       []string `json:"labels"`
-	Prefix       string   `json:"prefix"`
-	Added        string   `json:"added"`
-	Claimed      string   `json:"claimed"`
-	Done         string   `json:"done,omitempty"`
-	PRs          []int    `json:"prs"`
-	PRRef        string   `json:"prRef,omitempty"`
-	OpenPRs      []OpenPR `json:"openPrs"`
-	BlockedBy    string   `json:"blockedBy,omitempty"`
-	BlockedByIDs []string `json:"blockedByIds"`
-	Blocks       []string `json:"blocks"`
-	References   []string `json:"references"`
-	ReferencedBy []string `json:"referencedBy"`
-	InProd       bool     `json:"inProd"`
-	Path         string   `json:"path"`
+	ID           string     `json:"id"`
+	Title        string     `json:"title"`
+	Status       string     `json:"status"`
+	Column       string     `json:"column"`
+	Owners       []string   `json:"owners"`
+	Testers      []string   `json:"testers"`
+	Labels       []string   `json:"labels"`
+	Prefix       string     `json:"prefix"`
+	Added        string     `json:"added"`
+	Claimed      string     `json:"claimed"`
+	Done         string     `json:"done,omitempty"`
+	PRs          []int      `json:"prs"`
+	PRRef        string     `json:"prRef,omitempty"`
+	OpenPRs      []LinkedPR `json:"openPrs"`
+	BlockedBy    string     `json:"blockedBy,omitempty"`
+	BlockedByIDs []string   `json:"blockedByIds"`
+	Blocks       []string   `json:"blocks"`
+	References   []string   `json:"references"`
+	ReferencedBy []string   `json:"referencedBy"`
+	InProd       bool       `json:"inProd"`
+	Path         string     `json:"path"`
 }
 
 type Facets struct {
@@ -65,7 +65,7 @@ type Problem struct {
 type Inputs struct {
 	Develop taskfiles.Result
 	Main    *taskfiles.Result
-	OpenPRs map[string][]OpenPR
+	OpenPRs map[string][]LinkedPR
 }
 
 var inProdStatuses = map[string]bool{"merged": true, "testing": true, "validated": true}

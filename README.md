@@ -49,7 +49,7 @@ fuda shows a banner with an install link (built from `FUDA_GITHUB_APP_SLUG`). Se
 Download the archive for your system from the latest GitHub Release, unpack it and open `fuda.app`
 (macOS) or `fuda-desktop.exe` (Windows). Log in with GitHub: fuda shows a code and opens GitHub, where
 you type it. Azure DevOps works the same way, and you can be logged in to both. Each login token stays in your
-OS keychain, and you can log out of one host or of all from the account menu in the top bar. The app updates itself from new releases.
+OS keychain, and you can log out of one host or of all from the account menu in the top bar. The app checks for new releases and opens the download page when there is one.
 
 The builds are not signed, so your system warns the first time:
 

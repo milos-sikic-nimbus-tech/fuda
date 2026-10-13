@@ -68,7 +68,7 @@ func (s *Source) WriteFile(ctx context.Context, branch, path string, content []b
 			return err
 		}
 		if current.ObjectID != version {
-			return board.ErrChanged
+			return board.ErrStale
 		}
 		pushed, err := s.push(ctx, branch, head, path, content, message)
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *Source) WriteFile(ctx context.Context, branch, path string, content []b
 			return errPushRefused
 		}
 	}
-	return board.ErrChanged
+	return board.ErrStale
 }
 
 func (s *Source) push(ctx context.Context, branch, head, path string, content []byte, message string) (bool, error) {
@@ -107,7 +107,13 @@ func (s *Source) push(ctx context.Context, branch, head, path string, content []
 	if err != nil {
 		return false, err
 	}
-	return res.status < 300, nil
+	switch {
+	case res.status < 300:
+		return true, nil
+	case res.status == http.StatusConflict:
+		return false, nil
+	}
+	return false, res.failure()
 }
 
 func (s *Source) LastEditor(ctx context.Context, branch, path string) (string, error) {

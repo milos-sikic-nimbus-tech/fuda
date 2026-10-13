@@ -67,7 +67,7 @@ func newFakeDeviceGitHub(t *testing.T) *fakeDeviceGitHub {
 
 func newDevice(t *testing.T, f *fakeDeviceGitHub, store TokenStore, opened *[]string) *Device {
 	t.Helper()
-	d := NewDevice(slog.New(slog.DiscardHandler), DeviceConfig{
+	d := NewKeychainDevice(slog.New(slog.DiscardHandler), DeviceConfig{
 		ClientID: "id",
 		Store:    store,
 		Open: func(target string) error {
@@ -159,6 +159,30 @@ func TestDeviceTokenRefreshesAnExpiringToken(t *testing.T) {
 	}
 }
 
+type staleStore struct{ memoryStore }
+
+func (s *staleStore) Save(Token) error { return nil }
+
+func TestTwoRequestsWithTheSameExpiringTokenRefreshItOnce(t *testing.T) {
+	f := newFakeDeviceGitHub(t)
+	store := &staleStore{memoryStore{token: Token{Access: "old", Refresh: "r", Expires: time.Now().Add(10 * time.Second)}}}
+	var opened []string
+	d := newDevice(t, f, store, &opened)
+
+	for range 2 {
+		token, err := d.Token(nil, httptest.NewRequest("GET", "/", nil))
+		if err != nil || token != "refreshed" {
+			t.Fatalf("Token = %q, %v, want refreshed", token, err)
+		}
+	}
+	if got := f.refreshed.Load(); got != 1 {
+		t.Errorf("the refresh token was used %d times, want 1", got)
+	}
+	if store.deleted {
+		t.Error("the second request logged the user out")
+	}
+}
+
 func TestDeviceTokenForgetsAnExpiredTokenItCannotRefresh(t *testing.T) {
 	store := &memoryStore{token: Token{Access: "old", Expires: time.Now().Add(-time.Hour)}}
 	var opened []string
@@ -198,7 +222,7 @@ func TestAzureDeviceLoginUsesItsOwnRoutesAndScope(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	store := &memoryStore{}
-	d := NewDevice(slog.New(slog.DiscardHandler), DeviceConfig{Host: "azure", Tenant: "organizations", ClientID: "id", Store: store})
+	d := NewKeychainDevice(slog.New(slog.DiscardHandler), DeviceConfig{Host: "azure", Tenant: "organizations", ClientID: "id", Store: store})
 	d.app.deviceURL = server.URL + "/devicecode"
 	d.app.tokenURL = server.URL + "/token"
 	d.app.client = server.Client()
@@ -229,7 +253,7 @@ func TestDeviceLogoutMethodClearsTheStore(t *testing.T) {
 
 func newWebDevice(t *testing.T, f *fakeDeviceGitHub) *Device {
 	t.Helper()
-	d, err := NewWebDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
+	d, err := NewCookieDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +312,7 @@ func TestWebDeviceLoginKeepsTheTokenInASealedCookie(t *testing.T) {
 	if token, err := d.Token(httptest.NewRecorder(), r); err != nil || token != "user-token" {
 		t.Fatalf("Token = %q, %v, want user-token", token, err)
 	}
-	other, err := NewWebDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
+	other, err := NewCookieDevice(slog.New(slog.DiscardHandler), WebDeviceConfig{ClientID: "id", Key: "key"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,15 +18,15 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('button', { name: 'Account' })).toBeNull()
   })
 
-  it('shows each host with its own state and action', async () => {
+  it('shows each host with its own state and action, reachable as menu items', async () => {
     await openMenu([github(true), azure(false)])
-    const githubRow = screen.getByText('GitHub').closest<HTMLElement>('.flex')!
-    const azureRow = screen.getByText('Azure DevOps').closest<HTMLElement>('.flex')!
-    expect(within(githubRow).getByText('Logged in')).toBeTruthy()
-    expect(within(githubRow).getByRole('button', { name: 'Log out' })).toBeTruthy()
-    expect(within(azureRow).getByText('Logged out')).toBeTruthy()
-    const logIn = within(azureRow).getByRole('link', { name: 'Log in' })
-    expect(logIn.getAttribute('href')).toMatch(/^\/auth\/azure\/login\?return=/)
+    const githubItem = screen.getByRole('menuitem', { name: /GitHub/ })
+    const azureItem = screen.getByRole('menuitem', { name: /Azure DevOps/ })
+    expect(within(githubItem).getByText('Logged in')).toBeTruthy()
+    expect(within(githubItem).getByText('Log out')).toBeTruthy()
+    expect(within(azureItem).getByText('Logged out')).toBeTruthy()
+    expect(within(azureItem).getByText('Log in')).toBeTruthy()
+    expect(azureItem.getAttribute('href')).toMatch(/^\/auth\/azure\/login\?return=/)
   })
 
   it.each([

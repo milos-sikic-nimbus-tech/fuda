@@ -134,7 +134,7 @@ func (s *Service) load(ctx context.Context) error {
 
 	found, reviewErr := s.openReviews(ctx, develop)
 	if reviewErr != nil {
-		found = reviews{}
+		found = prsByTask{}
 	}
 	next := s.build(develop, main, developFiles, heads, found)
 	s.snapshot.Store(next)
@@ -160,7 +160,7 @@ func (s *Service) parseMain(files map[string][]byte) *taskfiles.Result {
 	return &parsed
 }
 
-func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string, found reviews) *snapshot {
+func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string, found prsByTask) *snapshot {
 	docs := map[string][]byte{}
 	docSet := map[string]bool{}
 	assets := map[string][]byte{}

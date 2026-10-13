@@ -57,7 +57,9 @@ export type SyncStatus = {
   lastError?: string
 }
 
-export type Origin = { host: 'github' | 'azure' | 'local'; repo: string; url?: string }
+export type Host = 'github' | 'azure' | 'local'
+
+export type Origin = { host: Host; repo: string; url?: string }
 
 export type BoardData = {
   title: string
@@ -71,7 +73,7 @@ export type BoardData = {
   readOnly: boolean
 }
 
-export type BoardListing = { host: Origin['host']; repo: string; path: string; title: string }
+export type BoardListing = { host: Host; repo: string; path: string; title: string }
 
 export type TaskDetail = Card & {
   custom: { key: string; value: string }[]

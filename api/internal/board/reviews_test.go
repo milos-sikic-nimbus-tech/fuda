@@ -42,7 +42,7 @@ func TestOpenPRPutsTasksNamedInTitleOrBranchInReview(t *testing.T) {
 	}, nil)
 
 	view, _ := s.Board()
-	if got := card(view.Board, "T-1"); got.Column != "in-review" || len(got.OpenPRs) != 1 || got.OpenPRs[0] != (OpenPR{Number: 5, URL: "u5"}) {
+	if got := card(view.Board, "T-1"); got.Column != "in-review" || len(got.OpenPRs) != 1 || got.OpenPRs[0] != (LinkedPR{Number: 5, URL: "u5"}) {
 		t.Errorf("T-1 named in a title: %+v", got)
 	}
 	if got := card(view.Board, "T-2").Column; got != "in-review" {
@@ -90,8 +90,8 @@ func TestLockedCardRefusesMove(t *testing.T) {
 		"acme/app": {{Number: 5, Title: "T-1 work"}},
 	}, nil)
 
-	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", Seen: "in progress", Column: "backlog"})
-	if !errors.Is(err, ErrLocked) {
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "in progress", ToColumn: "backlog"})
+	if !errors.Is(err, ErrNotMovable) {
 		t.Fatalf("got %v", err)
 	}
 	if host.writes != 0 {

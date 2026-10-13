@@ -2,14 +2,8 @@ package board
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"time"
 )
-
-type Access interface {
-	CanWrite(ctx context.Context) (bool, error)
-}
 
 const accessTTL = time.Minute
 
@@ -19,22 +13,18 @@ type knownAccess struct {
 }
 
 func (s *Service) CanWrite(ctx context.Context) (bool, error) {
-	if _, ok := s.source.(Writer); !ok {
+	editor, ok := s.source.(TaskEditor)
+	if !ok {
 		return false, nil
 	}
-	access, ok := s.source.(Access)
-	if !ok {
-		return true, nil
-	}
-	sum := sha256.Sum256([]byte(TokenFrom(ctx)))
-	token := hex.EncodeToString(sum[:])
+	token := tokenDigest(ctx)
 	s.mu.Lock()
 	known, found := s.access[token]
 	s.mu.Unlock()
 	if found && s.now().Sub(known.checked) < accessTTL {
 		return known.canWrite, nil
 	}
-	canWrite, err := access.CanWrite(ctx)
+	canWrite, err := editor.CanWrite(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -49,7 +39,7 @@ func (s *Service) CanWrite(ctx context.Context) (bool, error) {
 	return canWrite, nil
 }
 
-func (s *Service) requireWriter(ctx context.Context) (Writer, error) {
+func (s *Service) requireEditor(ctx context.Context) (TaskEditor, error) {
 	canWrite, err := s.CanWrite(ctx)
 	if err != nil {
 		return nil, err
@@ -57,5 +47,5 @@ func (s *Service) requireWriter(ctx context.Context) (Writer, error) {
 	if !canWrite {
 		return nil, ErrForbidden
 	}
-	return s.source.(Writer), nil
+	return s.source.(TaskEditor), nil
 }

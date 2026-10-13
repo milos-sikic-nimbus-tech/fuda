@@ -21,3 +21,20 @@ func TestKeyIsCreatedPrivateAndReused(t *testing.T) {
 		t.Fatalf("second = %q, %v, want the saved key %q", second, err, first)
 	}
 }
+
+func TestAnEmptyKeyFileIsFilled(t *testing.T) {
+	for _, content := range []string{"", " \n"} {
+		path := filepath.Join(t.TempDir(), "cookie.key")
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		key, err := LoadOrCreateKey(path)
+		if err != nil || key == "" {
+			t.Fatalf("content %q: key = %q, %v", content, key, err)
+		}
+		again, err := LoadOrCreateKey(path)
+		if err != nil || again != key {
+			t.Fatalf("content %q: again = %q, %v, want %q", content, again, err, key)
+		}
+	}
+}

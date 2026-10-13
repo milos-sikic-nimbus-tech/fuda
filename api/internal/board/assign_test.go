@@ -12,7 +12,7 @@ func TestAssignWritesTheOwners(t *testing.T) {
 	host := newFakeHost(map[string]string{taskPath: taskContent("backlog", "labels: a\n")})
 	s := newMoveService(t, host)
 
-	err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Seen: nil, Owners: []string{"Ann", "Ben"}})
+	err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: nil, Owners: []string{"Ann", "Ben"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestAssignRemovingEveryOwnerDeletesTheLine(t *testing.T) {
 	host := newFakeHost(map[string]string{taskPath: taskContent("backlog", "owner: Ann\n")})
 	s := newMoveService(t, host)
 
-	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Seen: []string{"Ann"}}); err != nil {
+	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"Ann"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -44,7 +44,7 @@ func TestAssignRetriesSilentlyWhenAnotherLineChanged(t *testing.T) {
 		})
 	}
 
-	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Seen: []string{"Ann"}, Owners: []string{"Ben"}}); err != nil {
+	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"Ann"}, Owners: []string{"Ben"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -62,7 +62,7 @@ func TestAssignLosesWhenOwnersChangedFirst(t *testing.T) {
 		})
 	}
 
-	err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Seen: []string{"Ann"}, Owners: []string{"Di"}})
+	err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"Ann"}, Owners: []string{"Di"}})
 
 	var conflict *ConflictError
 	if !errors.As(err, &conflict) {
@@ -80,7 +80,7 @@ func TestAssignSeesTheSameOwnersWhateverTheOrderOrAlias(t *testing.T) {
 	})
 	s := newMoveService(t, host)
 
-	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Seen: []string{"Ann", "Ben"}, Owners: []string{"Ben"}}); err != nil {
+	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"Ann", "Ben"}, Owners: []string{"Ben"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func TestAssignRefusals(t *testing.T) {
 		id   string
 		want error
 	}{
-		{"an archived task", "T-2", ErrLocked},
+		{"an archived task", "T-2", ErrNotMovable},
 		{"an unknown task", "T-9", ErrNotFound},
 	}
 	for _, tt := range tests {

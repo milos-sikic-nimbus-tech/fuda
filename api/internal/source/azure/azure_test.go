@@ -114,7 +114,7 @@ func TestReadWriteSendsOneEditCommitOnTheHead(t *testing.T) {
 func TestWriteFileReportsAFileChangedSinceTheRead(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-2"}
 	err := serve(t, f).WriteFile(asUser(), "develop", "docs/a.md", []byte("x"), "blob-1", "m")
-	if !errors.Is(err, board.ErrChanged) || len(f.pushes) != 0 {
+	if !errors.Is(err, board.ErrStale) || len(f.pushes) != 0 {
 		t.Errorf("err %v, pushes %d", err, len(f.pushes))
 	}
 }
@@ -130,10 +130,10 @@ func TestWriteFileRetriesWhenOnlyTheBranchMoved(t *testing.T) {
 	}
 }
 
-func TestWriteFileFailsWhenThePushIsRefusedOnAnUnchangedBranch(t *testing.T) {
+func TestWriteFileReturnsTheHostsReasonWhenThePushIsRefused(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-1", refuse: true}
 	err := serve(t, f).WriteFile(asUser(), "develop", "docs/a.md", []byte("x"), "blob-1", "m")
-	if err == nil || errors.Is(err, board.ErrChanged) {
+	if err == nil || errors.Is(err, board.ErrStale) || !strings.Contains(err.Error(), "status 400") {
 		t.Errorf("err %v", err)
 	}
 }

@@ -5,6 +5,7 @@ import { PersonChip } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { TaskLink } from '@/components/atoms/TaskLink'
 import { OwnerPicker } from '@/components/molecules/OwnerPicker'
+import { StagePicker } from '@/components/molecules/StagePicker'
 import { RichContent } from '@/components/molecules/RichContent'
 import {
   Sheet,
@@ -16,7 +17,15 @@ import {
 import { useLeaveWarning } from '@/hooks/useLeaveWarning'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import { listOf } from '@/lib/filters'
-import { useAssign, useBoard, usePendingAssigns, useTask } from '@/lib/queries'
+import { moveTargets } from '@/lib/moves'
+import {
+  useAssign,
+  useBoard,
+  useMove,
+  usePendingAssigns,
+  usePendingMoves,
+  useTask,
+} from '@/lib/queries'
 import { prHref } from '@/lib/api'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -43,10 +52,16 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
   const { data: task, isError } = useTask(search.task)
   const { data: board } = useBoard()
   const assign = useAssign()
+  const move = useMove()
+  const movePending = usePendingMoves().some((m) => m.cardId === search.task)
   const pending = usePendingAssigns().find((a) => a.cardId === search.task)
   const labels = listOf(search.label)
   useLeaveWarning(!!pending)
   const owners = pending?.owners ?? task?.owners ?? []
+  const card = board?.cards.find((c) => c.id === search.task)
+  const targets = card
+    ? moveTargets(card, board?.columns ?? [], movePending, board?.readOnly ?? true)
+    : []
 
   return (
     <Sheet open={!!search.task} onOpenChange={(open) => !open && openTask(undefined)}>
@@ -68,6 +83,16 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
         {task && (
           <div className="space-y-5 p-4">
             <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2">
+              {card && (
+                <Field label="Stage">
+                  {board?.columns.find((c) => c.id === card.column)?.name ?? card.status}
+                  <StagePicker
+                    targets={targets}
+                    saving={movePending}
+                    onMove={(column) => move.mutate({ card, column: column.id })}
+                  />
+                </Field>
+              )}
               <Field label="Owner">
                 {owners.map((o) => (
                   <PersonChip key={o} name={o} onClick={() => toggle('owner', o)} />

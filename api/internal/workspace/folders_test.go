@@ -1,4 +1,4 @@
-package app
+package workspace
 
 import (
 	"errors"
@@ -77,7 +77,7 @@ func TestFoldersAreRememberedAndMissingOnesDropped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []board.BoardID{{Host: "local", Repo: "kept"}}
+	want := []board.ID{{Host: "local", Repo: "kept"}}
 	if got := again.List(); len(got) != 1 || got[0] != want[0] {
 		t.Errorf("remembered: %v", got)
 	}

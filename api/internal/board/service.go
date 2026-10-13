@@ -46,7 +46,7 @@ type Options struct {
 }
 
 type Origin struct {
-	Host string `json:"host"`
+	Host Host   `json:"host"`
 	Repo string `json:"repo"`
 	URL  string `json:"url,omitempty"`
 	Path string `json:"path"`
@@ -85,7 +85,7 @@ type snapshot struct {
 	develop taskfiles.Result
 	main    *taskfiles.Result
 	files   map[string][]byte
-	reviews reviews
+	reviews prsByTask
 	docs    map[string][]byte
 	assets  map[string][]byte
 	links   markdown.Links
@@ -200,7 +200,7 @@ func archivedCard(t taskfiles.Task) Card {
 		Done:         t.Done,
 		PRs:          orEmpty(t.PRs),
 		PRRef:        t.PRRef,
-		OpenPRs:      []OpenPR{},
+		OpenPRs:      []LinkedPR{},
 		BlockedBy:    t.BlockedBy,
 		BlockedByIDs: []string{},
 		Blocks:       []string{},

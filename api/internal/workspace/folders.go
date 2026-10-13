@@ -1,4 +1,4 @@
-package app
+package workspace
 
 import (
 	"encoding/json"
@@ -50,13 +50,13 @@ func NewFolders(storePath string) (*Folders, error) {
 	return f, nil
 }
 
-func (f *Folders) Add(folder string) (board.BoardID, error) {
+func (f *Folders) Add(folder string) (board.ID, error) {
 	abs, err := filepath.Abs(folder)
 	if err != nil {
-		return board.BoardID{}, err
+		return board.ID{}, err
 	}
 	if !hasTasks(abs) {
-		return board.BoardID{}, ErrNoTasks
+		return board.ID{}, ErrNoTasks
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -64,19 +64,19 @@ func (f *Folders) Add(folder string) (board.BoardID, error) {
 		f.paths = append(f.paths, abs)
 		if err := f.save(); err != nil {
 			f.paths = f.paths[:len(f.paths)-1]
-			return board.BoardID{}, err
+			return board.ID{}, err
 		}
 	}
 	return f.ids()[slices.Index(f.paths, abs)], nil
 }
 
-func (f *Folders) List() []board.BoardID {
+func (f *Folders) List() []board.ID {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.ids()
 }
 
-func (f *Folders) Path(id board.BoardID) (string, bool) {
+func (f *Folders) Path(id board.ID) (string, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	i := slices.Index(f.ids(), id)
@@ -87,9 +87,9 @@ func (f *Folders) Path(id board.BoardID) (string, bool) {
 }
 
 // Two folders with one name get -2, -3 in the order they were added.
-func (f *Folders) ids() []board.BoardID {
+func (f *Folders) ids() []board.ID {
 	taken := map[string]bool{}
-	ids := make([]board.BoardID, len(f.paths))
+	ids := make([]board.ID, len(f.paths))
 	for i, p := range f.paths {
 		base := folderName(p)
 		name := base
@@ -97,7 +97,7 @@ func (f *Folders) ids() []board.BoardID {
 			name = base + "-" + strconv.Itoa(n)
 		}
 		taken[name] = true
-		ids[i] = board.BoardID{Host: "local", Repo: name}
+		ids[i] = board.ID{Host: board.HostLocal, Repo: name}
 	}
 	return ids
 }

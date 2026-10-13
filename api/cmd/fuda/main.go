@@ -12,11 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"fuda/internal/app"
+	"fuda/internal/board"
 	"fuda/internal/config"
 	"fuda/internal/httpapi"
 	"fuda/internal/login"
 	"fuda/internal/web"
+	"fuda/internal/workspace"
 )
 
 func main() {
@@ -29,19 +30,19 @@ func main() {
 
 func newLogins(log *slog.Logger, cfg config.Config) ([]httpapi.Login, error) {
 	var logins []httpapi.Login
-	if cfg.Has(config.SourceGitHub) {
+	if cfg.Has(board.HostGitHub) {
 		key, err := login.LoadOrCreateKey(filepath.Join(cfg.CacheDir, "cookie.key"))
 		if err != nil {
 			return nil, fmt.Errorf("cookie key: %w", err)
 		}
-		github, err := login.NewWebDevice(log, login.WebDeviceConfig{ClientID: cfg.GitHubClientID, Key: key})
+		github, err := login.NewCookieDevice(log, login.WebDeviceConfig{ClientID: cfg.GitHubClientID, Key: key})
 		if err != nil {
 			return nil, err
 		}
 		logins = append(logins, github)
 	}
-	if cfg.Has(config.SourceAzure) {
-		azure, err := login.NewAzure(log, login.Config{
+	if cfg.Has(board.HostAzure) {
+		azure, err := login.NewCookieOAuth(log, login.Config{
 			Tenant: cfg.AzureTenant, ClientID: cfg.AzureClientID, ClientSecret: cfg.AzureClientSecret, CookieSecret: cfg.CookieSecret, BaseURL: cfg.BaseURL,
 		})
 		if err != nil {
@@ -69,11 +70,11 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	folders, err := app.NewFolders("")
+	folders, err := workspace.NewFolders("")
 	if err != nil {
 		return err
 	}
-	if cfg.Has(config.SourceLocal) {
+	if cfg.Has(board.HostLocal) {
 		if _, err := folders.Add(cfg.LocalPath); err != nil {
 			return fmt.Errorf("FUDA_LOCAL_PATH: %w", err)
 		}
@@ -81,7 +82,7 @@ func run(log *slog.Logger) error {
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.NewHandler(log, app.NewBoards(log, cfg, folders), web.Dist(), logins...),
+		Handler:           httpapi.NewHandler(log, workspace.NewRegistry(log, cfg, folders), web.Dist(), logins...),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
@@ -89,7 +90,7 @@ func run(log *slog.Logger) error {
 
 	errs := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", cfg.Addr, "sources", cfg.Sources)
+		log.Info("listening", "addr", cfg.Addr, "hosts", cfg.Hosts)
 		errs <- server.ListenAndServe()
 	}()
 

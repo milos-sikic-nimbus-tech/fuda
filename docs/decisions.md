@@ -123,7 +123,7 @@ updates [architecture.md](architecture.md).
   - **Login (rest).** GitHub device flow (web: sealed cookie; desktop: OS keychain) is built. So is Microsoft
     Entra ID for Azure DevOps: a confidential client on the web, the OAuth device code on desktop
     (plain HTTP, no MSAL library), scope `user_impersonation`. One process serves
-    both hosts at once (`FUDA_SOURCE=github,azure`), with one cookie or keychain entry per host,
+    both hosts at once (`FUDA_HOSTS=github,azure`), with one cookie or keychain entry per host,
     per-host logout and "Log out of all". Whether
     people can consent to the Azure DevOps scope without an admin depends on the tenant's consent
     policy; not checked against a real tenant yet. A narrower `vso.code_write` scope is not used.
@@ -131,14 +131,15 @@ updates [architecture.md](architecture.md).
   - **Move and Assign (rest).** Built for GitHub and Azure DevOps, including read-only Boards: fuda asks GitHub
     whether the account can push, keeps the answer for a minute, and refuses Move and Assign
     for read-only accounts. The board shows a note and no card drags. Local Boards write the file
-    on disk. No card order is stored.
+    on disk, in the desktop app only: a server shows them read-only, because they have no login.
+    No card order is stored. The task sheet has a "Move to" menu, so a Move does not need a mouse.
   - **Local Board.** A folder (desktop: "Open folder…"; web: `FUDA_LOCAL_PATH`). Moves and Assigns
     write the file on disk and the person commits. fuda polls the folder; same conflict rule. A folder
     is a Local Board when it has `docs/board/tasks/` or `tasks/`. A Local Board has no In review.
     It cannot tell who changed a file, so a lost conflict says "Someone".
   - **Shells.** One Go core: the web server and a Wails v3 desktop app with the same handler and
     UI. The web shell is self-hosted at the host's own cost. The desktop app logs in to GitHub or Azure DevOps
-    (device flow, keychain, self-update from GitHub Releases). "Open folder…" in the File menu opens
+    (device flow, keychain). "Check for updates" compares with GitHub Releases and opens the release page. "Open folder…" in the File menu opens
     a Local Board; the app remembers the folders.
   - **Migration and docs.** `CONTRIBUTING.md` gets a checklist (create the `fuda-` repo,
     `git subtree split --prefix=docs/board`, push as `main`, replace `docs/board` with the
@@ -153,8 +154,17 @@ updates [architecture.md](architecture.md).
 - **Open:** whether to pay for an Apple Developer account.
 - **Proposal:** Sign `fuda.app` with a Developer ID certificate and notarize it in the `release`
   workflow (`codesign`, `xcrun notarytool`, `stapler`), with the certificate and App Store Connect
-  key as repository secrets. Then the first-run warning goes away. Self-update replaces the inner
-  binary, which breaks the signature, so it must move to replacing the whole bundle first.
+  key as repository secrets. Then the first-run warning goes away.
+
+### Installing desktop updates in place
+
+- **Settled:** "Check for updates" tells people a newer version exists and opens its release page.
+  It does not install it.
+- **Open:** when to install from inside the app.
+- **Proposal:** after the macOS app is signed and notarized, publish a checksum file with each
+  release in the `release` workflow, check the downloaded asset against it, and replace the whole
+  `fuda.app` bundle (replacing only the inner binary breaks the signature and Gatekeeper may
+  refuse to open the app). Until then, installing is a manual download.
 
 ### History-based dates and insights
 

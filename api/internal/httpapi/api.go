@@ -15,26 +15,26 @@ import (
 
 type api struct {
 	log    *slog.Logger
-	boards *board.Boards
+	boards *board.Registry
 	logins []Login
 }
 
 type boardHost struct {
-	name   string
+	name   board.Host
 	params []string
 }
 
 var boardHosts = []boardHost{
-	{"github", []string{"owner", "repo"}},
-	{"azure", []string{"org", "project", "repo"}},
-	{"local", []string{"folder"}},
+	{board.HostGitHub, []string{"owner", "repo"}},
+	{board.HostAzure, []string{"org", "project", "repo"}},
+	{board.HostLocal, []string{"folder"}},
 }
 
 type boardHandler func(w http.ResponseWriter, r *http.Request, service *board.Service)
 
 func (a api) routes(mux *http.ServeMux) {
 	for _, host := range boardHosts {
-		prefix := "/api/" + host.name
+		prefix := "/api/" + string(host.name)
 		for _, param := range host.params {
 			prefix += "/{" + param + "}"
 		}
@@ -69,7 +69,7 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 			a.result(w, nil, err)
 			return
 		}
-		service, err := a.boards.Get(ctx, board.BoardID{Host: host.name, Repo: strings.Join(parts, "/")})
+		service, err := a.boards.Get(ctx, board.ID{Host: host.name, Repo: strings.Join(parts, "/")})
 		if err != nil {
 			a.result(w, nil, err)
 			return
@@ -78,8 +78,8 @@ func (a api) onBoard(host boardHost, handler boardHandler) http.HandlerFunc {
 	}
 }
 
-func (a api) withToken(w http.ResponseWriter, r *http.Request, host string) (context.Context, error) {
-	if host == "local" {
+func (a api) withToken(w http.ResponseWriter, r *http.Request, host board.Host) (context.Context, error) {
+	if host == board.HostLocal {
 		return r.Context(), nil
 	}
 	login := a.loginFor(host)
@@ -93,7 +93,7 @@ func (a api) withToken(w http.ResponseWriter, r *http.Request, host string) (con
 	return board.WithToken(r.Context(), token), nil
 }
 
-func (a api) loginFor(host string) Login {
+func (a api) loginFor(host board.Host) Login {
 	for _, login := range a.logins {
 		if login.Host() == host {
 			return login
@@ -103,17 +103,17 @@ func (a api) loginFor(host string) Login {
 }
 
 type boardListing struct {
-	Host  string `json:"host"`
-	Repo  string `json:"repo"`
-	Path  string `json:"path"`
-	Title string `json:"title"`
+	Host  board.Host `json:"host"`
+	Repo  string     `json:"repo"`
+	Path  string     `json:"path"`
+	Title string     `json:"title"`
 }
 
 type hostStatus struct {
-	Host     string `json:"host"`
-	LoggedIn bool   `json:"loggedIn"`
-	Login    string `json:"login"`
-	Error    string `json:"error,omitempty"`
+	Host     board.Host `json:"host"`
+	LoggedIn bool       `json:"loggedIn"`
+	Login    string     `json:"login"`
+	Error    string     `json:"error,omitempty"`
 
 	InstallURL   string `json:"installUrl,omitempty"`
 	AppInstalled *bool  `json:"appInstalled,omitempty"`
@@ -126,14 +126,14 @@ type boardListResponse struct {
 
 func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 	response := boardListResponse{Boards: []boardListing{}, Hosts: []hostStatus{}}
-	if ids, err := a.boards.List(r.Context(), "local"); err == nil {
+	if ids, err := a.boards.List(r.Context(), board.HostLocal); err == nil {
 		response.Boards = append(response.Boards, listings(ids)...)
 	}
 	for _, login := range a.logins {
-		status := hostStatus{Host: login.Host(), Login: "/auth/" + login.Host() + "/login", InstallURL: a.boards.InstallURL(login.Host())}
+		status := hostStatus{Host: login.Host(), Login: "/auth/" + string(login.Host()) + "/login", InstallURL: a.boards.InstallURL(login.Host())}
 		ctx, err := a.withToken(w, r, login.Host())
 		if err == nil {
-			var ids []board.BoardID
+			var ids []board.ID
 			ids, err = a.boards.List(ctx, login.Host())
 			response.Boards = append(response.Boards, listings(ids)...)
 		}
@@ -152,7 +152,7 @@ func (a api) boardList(w http.ResponseWriter, r *http.Request) {
 	a.json(w, http.StatusOK, response)
 }
 
-func listings(ids []board.BoardID) []boardListing {
+func listings(ids []board.ID) []boardListing {
 	listing := make([]boardListing, 0, len(ids))
 	for _, id := range ids {
 		listing = append(listing, boardListing{Host: id.Host, Repo: id.Repo, Path: id.Path(), Title: path.Base(id.Repo)})
@@ -276,7 +276,7 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
-	case errors.Is(err, board.ErrLocked):
+	case errors.Is(err, board.ErrNotMovable):
 		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 	case errors.As(err, &conflict):
 		a.json(w, http.StatusConflict, map[string]string{"error": conflict.Message})

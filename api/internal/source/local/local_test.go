@@ -33,7 +33,7 @@ func writeTree(t *testing.T, files map[string]string) string {
 
 func openBoard(t *testing.T, root string) *board.Service {
 	t.Helper()
-	s := board.NewService(local.New(root, "docs", "docs/board", "develop"), board.Options{
+	s := board.NewService(local.New(root, "docs", "docs/board", "develop", true), board.Options{
 		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
 	})
 	if err := s.Poll(context.Background()); err != nil {
@@ -72,7 +72,7 @@ func TestBothLayoutsMoveAndAssignOnDisk(t *testing.T) {
 			root := writeTree(t, map[string]string{path: taskFile("labels: a\n")})
 			s := openBoard(t, root)
 
-			if err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"}); err != nil {
+			if err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"}); err != nil {
 				t.Fatal(err)
 			}
 			if err := s.Assign(context.Background(), board.AssignRequest{TaskID: "T-1", Owners: []string{"Ann"}}); err != nil {
@@ -99,7 +99,7 @@ func TestAnEditorChangeToAnotherLineIsKept(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"}); err != nil {
+	if err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestAnEditorChangeToTheSameFieldWinsAndTheMoveIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 
 	var conflict *board.ConflictError
 	if !errors.As(err, &conflict) {
@@ -168,9 +168,59 @@ func TestAFolderThatCannotBeWrittenIsReadOnly(t *testing.T) {
 		t.Skip("this user can write to read-only folders")
 	}
 
-	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", Seen: "backlog", Column: "in-progress"})
+	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
 
 	if !errors.Is(err, board.ErrForbidden) {
 		t.Errorf("want forbidden, got %v", err)
+	}
+}
+
+func TestTwoWritesFromTheSameVersionLetOnlyOneThrough(t *testing.T) {
+	root := writeTree(t, map[string]string{"tasks/T-1.md": taskFile("")})
+	source := local.New(root, "docs", "docs/board", "develop", true)
+	_, version, err := source.ReadFile(context.Background(), "develop", "docs/board/tasks/T-1.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const writers = 8
+	results := make(chan error, writers)
+	for i := range writers {
+		go func() {
+			content := []byte(taskFile("labels: " + strings.Repeat("x", i+1) + "\n"))
+			results <- source.WriteFile(context.Background(), "develop", "docs/board/tasks/T-1.md", content, version, "")
+		}()
+	}
+
+	var written int
+	for range writers {
+		err := <-results
+		if err == nil {
+			written++
+		} else if !errors.Is(err, board.ErrStale) {
+			t.Fatal(err)
+		}
+	}
+	if written != 1 {
+		t.Errorf("%d writes went through, want 1", written)
+	}
+}
+
+func TestABoardOpenedReadOnlyRefusesWrites(t *testing.T) {
+	root := writeTree(t, map[string]string{"tasks/T-1.md": taskFile("")})
+	s := board.NewService(local.New(root, "docs", "docs/board", "develop", false), board.Options{
+		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
+	})
+	if err := s.Poll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	err := s.Move(context.Background(), board.MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
+
+	if !errors.Is(err, board.ErrForbidden) {
+		t.Errorf("got %v, want ErrForbidden", err)
+	}
+	if got := read(t, root, "tasks/T-1.md"); got != taskFile("") {
+		t.Errorf("the file changed:\n%s", got)
 	}
 }

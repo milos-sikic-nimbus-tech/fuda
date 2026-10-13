@@ -111,24 +111,24 @@ func TestAPISmoke(t *testing.T) {
 	}
 }
 
-func testBoards(t *testing.T, folders map[string]string) *board.Boards {
+func testBoards(t *testing.T, folders map[string]string) *board.Registry {
 	t.Helper()
-	return board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
+	return board.NewRegistry(slog.New(slog.DiscardHandler), func(id board.ID) (*board.Service, error) {
 		root, ok := folders[id.Repo]
 		if !ok || id.Host != "local" {
 			return nil, board.ErrNotFound
 		}
-		return board.NewService(local.New(root, "docs", "docs/board", "develop"), board.Options{
+		return board.NewService(local.New(root, "docs", "docs/board", "develop", true), board.Options{
 			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
 			Cooldown: time.Minute, Origin: board.Origin{Host: "local", Repo: id.Repo, Path: id.Path()},
 		}), nil
-	}, func(context.Context, string) ([]board.BoardID, error) {
-		var ids []board.BoardID
+	}, func(context.Context, board.Host) ([]board.ID, error) {
+		var ids []board.ID
 		for folder := range folders {
-			ids = append(ids, board.BoardID{Host: "local", Repo: folder})
+			ids = append(ids, board.ID{Host: "local", Repo: folder})
 		}
 		return ids, nil
-	})
+	}, nil)
 }
 
 func TestBoardsAreServedByPath(t *testing.T) {
@@ -187,19 +187,19 @@ func (headerLogin) Routes(*http.ServeMux) {}
 
 func (headerLogin) Logout(http.ResponseWriter, *http.Request) {}
 
-func (headerLogin) Host() string { return "github" }
+func (headerLogin) Host() board.Host { return board.HostGitHub }
 
 type azureHeaderLogin struct{ headerLogin }
 
-func (azureHeaderLogin) Host() string { return "azure" }
+func (azureHeaderLogin) Host() board.Host { return board.HostAzure }
 
 func TestAnAzureLoginServesAzureBoardsOnly(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
-	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(id board.ID) (*board.Service, error) {
 		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, func(context.Context, string) ([]board.BoardID, error) {
-		return []board.BoardID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
-	})
+	}, func(context.Context, board.Host) ([]board.ID, error) {
+		return []board.ID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
+	}, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, azureHeaderLogin{}))
 	defer server.Close()
 
@@ -237,14 +237,14 @@ func (m memberSource) Files(context.Context, string) (map[string][]byte, error) 
 
 func TestGitHubBoardsNeedALogin(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
-	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(id board.BoardID) (*board.Service, error) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(id board.ID) (*board.Service, error) {
 		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, func(ctx context.Context, _ string) ([]board.BoardID, error) {
+	}, func(ctx context.Context, _ board.Host) ([]board.ID, error) {
 		if board.TokenFrom(ctx) != "member" {
 			return nil, board.ErrForbidden
 		}
-		return []board.BoardID{{Host: "github", Repo: "o/fuda-tasks"}}, nil
-	})
+		return []board.ID{{Host: "github", Repo: "o/fuda-tasks"}}, nil
+	}, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
 	defer server.Close()
 
@@ -324,7 +324,7 @@ func (m *movableSource) WriteFile(ctx context.Context, _, _ string, content []by
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if version != strconv.Itoa(m.version) {
-		return board.ErrChanged
+		return board.ErrStale
 	}
 	m.content = string(content)
 	m.version++
@@ -335,11 +335,13 @@ func (m *movableSource) LastEditor(context.Context, string, string) (string, err
 	return m.editor, nil
 }
 
+func (m *movableSource) CanWrite(context.Context) (bool, error) { return true, nil }
+
 func TestMoveThroughTheHandler(t *testing.T) {
 	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
-	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
 		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, nil)
+	}, nil, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
 	defer server.Close()
 
@@ -381,9 +383,9 @@ func TestMoveThroughTheHandler(t *testing.T) {
 
 func TestAssignThroughTheHandler(t *testing.T) {
 	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
-	boards := board.NewBoards(slog.New(slog.DiscardHandler), func(board.BoardID) (*board.Service, error) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
 		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
-	}, nil)
+	}, nil, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
 	defer server.Close()
 

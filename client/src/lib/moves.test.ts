@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardData, Card, Column } from './api'
-import { applyPendingMoves, canDrag, canDrop } from './moves'
+import { applyPendingMoves, canDrag, canDrop, moveTargets } from './moves'
 
 const column = (id: string, extra: Partial<Column> = {}): Column => ({
   id,
@@ -61,5 +61,17 @@ describe('canDrop', () => {
   })
   it('accepts another column', () => {
     expect(canDrop(card('A-1'), board.columns[1]!)).toBe(true)
+  })
+})
+
+describe('moveTargets', () => {
+  it('lists the columns a free card can move to', () => {
+    expect(moveTargets(card('A-1'), board.columns, false, false).map((c) => c.id)).toEqual([
+      'in-progress',
+    ])
+  })
+  it('lists nothing for a card that cannot be dragged', () => {
+    expect(moveTargets(card('A-1'), board.columns, true, false)).toEqual([])
+    expect(moveTargets(card('A-1'), board.columns, false, true)).toEqual([])
   })
 })
