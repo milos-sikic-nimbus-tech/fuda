@@ -28,7 +28,8 @@ A read-only kanban board and doc reader over a git repo's markdown task files
 - Handlers are thin; behaviour lives in `board`. Interfaces are declared where they are used.
 - No speculative abstractions. Unit tests where the logic is; small fixtures in `testdata/`.
 - Repo content never breaks fuda: invalid files become Problems, a failed sync keeps the last snapshot.
-- The Makefile uses only `go`, `pnpm` and `docker`.
+- The Makefile uses only `go`, `pnpm` and `docker`. The macOS targets also use `codesign` and `hdiutil`,
+  which ship with macOS and the Xcode Command Line Tools.
 - Update docs (README, Guide pages, `docs/architecture.md`, `docs/decisions.md`) in the same change
   as the behaviour they describe. `docs/` states only what is true in the code; decided-but-unbuilt
   items go under TBD in `decisions.md`, with a proposal.
