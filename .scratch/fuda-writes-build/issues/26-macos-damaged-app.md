@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Cause, checked on `bin/fuda.app` on Apple Silicon, 2026-10-22: the Go linker ad-hoc signs only the Mach-O (`flags=adhoc,linker-signed`, `Info.plist=not bound`, `Sealed Resources=none`). `make desktop-macos` then adds `Info.plist` and `Resources/` around it, so the bundle no longer matches its signature. `codesign --verify --deep --strict` fails with "code has no resources but signature indicates they must be present". A locally built copy has no quarantine flag, so Gatekeeper never checks it. A copy sent by AirDrop, chat or the GitHub release is quarantined, Gatekeeper finds the invalid signature, and blocks it as damaged. An unsigned or validly ad-hoc-signed app only gets the prompt. Running `codesign --force --sign - --identifier io.nimbus-tech.fuda` on a copy of the bundle made the check pass.
 
@@ -18,11 +18,11 @@ Decided with the user, 2026-10-22:
 - **Docs:** README install section and a Guide page say how to open the app the first time. Open the DMG and drag fuda to Applications. On macOS 15+, open it once, then System Settings → Privacy & Security → Open Anyway. As a fallback, `xattr -dr com.apple.quarantine /Applications/fuda.app`. This replaces the "right-click, Open" line from ticket 19, which macOS 15 removed.
 - **Out of scope:** Developer ID signing and notarization (stays TBD in `docs/decisions.md`), a universal binary, a styled DMG, Windows.
 
-- [ ] `make desktop-macos` produces a `fuda.app` that passes `codesign --verify --deep --strict`
-- [ ] `make desktop-macos-dmg` produces a DMG with `fuda.app` and an Applications link
-- [ ] The release uploads the DMG for arm64 and amd64, and no macOS `.tar.gz`
-- [ ] The update check finds a new release on macOS
-- [ ] `CLAUDE.md`, `CONTRIBUTING.md`, README, the Guide page and `docs/decisions.md` match the new behaviour
+- [x] `make desktop-macos` produces a `fuda.app` that passes `codesign --verify --deep --strict`
+- [x] `make desktop-macos-dmg` produces a DMG with `fuda.app` and an Applications link
+- [x] The release uploads the DMG for arm64 and amd64, and no macOS `.tar.gz`
+- [x] The update check finds a new release on macOS
+- [x] `CLAUDE.md`, `CONTRIBUTING.md`, README, the Guide page and `docs/decisions.md` match the new behaviour
 - [ ] A DMG copied to a second Apple Silicon Mac (or AirDropped to yourself) shows Open Anyway, not "damaged" (checked by hand)
 
 Follows 19: macOS `fuda.app` bundle. Research: `.scratch/fuda-writes/issues/18-desktop-distribution.md`.
