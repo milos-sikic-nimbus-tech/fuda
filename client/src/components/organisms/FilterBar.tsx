@@ -36,8 +36,8 @@ export function FilterBar({
     <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-card/50 px-3 py-2.5 backdrop-blur-sm sm:px-4">
       <SearchInput value={search.q} onChange={(q) => update({ q })} />
       <FilterMenu groups={groups} />
-      <MapButton maps={maps} columns={columns} />
       <ActiveFilters groups={groups} />
+      <MapButton maps={maps} columns={columns} />
       <div className="ml-auto flex items-center gap-3">
         <ToggleGroup
           type="single"
