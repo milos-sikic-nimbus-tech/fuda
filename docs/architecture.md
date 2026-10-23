@@ -220,7 +220,7 @@ flowchart TD
 
 `tasks/<epic>/map.md` with `label: wayfinder:map` becomes an entry of `Board.maps`: the epic (folder
 name), the body without its frontmatter, the epic's task count per board column id (cards, so In review
-is included), and the number of its archived tasks. The client shows a Map button next to Filter, enabled
+is included), and the number of its archived tasks. The client shows a Map button after the active filters and Clear, enabled
 only while the Filter menu selects exactly one epic that has a map; it opens a modal with the counts and
 the body as raw text. There is no percentage: fuda has no "done" column.
 
