@@ -92,6 +92,9 @@ func Parse(files map[string][]byte, layout Layout) Result {
 	seen := map[string]string{}
 	for _, p := range sortedPaths(files) {
 		loc, ok := taskLocation(p, layout)
+		if ok && path.Base(p) == mapFileName {
+			continue
+		}
 		if !ok {
 			if nestedUnder(p, layout.tasksDir()) || nestedUnder(p, layout.archiveDir()) {
 				r.Problems = append(r.Problems, Problem{Path: p, Reason: "task files must sit directly in tasks/ or archive/, or in one epic folder below them"})
@@ -142,6 +145,8 @@ func withEpic(labels []Label, epic string) []Label {
 	out := slices.DeleteFunc(slices.Clone(labels), isEpicLabel)
 	return append(out, Label{Group: "epic", Value: epic})
 }
+
+const mapFileName = "map.md"
 
 type location struct {
 	archived bool
