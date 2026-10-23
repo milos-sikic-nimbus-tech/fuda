@@ -132,6 +132,20 @@ func TestMoveWritesTheStatusAndClaimsTheTask(t *testing.T) {
 	check(t, "column after the move", cardColumn(t, s, "T-1"), "in-progress")
 }
 
+func TestMoveWritesToTheFileInsideItsEpicFolder(t *testing.T) {
+	epicPath := "docs/board/tasks/auth/T-1.md"
+	host := newFakeHost(map[string]string{epicPath: taskContent("backlog", "")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", string(host.files[epicPath]), taskContent("in progress", "claimed: 2026-10-09\n"))
+	check(t, "files", len(host.files), 1)
+}
+
 func TestMoveClaimsOnlyWhenLeavingTheFirstStage(t *testing.T) {
 	tests := []struct {
 		name, status, extra, to, want string

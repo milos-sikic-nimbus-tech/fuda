@@ -31,8 +31,10 @@ environment.
   .claude/skills/fuda-tasks/   the agent guide
 ```
 
-The tasks folder is flat: no sub-folders, grouping is done with labels. The board reads
-`develop`; watching `main` is optional and adds the "in prod" badge.
+Tasks sit directly in `tasks/`, or one level down in an epic folder: `tasks/<epic>/T-1.md`. The
+folder name is the task's epic (it gets the label `epic:<folder>`), so moving a task to another epic
+is a `git mv`. Deeper folders are listed under Problems. `archive/` follows the same layout.
+Ids are unique across all folders. The board reads `develop`; watching `main` is optional and adds the "in prod" badge.
 
 ## Checklist
 
