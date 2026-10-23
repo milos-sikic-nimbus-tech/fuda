@@ -29,7 +29,6 @@ export type Card = {
   blocks: string[]
   references: string[]
   referencedBy: string[]
-  inProd: boolean
   path: string
 }
 
@@ -55,11 +54,10 @@ export type EpicMap = {
 
 export type Problem = { path: string; reason: string }
 
-export type BranchStatus = { branch: string; sha: string; syncedAt: string; notYet?: boolean }
+export type BranchStatus = { branch: string; sha: string; syncedAt: string }
 
 export type SyncStatus = {
-  develop: BranchStatus
-  main?: BranchStatus
+  branch: BranchStatus
   lastAttempt: string
   lastError?: string
 }
@@ -96,10 +94,12 @@ export type GuideContent = GuidePage & { html: string }
 
 export class ApiError extends Error {
   readonly status: number
+  readonly code?: string
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -115,7 +115,7 @@ async function request<T>(
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body.error ?? res.statusText)
+    throw new ApiError(res.status, body.error ?? res.statusText, body.code)
   }
   return res.status === 202 || res.status === 204 ? (undefined as T) : res.json()
 }

@@ -1,4 +1,4 @@
-import { Ban, GitPullRequest, Rocket } from 'lucide-react'
+import { Ban, GitPullRequest } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Hint } from '@/components/atoms/Hint'
 import { LabelChip } from '@/components/atoms/LabelChip'
@@ -66,14 +66,6 @@ function CardSignals({ card }: { card: Card }) {
           </a>
         </Hint>
       ))}
-      {card.inProd && (
-        <Signal
-          hint="Its file on main is merged, testing or validated"
-          icon={<Rocket className="size-3 text-emerald-600" />}
-        >
-          prod
-        </Signal>
-      )}
     </>
   )
 }

@@ -104,7 +104,7 @@ func taskContent(status string, extra string) string {
 
 func newMoveService(t *testing.T, host *fakeHost) *Service {
 	t.Helper()
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	s.now = func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) }
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func TestMoveRefusals(t *testing.T) {
 }
 
 func TestMoveNeedsASourceThatWrites(t *testing.T) {
-	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func (c *countingHost) CanWrite(ctx context.Context) (bool, error) {
 
 func TestWriteAccessIsKeptForAMinutePerToken(t *testing.T) {
 	host := &countingHost{fakeHost: newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})}
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
 	ctx := WithToken(context.Background(), "ann")

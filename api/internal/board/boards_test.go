@@ -21,11 +21,11 @@ func (f fakeSource) Files(context.Context, string) (map[string][]byte, error) { 
 type missingSource struct{}
 
 func (missingSource) Head(context.Context, string) (string, error) {
-	return "", ErrBranchMissing
+	return "", ErrNotFound
 }
 
 func (missingSource) Files(context.Context, string) (map[string][]byte, error) {
-	return nil, ErrBranchMissing
+	return nil, ErrNotFound
 }
 
 func taskFile(id string) map[string][]byte {
@@ -43,7 +43,7 @@ func newTestRegistry(t *testing.T, repos fakeRepos) *Registry {
 		if files == nil {
 			source = missingSource{}
 		}
-		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Origin: Origin{Path: id.Path()}}), nil
+		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main", Origin: Origin{Path: id.Path()}}), nil
 	}, nil, nil)
 }
 
@@ -107,13 +107,13 @@ func (m memberSource) Head(ctx context.Context, branch string) (string, error) {
 	case m.allowed:
 		return m.fakeSource.Head(ctx, branch)
 	}
-	return "", ErrBranchMissing
+	return "", ErrNotFound
 }
 
 func TestACachedBoardIsNotShownToSomeoneWithoutAccess(t *testing.T) {
 	boards := NewRegistry(slog.New(slog.DiscardHandler), func(ID) (*Service, error) {
 		source := memberSource{fakeSource{taskFile("ONE-1")}, "member"}
-		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, nil, nil)
 	id := ID{"github", "a/one"}
 
@@ -147,7 +147,7 @@ func (c *countingSource) Files(context.Context, string) (map[string][]byte, erro
 
 func TestPollReadsFilesOnlyWhenTheHeadMoved(t *testing.T) {
 	source := &countingSource{}
-	s := NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Cooldown: time.Hour})
+	s := NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main", Cooldown: time.Hour})
 	ctx := context.Background()
 
 	if err := s.Poll(ctx); err != nil {
@@ -158,7 +158,7 @@ func TestPollReadsFilesOnlyWhenTheHeadMoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	second, _ := s.Board()
-	if first.Sync.Develop.SyncedAt != second.Sync.Develop.SyncedAt {
+	if first.Sync.Branch.SyncedAt != second.Sync.Branch.SyncedAt {
 		t.Error("an unchanged head caused a read")
 	}
 
@@ -167,13 +167,13 @@ func TestPollReadsFilesOnlyWhenTheHeadMoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	third, _ := s.Board()
-	if third.Sync.Develop.SHA != "two" {
-		t.Errorf("a moved head was not read: %+v", third.Sync.Develop)
+	if third.Sync.Branch.SHA != "two" {
+		t.Errorf("a moved head was not read: %+v", third.Sync.Branch)
 	}
 }
 
 func emptyBoardService(files map[string][]byte) *Service {
-	return NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	return NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 }
 
 func TestRepositoryWithoutTasksIsAnEmptyBoardWithDefaultStages(t *testing.T) {
@@ -211,7 +211,7 @@ func TestInvalidBoardConfigIsAProblemOnAnEmptyBoard(t *testing.T) {
 func TestAccessIsCheckedOncePerTokenInAFewSeconds(t *testing.T) {
 	source := &countingSource{}
 	boards := NewRegistry(slog.New(slog.DiscardHandler), func(ID) (*Service, error) {
-		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main", Cooldown: time.Hour}), nil
+		return NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main", Cooldown: time.Hour}), nil
 	}, nil, nil)
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	boards.now = func() time.Time { return now }

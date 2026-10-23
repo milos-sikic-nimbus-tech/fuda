@@ -66,7 +66,10 @@ func (s *Source) Head(ctx context.Context, branch string) (string, error) {
 	case res.status == http.StatusNotModified:
 		return cached.sha, nil
 	case res.status == http.StatusNotFound:
-		return "", s.repoExists(ctx)
+		if err := s.repoExists(ctx); err != nil {
+			return "", err
+		}
+		return "", board.ErrBranchMissing
 	case res.status >= 300:
 		return "", res.failure()
 	}
@@ -90,7 +93,7 @@ func (s *Source) repoExists(ctx context.Context) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, errNotFound):
-		return board.ErrBranchMissing
+		return board.ErrNotFound
 	}
 	return err
 }
@@ -235,7 +238,9 @@ func (s *Source) exchange(ctx context.Context, method, path, accept, ifNoneMatch
 	case http.StatusUnauthorized:
 		return response{}, board.ErrUnauthorized
 	case http.StatusForbidden:
-		return response{}, board.ErrForbidden
+		if method == http.MethodGet || !protectedBranch(res.StatusCode, body) {
+			return response{}, board.ErrForbidden
+		}
 	}
 	return response{path: path, status: res.StatusCode, body: body, etag: res.Header.Get("ETag")}, nil
 }

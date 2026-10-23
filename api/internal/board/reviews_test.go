@@ -25,7 +25,7 @@ func newReviewService(t *testing.T, prs map[string][]PullRequest, errs map[strin
 		"docs/board/tasks/T-2.md":  "---\nid: T-2\ntitle: Two\nstatus: backlog\n---\n",
 	}
 	host := &reviewHost{fakeHost: newFakeHost(files), prs: prs, errs: errs}
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	err := s.Poll(context.Background())
 	if _, ready := s.Board(); !ready {
 		t.Fatal(err)

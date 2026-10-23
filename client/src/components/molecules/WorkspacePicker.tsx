@@ -44,7 +44,7 @@ export function WorkspacePicker({ board }: { board?: BoardData }) {
             <span className="truncate font-medium">{pickerButtonLabel(board, listed)}</span>
             {board && (
               <span className="hidden font-normal text-muted-foreground md:inline">
-                {board.sync.develop.branch}
+                {board.sync.branch.branch}
               </span>
             )}
             <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />

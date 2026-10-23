@@ -20,7 +20,7 @@ function RootLayout() {
   const install = installUrl(useBoardListing().data)
   const { resolved } = useTheme()
   const client = useQueryClient()
-  const head = data?.sync.develop.sha
+  const head = data?.sync.branch.sha
 
   useEffect(() => {
     if (!head) return
@@ -38,7 +38,12 @@ function RootLayout() {
       <div className="flex h-svh flex-col text-foreground">
         <AppHeader board={data} />
         <InstallBanner />
-        {error instanceof ApiError && error.status === 404 ? (
+        {error instanceof ApiError && error.code === 'no-main-branch' ? (
+          <p className="p-6 text-sm text-muted-foreground">
+            This repository has no <code>main</code> branch. fuda reads and writes <code>main</code>
+            . Create it, for example by pushing a first commit, then reload.
+          </p>
+        ) : error instanceof ApiError && error.status === 404 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No Board at this address, or you cannot see it. The repository name must start with{' '}
             <code>fuda-</code>, on GitHub the fuda GitHub App must be installed on it, and your

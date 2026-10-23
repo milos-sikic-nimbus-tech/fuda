@@ -43,7 +43,7 @@ func newHostsServer(t *testing.T, installs map[board.Host]board.AppInstall) host
 	t.Helper()
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
-		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, func(_ context.Context, host board.Host) ([]board.ID, error) {
 		switch host {
 		case board.HostGitHub:

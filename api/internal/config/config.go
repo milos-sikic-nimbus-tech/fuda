@@ -33,7 +33,6 @@ type Config struct {
 	AzureClientID     string `env:"FUDA_AZURE_CLIENT_ID"`
 	AzureClientSecret string `env:"FUDA_AZURE_CLIENT_SECRET"`
 
-	WatchMain    bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
 	SyncCooldown time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
 	CacheDir     string        `env:"FUDA_CACHE_DIR" envDefault:"./.fuda-cache"`
 }

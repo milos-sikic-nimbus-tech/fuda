@@ -27,17 +27,17 @@ type LinkedPR struct {
 
 type prsByTask map[string][]LinkedPR
 
-func (s *Service) openReviews(ctx context.Context, develop taskfiles.Result) (prsByTask, error) {
+func (s *Service) openReviews(ctx context.Context, parsed taskfiles.Result) (prsByTask, error) {
 	found := prsByTask{}
 	source, ok := s.source.(ReviewSource)
 	if !ok {
 		return found, nil
 	}
 	known := map[string]bool{}
-	for _, t := range develop.Tasks {
+	for _, t := range parsed.Tasks {
 		known[t.ID] = true
 	}
-	for _, repo := range develop.Config.CodeRepos {
+	for _, repo := range parsed.Config.CodeRepos {
 		pulls, err := source.OpenPRs(ctx, repo)
 		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 			continue

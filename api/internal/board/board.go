@@ -42,7 +42,6 @@ type Card struct {
 	Blocks       []string   `json:"blocks"`
 	References   []string   `json:"references"`
 	ReferencedBy []string   `json:"referencedBy"`
-	InProd       bool       `json:"inProd"`
 	Path         string     `json:"path"`
 }
 
@@ -73,24 +72,19 @@ type Problem struct {
 }
 
 type Inputs struct {
-	Develop taskfiles.Result
-	Main    *taskfiles.Result
+	Parsed  taskfiles.Result
 	OpenPRs map[string][]LinkedPR
 }
 
-var inProdStatuses = map[string]bool{"merged": true, "testing": true, "validated": true}
-
 func Build(in Inputs) Board {
-	tasks := in.Develop.Tasks
-	people := newPeople(in.Develop.Config.People, tasks)
+	tasks := in.Parsed.Tasks
+	people := newPeople(in.Parsed.Config.People, tasks)
 	refs := newReferences(tasks)
-	columns := buildColumns(in.Develop.Config.Stages, tasks)
-	prodStatus := mainStatuses(in.Main)
+	columns := buildColumns(in.Parsed.Config.Stages, tasks)
 
 	cards := make([]Card, 0, len(tasks))
 	for _, t := range tasks {
 		openPRs := in.OpenPRs[t.ID]
-		inProd := inProdStatuses[normalizeStatus(prodStatus[t.ID])]
 		cards = append(cards, Card{
 			ID:           t.ID,
 			Title:        t.Title,
@@ -110,7 +104,6 @@ func Build(in Inputs) Board {
 			Blocks:       refs.blocks[t.ID],
 			References:   refs.mentions[t.ID],
 			ReferencedBy: refs.mentionedBy[t.ID],
-			InProd:       inProd,
 			Path:         t.Path,
 		})
 	}
@@ -118,21 +111,10 @@ func Build(in Inputs) Board {
 	return Board{
 		Columns:  columns.list,
 		Cards:    cards,
-		Facets:   buildFacets(in.Develop, people),
-		Maps:     buildMaps(in.Develop, cards),
-		Problems: problems(in.Develop.Problems),
+		Facets:   buildFacets(in.Parsed, people),
+		Maps:     buildMaps(in.Parsed, cards),
+		Problems: problems(in.Parsed.Problems),
 	}
-}
-
-func mainStatuses(main *taskfiles.Result) map[string]string {
-	statuses := map[string]string{}
-	if main == nil {
-		return statuses
-	}
-	for _, t := range main.Tasks {
-		statuses[t.ID] = t.Status
-	}
-	return statuses
 }
 
 func problems(in []taskfiles.Problem) []Problem {
@@ -150,9 +132,9 @@ func orEmpty[T any](s []T) []T {
 	return s
 }
 
-func buildMaps(develop taskfiles.Result, cards []Card) []EpicMap {
-	maps := make([]EpicMap, 0, len(develop.Maps))
-	for _, m := range develop.Maps {
+func buildMaps(parsed taskfiles.Result, cards []Card) []EpicMap {
+	maps := make([]EpicMap, 0, len(parsed.Maps))
+	for _, m := range parsed.Maps {
 		label := taskfiles.Label{Group: "epic", Value: m.Epic}.String()
 		counts := map[string]int{}
 		for _, c := range cards {
@@ -161,7 +143,7 @@ func buildMaps(develop taskfiles.Result, cards []Card) []EpicMap {
 			}
 		}
 		archived := 0
-		for _, t := range develop.Archived {
+		for _, t := range parsed.Archived {
 			if slices.ContainsFunc(t.Labels, func(l taskfiles.Label) bool { return l.String() == label }) {
 				archived++
 			}

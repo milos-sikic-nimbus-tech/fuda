@@ -276,7 +276,9 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
-	case errors.Is(err, board.ErrNotMovable):
+	case errors.Is(err, board.ErrBranchMissing):
+		a.json(w, http.StatusNotFound, map[string]string{"error": err.Error(), "code": "no-main-branch"})
+	case errors.Is(err, board.ErrNotMovable), errors.Is(err, board.ErrProtectedBranch):
 		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 	case errors.As(err, &conflict):
 		a.json(w, http.StatusConflict, map[string]string{"error": conflict.Message})

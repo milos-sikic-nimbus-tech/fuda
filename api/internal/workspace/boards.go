@@ -16,8 +16,7 @@ import (
 const (
 	docsRoot   = "docs"
 	boardDir   = "docs/board"
-	workBranch = "develop"
-	prodBranch = "main"
+	workBranch = "main"
 )
 
 type hostLinks struct {
@@ -112,8 +111,6 @@ func NewRegistry(log *slog.Logger, cfg config.Config, folders *Folders) *board.R
 			DocsRoot:   docsRoot,
 			BoardDir:   boardDir,
 			WorkBranch: workBranch,
-			ProdBranch: prodBranch,
-			WatchMain:  cfg.WatchMain && id.Host != board.HostLocal,
 			Cooldown:   cfg.SyncCooldown,
 			CacheDir:   filepath.Join(cfg.CacheDir, string(id.Host), filepath.FromSlash(id.Repo)),
 			Logger:     log,

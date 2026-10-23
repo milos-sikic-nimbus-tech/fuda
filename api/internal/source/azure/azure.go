@@ -231,7 +231,9 @@ func (s *Source) send(ctx context.Context, method, target string, query url.Valu
 	case http.StatusNonAuthoritativeInfo, http.StatusUnauthorized:
 		return response{}, board.ErrUnauthorized
 	case http.StatusForbidden:
-		return response{}, board.ErrForbidden
+		if method != http.MethodPost || !bytes.Contains(body, []byte(pushToProtectedBranch)) {
+			return response{}, board.ErrForbidden
+		}
 	}
 	return response{url: target, status: res.StatusCode, body: body}, nil
 }

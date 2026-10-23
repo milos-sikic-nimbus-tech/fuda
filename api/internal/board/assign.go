@@ -32,7 +32,7 @@ func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 		return ErrNotMovable
 	}
 
-	known := newPeople(snap.develop.Config.People, snap.develop.Tasks)
+	known := newPeople(snap.parsed.Config.People, snap.parsed.Tasks)
 	return s.commit(ctx, editor, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
 		if !sameNames(known.canonical(current.Owners), known.canonical(req.FromOwners)) {
 			who := s.lastEditor(ctx, editor, task.Path)

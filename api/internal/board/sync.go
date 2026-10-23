@@ -26,19 +26,12 @@ func (s *Service) Sync(ctx context.Context) error {
 
 func (s *Service) Poll(ctx context.Context) error {
 	head, err := s.source.Head(ctx, s.opts.WorkBranch)
-	if errors.Is(err, ErrBranchMissing) {
-		return ErrNotFound
-	}
 	if err != nil {
 		return err
 	}
 	snap := s.snapshot.Load()
 	if snap == nil || snap.heads[s.opts.WorkBranch] != head {
-		err := s.Sync(ctx)
-		if errors.Is(err, ErrBranchMissing) {
-			return ErrNotFound
-		}
-		return err
+		return s.Sync(ctx)
 	}
 	if s.refreshDue() {
 		go func() { _ = s.Sync(context.WithoutCancel(ctx)) }()
@@ -83,62 +76,43 @@ func (s *Service) sync(ctx context.Context) error {
 }
 
 func (s *Service) load(ctx context.Context) error {
-	developHead, err := s.source.Head(ctx, s.opts.WorkBranch)
+	head, err := s.source.Head(ctx, s.opts.WorkBranch)
 	if err != nil {
 		return fmt.Errorf("%s: %w", s.opts.WorkBranch, err)
 	}
-	heads := map[string]string{s.opts.WorkBranch: developHead}
-	if s.opts.WatchMain {
-		mainHead, err := s.source.Head(ctx, s.opts.ProdBranch)
-		switch {
-		case errors.Is(err, ErrBranchMissing):
-		case err != nil:
-			return fmt.Errorf("%s: %w", s.opts.ProdBranch, err)
-		default:
-			heads[s.opts.ProdBranch] = mainHead
-		}
-	}
+	heads := map[string]string{s.opts.WorkBranch: head}
 
 	current := s.snapshot.Load()
 	if current != nil && maps.Equal(current.heads, heads) {
-		found, err := s.openReviews(ctx, current.develop)
+		found, err := s.openReviews(ctx, current.parsed)
 		if err != nil {
-			s.markSynced(heads, current)
+			s.markSynced(heads)
 			return fmt.Errorf("open pull requests: %w", err)
 		}
 		if !sameReviews(current.reviews, found) {
-			current = s.build(current.develop, current.main, current.files, heads, found)
+			current = s.build(current.parsed, current.files, heads, found)
 			s.snapshot.Store(current)
 		}
-		s.markSynced(heads, current)
+		s.markSynced(heads)
 		return nil
 	}
 
-	developFiles, err := s.source.Files(ctx, s.opts.WorkBranch)
+	files, err := s.source.Files(ctx, s.opts.WorkBranch)
 	if err != nil {
 		return fmt.Errorf("%s: %w", s.opts.WorkBranch, err)
 	}
-	develop := taskfiles.Parse(developFiles, s.layout())
-
-	var mainFiles map[string][]byte
-	if _, ok := heads[s.opts.ProdBranch]; ok && s.opts.WatchMain {
-		mainFiles, err = s.source.Files(ctx, s.opts.ProdBranch)
-		if err != nil {
-			return fmt.Errorf("%s: %w", s.opts.ProdBranch, err)
-		}
-	}
-	if err := s.saveCache(heads, developFiles, mainFiles); err != nil {
+	parsed := taskfiles.Parse(files, s.layout())
+	if err := s.saveCache(heads, files); err != nil {
 		s.opts.Logger.Warn("the disk cache was not updated", "error", err)
 	}
-	main := s.parseMain(mainFiles)
 
-	found, reviewErr := s.openReviews(ctx, develop)
+	found, reviewErr := s.openReviews(ctx, parsed)
 	if reviewErr != nil {
 		found = prsByTask{}
 	}
-	next := s.build(develop, main, developFiles, heads, found)
+	next := s.build(parsed, files, heads, found)
 	s.snapshot.Store(next)
-	s.markSynced(heads, next)
+	s.markSynced(heads)
 	if reviewErr != nil {
 		return fmt.Errorf("open pull requests: %w", reviewErr)
 	}
@@ -149,18 +123,7 @@ func (s *Service) layout() taskfiles.Layout {
 	return taskfiles.Layout{BoardDir: s.opts.BoardDir}
 }
 
-func (s *Service) parseMain(files map[string][]byte) *taskfiles.Result {
-	if files == nil {
-		return nil
-	}
-	parsed := taskfiles.Parse(files, s.layout())
-	if len(parsed.Tasks) == 0 && len(parsed.Archived) == 0 {
-		return nil
-	}
-	return &parsed
-}
-
-func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files map[string][]byte, heads map[string]string, found prsByTask) *snapshot {
+func (s *Service) build(parsed taskfiles.Result, files map[string][]byte, heads map[string]string, found prsByTask) *snapshot {
 	docs := map[string][]byte{}
 	docSet := map[string]bool{}
 	assets := map[string][]byte{}
@@ -179,19 +142,17 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 	}
 	byID := map[string]taskfiles.Task{}
 	taskPaths := map[string]string{}
-	for _, t := range slices.Concat(develop.Tasks, develop.Archived) {
+	for _, t := range slices.Concat(parsed.Tasks, parsed.Archived) {
 		byID[t.ID] = t
 		taskPaths[t.Path] = t.ID
 	}
 
 	return &snapshot{
 		board: Build(Inputs{
-			Develop: develop,
-			Main:    main,
+			Parsed:  parsed,
 			OpenPRs: found,
 		}),
-		develop: develop,
-		main:    main,
+		parsed:  parsed,
 		files:   files,
 		reviews: found,
 		docs:    docs,
@@ -209,17 +170,12 @@ func (s *Service) build(develop taskfiles.Result, main *taskfiles.Result, files 
 	}
 }
 
-func (s *Service) markSynced(heads map[string]string, snap *snapshot) {
-	s.markSyncedAt(heads, snap, s.now())
+func (s *Service) markSynced(heads map[string]string) {
+	s.markSyncedAt(heads, s.now())
 }
 
-func (s *Service) markSyncedAt(heads map[string]string, snap *snapshot, now time.Time) {
+func (s *Service) markSyncedAt(heads map[string]string, now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.status.Develop = BranchStatus{Branch: s.opts.WorkBranch, SHA: heads[s.opts.WorkBranch], SyncedAt: now}
-	if !s.opts.WatchMain {
-		s.status.Main = nil
-		return
-	}
-	s.status.Main = &BranchStatus{Branch: s.opts.ProdBranch, SHA: heads[s.opts.ProdBranch], SyncedAt: now, NotYet: snap.main == nil}
+	s.status.Branch = BranchStatus{Branch: s.opts.WorkBranch, SHA: heads[s.opts.WorkBranch], SyncedAt: now}
 }

@@ -21,6 +21,7 @@ type fakeHost struct {
 	pushes   []map[string]any
 	moveHead bool
 	refuse   bool
+	protect  bool
 }
 
 func (f *fakeHost) handle(t *testing.T) http.HandlerFunc {
@@ -30,13 +31,18 @@ func (f *fakeHost) handle(t *testing.T) http.HandlerFunc {
 		}
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/refs"):
-			_, _ = w.Write([]byte(`{"value":[{"name":"refs/heads/develop","objectId":"` + f.head + `"}]}`))
+			_, _ = w.Write([]byte(`{"value":[{"name":"refs/heads/main","objectId":"` + f.head + `"}]}`))
 		case strings.HasSuffix(r.URL.Path, "/items"):
 			_, _ = w.Write([]byte(`{"objectId":"` + f.blob + `","content":` + quote(f.content) + `}`))
 		case strings.HasSuffix(r.URL.Path, "/pushes"):
 			var push map[string]any
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &push)
+			if f.protect {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"message":"TF402455: Pushes to this branch are not permitted; you must use a pull request to update this branch."}`))
+				return
+			}
 			if f.refuse {
 				w.WriteHeader(http.StatusBadRequest)
 				return
@@ -95,25 +101,25 @@ func TestListBoardsKeepsOnlyFudaRepositories(t *testing.T) {
 func TestReadWriteSendsOneEditCommitOnTheHead(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-1", content: "status: todo\n"}
 	s := serve(t, f)
-	content, version, err := s.ReadFile(asUser(), "develop", "docs/board/tasks/a.md")
+	content, version, err := s.ReadFile(asUser(), "main", "docs/board/tasks/a.md")
 	if err != nil || string(content) != "status: todo\n" || version != "blob-1" {
 		t.Fatalf("read: %q %q %v", content, version, err)
 	}
-	if err := s.WriteFile(asUser(), "develop", "docs/board/tasks/a.md", []byte("status: done\n"), version, "Move a"); err != nil {
+	if err := s.WriteFile(asUser(), "main", "docs/board/tasks/a.md", []byte("status: done\n"), version, "Move a"); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.pushes) != 1 {
 		t.Fatalf("pushes: %d", len(f.pushes))
 	}
 	update := f.pushes[0]["refUpdates"].([]any)[0].(map[string]any)
-	if update["name"] != "refs/heads/develop" || update["oldObjectId"] != "head-1" {
+	if update["name"] != "refs/heads/main" || update["oldObjectId"] != "head-1" {
 		t.Errorf("ref update: %v", update)
 	}
 }
 
 func TestWriteFileReportsAFileChangedSinceTheRead(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-2"}
-	err := serve(t, f).WriteFile(asUser(), "develop", "docs/a.md", []byte("x"), "blob-1", "m")
+	err := serve(t, f).WriteFile(asUser(), "main", "docs/a.md", []byte("x"), "blob-1", "m")
 	if !errors.Is(err, board.ErrStale) || len(f.pushes) != 0 {
 		t.Errorf("err %v, pushes %d", err, len(f.pushes))
 	}
@@ -121,7 +127,7 @@ func TestWriteFileReportsAFileChangedSinceTheRead(t *testing.T) {
 
 func TestWriteFileRetriesWhenOnlyTheBranchMoved(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-1", moveHead: true}
-	if err := serve(t, f).WriteFile(asUser(), "develop", "docs/a.md", []byte("x"), "blob-1", "m"); err != nil {
+	if err := serve(t, f).WriteFile(asUser(), "main", "docs/a.md", []byte("x"), "blob-1", "m"); err != nil {
 		t.Fatal(err)
 	}
 	update := f.pushes[0]["refUpdates"].([]any)[0].(map[string]any)
@@ -132,7 +138,7 @@ func TestWriteFileRetriesWhenOnlyTheBranchMoved(t *testing.T) {
 
 func TestWriteFileReturnsTheHostsReasonWhenThePushIsRefused(t *testing.T) {
 	f := &fakeHost{head: "head-1", blob: "blob-1", refuse: true}
-	err := serve(t, f).WriteFile(asUser(), "develop", "docs/a.md", []byte("x"), "blob-1", "m")
+	err := serve(t, f).WriteFile(asUser(), "main", "docs/a.md", []byte("x"), "blob-1", "m")
 	if err == nil || errors.Is(err, board.ErrStale) || !strings.Contains(err.Error(), "status 400") {
 		t.Errorf("err %v", err)
 	}
@@ -159,15 +165,23 @@ func TestCanWriteIsFalseWhenTheHostForbidsTheCheck(t *testing.T) {
 }
 
 func TestLastEditorIsTheLatestCommitAuthor(t *testing.T) {
-	who, err := serve(t, &fakeHost{}).LastEditor(asUser(), "develop", "docs/a.md")
+	who, err := serve(t, &fakeHost{}).LastEditor(asUser(), "main", "docs/a.md")
 	if err != nil || who != "Ben" {
 		t.Errorf("got %q, %v", who, err)
 	}
 }
 
 func TestCallsWithoutATokenNeedLogin(t *testing.T) {
-	_, err := serve(t, &fakeHost{}).Head(context.Background(), "develop")
+	_, err := serve(t, &fakeHost{}).Head(context.Background(), "main")
 	if !errors.Is(err, board.ErrUnauthorized) {
+		t.Errorf("err %v", err)
+	}
+}
+
+func TestWriteFileReportsAProtectedBranch(t *testing.T) {
+	f := &fakeHost{head: "head-1", blob: "blob-1", protect: true}
+	err := serve(t, f).WriteFile(asUser(), "main", "docs/a.md", []byte("x"), "blob-1", "m")
+	if !errors.Is(err, board.ErrProtectedBranch) {
 		t.Errorf("err %v", err)
 	}
 }

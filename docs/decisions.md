@@ -23,9 +23,9 @@ with a proposal.
   card goes back with a message such as "Ben moved this to Testing just now". An Assign works the
   same on `owner`: if the Owners changed first, fuda says "Ben set the owners to Cy just
   now". Archived Tasks and the PR-derived Stage cannot be Move targets.
-- **develop is the board.** Columns and filters come from develop. Claims are committed to develop
-  so everyone sees them. main is optional and only adds the "in prod" badge; it never moves a
-  card, because anything on main is on develop too.
+- **main is the board.** Columns and filters come from `main` of the tasks repository, and moves
+  and claims are committed to it. Local boards read whatever is on disk. The old `develop` branch
+  is not read and not warned about.
 - **In review comes from open PRs that name the task.** The board lists its code repositories in
   `repos.md` (`code_repos: [org/app]`). An open PR in any of them, on any base branch, puts every
   task whose id is in its title or branch name In review. Such a card is locked: it cannot be
@@ -105,6 +105,13 @@ with a proposal.
 Decided as a direction, not built. Each has a proposal; a PR that builds one moves it above and
 updates [architecture.md](architecture.md).
 
+### In prod
+
+- **Open:** the "in prod" badge is off. It came from comparing `develop` with `main`
+  (`FUDA_WATCH_MAIN`), which no longer exists: a board is a tasks repository with one branch.
+- **Proposal:** derive it from the code repositories' PRs (epic-folders tickets 04 and 06), for
+  example a Task whose delivering PR is merged into the code repository's `main`.
+
 ### Moves and Assigns from the app
 
 - **Settled:** fuda will write a Move (`status`) and an Assign (`owner`), and nothing else, as
@@ -113,8 +120,7 @@ updates [architecture.md](architecture.md).
   [0001](adr/0001-fuda-writes-moves-and-assigns.md),
   [0002](adr/0002-tasks-in-their-own-repository.md),
   [0003](adr/0003-users-read-and-write-with-their-own-token.md) and
-  [0004](adr/0004-desktop-app-with-wails.md). "Read-only" is already replaced above. This will
-  also replace "develop is the board".
+  [0004](adr/0004-desktop-app-with-wails.md). "Read-only" is already replaced above.
 - **Open:** nothing to decide. Ready for a spec.
 - **Proposal:**
   - **Boards.** A Board is a tasks repository whose name starts with `fuda-`, mounted in its code

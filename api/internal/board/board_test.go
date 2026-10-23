@@ -58,7 +58,7 @@ func columnIDs(b Board) []string {
 }
 
 func TestDefaultColumnsWithoutStages(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("A1", "backlog"),
 		task("A2", "In Progress"),
 		task("A3", "qa"),
@@ -80,7 +80,7 @@ func TestDefaultColumnsWithoutStages(t *testing.T) {
 }
 
 func TestConfiguredStagesWithSeveralStatuses(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "in qa"), task("A2", "testing"), task("A3", "blocked-ish")},
 		Config: taskfiles.Config{Stages: []taskfiles.Stage{
 			{Name: "Todo", Statuses: []string{"backlog"}},
@@ -100,7 +100,7 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 	tasks := []taskfiles.Task{task("A1", "in progress")}
 	prs := map[string][]LinkedPR{"A1": {{Number: 42}}}
 
-	withReview := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks}, OpenPRs: prs})
+	withReview := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks}, OpenPRs: prs})
 	if columnOf(withReview, "A1") != "in-review" {
 		t.Error("default stages include In review")
 	}
@@ -108,7 +108,7 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 		t.Errorf("open PRs %v", got)
 	}
 
-	without := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{Stages: []taskfiles.Stage{
+	without := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{Stages: []taskfiles.Stage{
 		{Name: "Doing", Statuses: []string{"in progress"}},
 	}}}, OpenPRs: prs})
 	if columnOf(without, "A1") != "doing" {
@@ -117,35 +117,14 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 }
 
 func TestClaimedTaskStaysInItsStatus(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "backlog", owners("Ana"))}}})
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "backlog", owners("Ana"))}}})
 	if columnOf(b, "A1") != "backlog" || len(b.Problems) != 0 {
 		t.Error("an owner does not move a task or raise a problem")
 	}
 }
 
-func TestInProd(t *testing.T) {
-	main := taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}}
-	b := Build(Inputs{
-		Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}},
-		Main:    &main,
-	})
-	for _, id := range []string{"A1", "A2"} {
-		if !card(b, id).InProd {
-			t.Errorf("%s is merged or later on main", id)
-		}
-	}
-	if c := card(b, "A3"); c.InProd {
-		t.Error("in progress on main is not in prod")
-	}
-
-	unwatched := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated")}}})
-	if card(unwatched, "A1").InProd {
-		t.Error("without main nothing is in prod")
-	}
-}
-
 func TestReferencesAndBlocks(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("SS-1", "backlog", blockedBy("SS-2, waiting on data"), body("See SS-3. Not SS-30 or SS-1.")),
 		task("SS-2", "backlog"),
 		task("SS-3", "backlog"),
@@ -159,7 +138,7 @@ func TestReferencesAndBlocks(t *testing.T) {
 }
 
 func TestPeopleFromConfigAreStrict(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "backlog", owners("nemanja", "Guest"))},
 		Config: taskfiles.Config{People: []taskfiles.Person{
 			{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}},
@@ -170,7 +149,7 @@ func TestPeopleFromConfigAreStrict(t *testing.T) {
 }
 
 func TestPeopleDerivedFoldUniqueFirstNames(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("A1", "backlog", owners("Nemanja", "Jack")),
 		task("A2", "backlog", owners("Nemanja Mudrinic", "Jack Westbrock", "Jack Black")),
 	}}})
@@ -186,7 +165,7 @@ func TestLabelGroups(t *testing.T) {
 		taskfiles.Label{Value: "loose"},
 	))}
 
-	derived := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks}})
+	derived := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks}})
 	check(t, "derived groups", derived.Facets.LabelGroups, []LabelGroup{
 		{Name: "epic", Values: []string{"security"}},
 		{Name: "area", Values: []string{"be"}},
@@ -195,7 +174,7 @@ func TestLabelGroups(t *testing.T) {
 	})
 	check(t, "card labels", card(derived, "A1").Labels, []string{"epic:security", "area:be", "type:spike", "label:loose"})
 
-	configured := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
+	configured := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
 		{Name: "type", Values: []string{"bug"}},
 		{Name: "theme", Values: []string{"security"}},
 	}}}})
@@ -228,7 +207,7 @@ func check(t *testing.T, what string, got, want any) {
 }
 
 func TestLabelColorsAreDistinctWithinAGroupAndConfigurable(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "backlog", labels(
 			taskfiles.Label{Group: "epic", Value: "one"},
 			taskfiles.Label{Group: "epic", Value: "two"},
@@ -254,7 +233,7 @@ func TestEpicMapsCountTasksPerColumn(t *testing.T) {
 	archived := task("A9", "done", epic)
 	archived.Archived = true
 	b := Build(Inputs{
-		Develop: taskfiles.Result{
+		Parsed: taskfiles.Result{
 			Tasks: []taskfiles.Task{
 				task("A1", "backlog", epic),
 				task("A2", "backlog", epic),

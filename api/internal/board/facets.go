@@ -22,15 +22,15 @@ var typeColors = map[string]string{
 	"test": "#f59e0b", "chore": "#71717a", "docs": "#0ea5e9", "question": "#ec4899",
 }
 
-func buildFacets(develop taskfiles.Result, p *people) Facets {
-	groups := labelGroups(develop.Config.LabelGroups, develop.Tasks)
+func buildFacets(parsed taskfiles.Result, p *people) Facets {
+	groups := labelGroups(parsed.Config.LabelGroups, parsed.Tasks)
 	return Facets{
-		Statuses:    statuses(develop.Tasks),
+		Statuses:    statuses(parsed.Tasks),
 		People:      orEmpty(p.listed),
-		Testers:     testers(develop.Tasks, p),
+		Testers:     testers(parsed.Tasks, p),
 		LabelGroups: groups,
-		LabelColors: labelColors(groups, develop.Config.LabelColors, develop.Tasks),
-		Prefixes:    prefixes(develop.Tasks),
+		LabelColors: labelColors(groups, parsed.Config.LabelColors, parsed.Tasks),
+		Prefixes:    prefixes(parsed.Tasks),
 	}
 }
 

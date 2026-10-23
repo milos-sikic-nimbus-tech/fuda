@@ -22,8 +22,7 @@ flowchart LR
     D["docs/** (other md + images)"]
   end
   subgraph host["git host or local checkout"]
-    DEV["develop: the board"]
-    MAIN["main: optional, 'in prod'"]
+    DEV["main: the board"]
     PR["open PRs in the code repos: In review"]
   end
   subgraph fuda["fuda (one container)"]
@@ -36,7 +35,6 @@ flowchart LR
   UI["browser: React app"]
   repo --> DEV
   DEV --> SRC
-  MAIN --> SRC
   PR --> SRC
   SRC --> SVC
   REG --> SVC
@@ -57,7 +55,7 @@ are declared where they are used. The host names (`board.HostGitHub`, `board.Hos
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per host. `FUDA_HOSTS` lists the hosts (`FUDA_SOURCE` still works as the old name). `LoadDesktop` does the same for the desktop app, with the values built into the binary as defaults. |
 | `internal/board` | All behaviour. `context.go`: the caller's host token travels in the request context. `boards.go`: `Registry`, the open Boards. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `TaskEditor` (read a file, write it, name its last editor, say whether the caller may write). |
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
-| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place, at its real path (inside its epic folder if it has one). No PRs. |
+| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for the board branch, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place, at its real path (inside its epic folder if it has one). No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
@@ -154,7 +152,7 @@ a token that expires within a minute.
 `board.Service` holds an `atomic.Pointer` to an immutable snapshot. Reads never lock; a sync
 builds a new snapshot and swaps it in. A snapshot contains:
 
-- the parsed develop result (tasks, archive, config, problems) and, when watched, main;
+- the parsed result (tasks, archive, config, problems);
 - the built `Board` (columns, cards, facets, epic maps, problems), computed once per sync;
 - docs (`*.md`) and images under `docs/`, kept as bytes (images up to 5 MB each);
 - the open-PR result (which open PRs name each task: In review);
@@ -169,7 +167,7 @@ flowchart TD
   START["process start"] --> R["restore snapshot.gob<br/>from FUDA_CACHE_DIR, if any"] --> REQ
   REQ["every Board request<br/>(the client polls about every 5 s)"] --> GATE{"this token checked this Board<br/>in the last 3 s?"}
   GATE -- yes --> ANS
-  GATE -- no --> H["Poll: head SHA of develop with the caller's token"]
+  GATE -- no --> H["Poll: head SHA of main with the caller's token"]
   H --> SAME{"same head as<br/>the snapshot?"}
   SAME -- yes --> DUE{"PRs last read more than<br/>FUDA_SYNC_COOLDOWN ago?"}
   DUE -- yes --> BG["sync in the background"] --> S
@@ -178,10 +176,11 @@ flowchart TD
   B["Sync button: POST …/sync"] --> BC{"inside the cooldown?"}
   BC -- yes --> TMR["429"]
   BC -- no --> S
-  S --> HM["head SHA of develop<br/>(+ main if FUDA_WATCH_MAIN)"] --> F["download docs/ of each branch when a head moved<br/>save snapshot.gob<br/>parse"] --> PRS
-  PRS["open PRs into develop<br/>→ task files they change<br/>→ which ones they deliver"] --> SWAP["build the board, swap the snapshot"]
+  S --> HM["head SHA of main"] --> F["download docs/ when the head moved<br/>save snapshot.gob<br/>parse"] --> PRS
+  PRS["open PRs in the code repos<br/>→ task files they change<br/>→ which ones they deliver"] --> SWAP["build the board, swap the snapshot"]
 ```
 
+- **A repository without `main`** is a `board.ErrBranchMissing`: the API answers 404 with `code: "no-main-branch"` and the client shows an error page that says how to create the branch. A repository that does not exist or is not visible stays a plain 404.
 - **Failures keep the last snapshot.** A failed head or file read changes nothing and is reported
   as `sync.lastError` in `…/board`. If only the PR list fails, the new files are used without
   In review, and the error is reported. A refusal from the host (login or access) is returned to
@@ -212,8 +211,8 @@ flowchart TD
 - **A repository the caller cannot see** is skipped, so the Board loads without its In review. Any
   other failure keeps the board, drops In review and is reported as the sync error.
 - **Statuses compare** case-insensitively with whitespace collapsed.
-- **main** never moves a card. When watched, a card whose main copy is merged, testing or validated
-  gets the "in prod" badge.
+- **In prod** is off: nothing sets the badge, and fuda reads no branch besides `main`. See TBD in
+  [decisions.md](decisions.md).
 - **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them.
 
 ### Epic maps
@@ -258,8 +257,7 @@ the body as raw text. There is no percentage: fuda has no "done" column.
 sequenceDiagram
   actor Dev
   actor Tester
-  participant Develop as develop
-  participant Main as main (optional)
+  participant Develop as main
   participant Fuda as fuda
   Dev->>Develop: claim SS-12 (status in progress, owner, claimed)
   Develop-->>Fuda: poll sees a new head
@@ -271,9 +269,6 @@ sequenceDiagram
   Note over Fuda: SS-12 in Merged
   Tester->>Develop: status testing, then validated
   Note over Fuda: Testing, then Validated
-  Develop->>Main: promotion
-  Main-->>Fuda: poll sees a new head
-  Note over Fuda: "in prod" badge
   Dev->>Develop: move to archive/, status done
   Note over Fuda: off the board, in the Archive view
 ```
@@ -311,7 +306,7 @@ flowchart TD
 
 `claimed` is set to today only when the Task leaves the first column, has no `claimed` value, and
 moves to another column. fuda never changes a `claimed` value that exists. The write goes to the
-work branch (`develop`). GitHub implements `TaskEditor` with the contents API (the file's blob SHA is
+work branch (`main`). A refused push to a protected `main` is `ErrProtectedBranch`: GitHub says "protected branch" or "rule violations" (403, 409 or 422), Azure DevOps TF402455 (403). The move fails with "main is protected; allow fuda to push to it directly". GitHub implements `TaskEditor` with the contents API (the file's blob SHA is
 the version; a 409 is `ErrStale`, "changed since read"). Azure DevOps uses the pushes API. The Local source compares the
 file's hash with the one it read, then replaces the file through a temporary file and a rename, one write at a time, so an editor's change
 made before the write is never overwritten; it does not commit, and it cannot name who changed the file
@@ -377,8 +372,7 @@ Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 ## Configuration
 
 Every setting is an environment variable; the list with defaults is in the Guide's self-host page
-and in [`.env.example`](../.env.example). Fixed in code: the board branch `develop`, the prod
-branch `main`, the board folder `docs/board/`, the docs root `docs/`.
+and in [`.env.example`](../.env.example). Fixed in code: the board branch `main` (the Local source reads the working tree whatever is checked out), the board folder `docs/board/`, the docs root `docs/`.
 
 ## Deployment
 

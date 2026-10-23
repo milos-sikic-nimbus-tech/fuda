@@ -114,7 +114,7 @@ func TestAssignRefusals(t *testing.T) {
 }
 
 func TestAssignNeedsASourceThatWrites(t *testing.T) {
-	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
 	}

@@ -118,8 +118,8 @@ func testBoards(t *testing.T, folders map[string]string) *board.Registry {
 		if !ok || id.Host != "local" {
 			return nil, board.ErrNotFound
 		}
-		return board.NewService(local.New(root, "docs", "docs/board", "develop", true), board.Options{
-			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
+		return board.NewService(local.New(root, "docs", "docs/board", "main", true), board.Options{
+			Title: id.Repo, DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main",
 			Cooldown: time.Minute, Origin: board.Origin{Host: "local", Repo: id.Repo, Path: id.Path()},
 		}), nil
 	}, func(context.Context, board.Host) ([]board.ID, error) {
@@ -196,7 +196,7 @@ func (azureHeaderLogin) Host() board.Host { return board.HostAzure }
 func TestAnAzureLoginServesAzureBoardsOnly(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(id board.ID) (*board.Service, error) {
-		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, func(context.Context, board.Host) ([]board.ID, error) {
 		return []board.ID{{Host: "azure", Repo: "acme/Team/fuda-tasks"}}, nil
 	}, nil)
@@ -238,7 +238,7 @@ func (m memberSource) Files(context.Context, string) (map[string][]byte, error) 
 func TestGitHubBoardsNeedALogin(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A-1.md": []byte("---\nid: A-1\ntitle: One\nstatus: backlog\n---\n")}
 	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(id board.ID) (*board.Service, error) {
-		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return board.NewService(memberSource{files}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, func(ctx context.Context, _ board.Host) ([]board.ID, error) {
 		if board.TokenFrom(ctx) != "member" {
 			return nil, board.ErrForbidden
@@ -340,7 +340,7 @@ func (m *movableSource) CanWrite(context.Context) (bool, error) { return true, n
 func TestMoveThroughTheHandler(t *testing.T) {
 	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
 	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
-		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, nil, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
 	defer server.Close()
@@ -384,7 +384,7 @@ func TestMoveThroughTheHandler(t *testing.T) {
 func TestAssignThroughTheHandler(t *testing.T) {
 	source := &movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n", editor: "Ben"}
 	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
-		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"}), nil
+		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
 	}, nil, nil)
 	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
 	defer server.Close()
@@ -417,5 +417,58 @@ func TestAssignThroughTheHandler(t *testing.T) {
 	body := assign("member", `{"seen":[],"owners":["Cy"]}`, http.StatusConflict)
 	if !strings.Contains(body, "Ben set the owners to Ann just now") {
 		t.Errorf("conflict body: %s", body)
+	}
+}
+
+type protectedSource struct{ movableSource }
+
+func (*protectedSource) WriteFile(context.Context, string, string, []byte, string, string) error {
+	return board.ErrProtectedBranch
+}
+
+func TestAProtectedMainIsExplainedOnAMove(t *testing.T) {
+	source := &protectedSource{movableSource{content: "---\nid: A-1\ntitle: One\nstatus: backlog\n---\n"}}
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
+		return board.NewService(source, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
+	}, nil, nil)
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/github/o/fuda-tasks/tasks/A-1/move", strings.NewReader(`{"seen":"backlog","column":"in-progress"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-Token", "member")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	out, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusForbidden || !strings.Contains(string(out), "main is protected; allow fuda to push to it directly") {
+		t.Errorf("status %d: %s", res.StatusCode, out)
+	}
+}
+
+type noMainSource struct{ movableSource }
+
+func (*noMainSource) Head(context.Context, string) (string, error) { return "", board.ErrBranchMissing }
+
+func TestARepositoryWithoutMainSaysSo(t *testing.T) {
+	boards := board.NewRegistry(slog.New(slog.DiscardHandler), func(board.ID) (*board.Service, error) {
+		return board.NewService(&noMainSource{}, board.Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"}), nil
+	}, nil, nil)
+	server := httptest.NewServer(NewHandler(slog.New(slog.DiscardHandler), boards, fstest.MapFS{}, headerLogin{}))
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, server.URL+"/api/github/o/fuda-tasks/board", nil)
+	req.Header.Set("X-Test-Token", "member")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	var body map[string]string
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	if res.StatusCode != http.StatusNotFound || body["code"] != "no-main-branch" {
+		t.Errorf("status %d: %v", res.StatusCode, body)
 	}
 }

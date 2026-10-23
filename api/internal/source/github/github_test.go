@@ -73,7 +73,7 @@ func TestHostRefusalsBecomeBoardErrors(t *testing.T) {
 		t.Errorf("403: %v", err)
 	}
 	status = http.StatusNotFound
-	if _, err := s.Head(ctx, "develop"); !errors.Is(err, board.ErrBranchMissing) {
+	if _, err := s.Head(ctx, "main"); !errors.Is(err, board.ErrNotFound) {
 		t.Errorf("404: %v", err)
 	}
 	if _, err := s.Head(context.Background(), "develop"); !errors.Is(err, board.ErrUnauthorized) {
@@ -114,13 +114,13 @@ func repositoryWithoutBranch(exists bool) http.HandlerFunc {
 	}
 }
 
-func TestMissingBranchOnAReadableRepositoryIsAnEmptyBoard(t *testing.T) {
+func TestMissingBranchOnAReadableRepositoryIsReportedAsMissing(t *testing.T) {
 	s := serve(t, repositoryWithoutBranch(true))
 	ctx := board.WithToken(context.Background(), "t")
-	if _, err := s.Head(ctx, "develop"); err != nil {
+	if _, err := s.Head(ctx, "main"); !errors.Is(err, board.ErrBranchMissing) {
 		t.Fatalf("head: %v", err)
 	}
-	files, err := s.Files(ctx, "develop")
+	files, err := s.Files(ctx, "main")
 	if err != nil || len(files) != 0 {
 		t.Fatalf("files: %v, %v", files, err)
 	}
@@ -129,7 +129,7 @@ func TestMissingBranchOnAReadableRepositoryIsAnEmptyBoard(t *testing.T) {
 func TestMissingRepositoryStaysMissing(t *testing.T) {
 	s := serve(t, repositoryWithoutBranch(false))
 	ctx := board.WithToken(context.Background(), "t")
-	if _, err := s.Head(ctx, "develop"); !errors.Is(err, board.ErrBranchMissing) {
+	if _, err := s.Head(ctx, "main"); !errors.Is(err, board.ErrNotFound) {
 		t.Fatalf("head: %v", err)
 	}
 }
@@ -159,5 +159,35 @@ func TestAppInstalledReadsTheInstallationCount(t *testing.T) {
 				t.Errorf("got %v, %v", got, err)
 			}
 		})
+	}
+}
+
+func TestWriteFileReportsAProtectedBranch(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		body   string
+	}{
+		{http.StatusForbidden, `{"message":"Protected branch update failed for refs/heads/main."}`},
+		{http.StatusConflict, `{"message":"Repository rule violations found\n\nChanges must be made through a pull request."}`},
+	} {
+		s := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(tc.status)
+			_, _ = w.Write([]byte(tc.body))
+		})
+		err := s.WriteFile(board.WithToken(context.Background(), "t"), "main", "docs/a.md", []byte("x"), "sha", "m")
+		if !errors.Is(err, board.ErrProtectedBranch) {
+			t.Errorf("%d: %v", tc.status, err)
+		}
+	}
+}
+
+func TestWriteFileKeepsAStaleShaApart(t *testing.T) {
+	s := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"message":"docs/a.md does not match abc"}`))
+	})
+	err := s.WriteFile(board.WithToken(context.Background(), "t"), "main", "docs/a.md", []byte("x"), "sha", "m")
+	if !errors.Is(err, board.ErrStale) {
+		t.Errorf("%v", err)
 	}
 }
