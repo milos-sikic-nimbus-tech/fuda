@@ -98,6 +98,34 @@ func TestParseProblems(t *testing.T) {
 	}
 }
 
+func TestParseSkipsMapFiles(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/map.md":          []byte("# map"),
+		"docs/board/tasks/auth/map.md":     []byte("---\ntitle: map\n---\n"),
+		"docs/board/tasks/auth/notes.md":   []byte("# no id"),
+		"docs/board/tasks/auth/A1.md":      taskFile("id: A1\ntitle: one\nstatus: backlog", ""),
+		"docs/board/tasks/auth/sub/map.md": []byte("# map"),
+		"docs/board/tasks/auth/MAP.md":     []byte("# not the map file"),
+	}
+	r := Parse(files, layout)
+	if len(r.Tasks) != 1 {
+		t.Fatalf("want only A1, got %+v", r.Tasks)
+	}
+	got := map[string]bool{}
+	for _, p := range r.Problems {
+		got[p.Path] = true
+	}
+	want := []string{"docs/board/tasks/auth/notes.md", "docs/board/tasks/auth/MAP.md", "docs/board/tasks/auth/sub/map.md"}
+	if len(got) != len(want) {
+		t.Fatalf("want problems for %v, got %+v", want, r.Problems)
+	}
+	for _, p := range want {
+		if !got[p] {
+			t.Errorf("want a problem for %s, got %+v", p, r.Problems)
+		}
+	}
+}
+
 func TestParseKeepsGoodFilesNextToBadOnes(t *testing.T) {
 	files := map[string][]byte{
 		"docs/board/tasks/A1.md":      taskFile("id: A1\ntitle: one\nstatus: backlog", ""),

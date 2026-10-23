@@ -219,7 +219,8 @@ flowchart TD
 ### Validation (what becomes a Problem)
 
 - No frontmatter, unclosed frontmatter, invalid YAML, frontmatter that isn't a mapping.
-- Missing `id`, `title` or `status`; a field with the wrong shape.
+- Missing `id`, `title` or `status`; a field with the wrong shape. Only `map.md` (in `tasks/`, `archive/` or
+  an epic folder) is skipped without a Problem; it is the epic's map, not a task.
 - A filename that doesn't start with the id.
 - `status: done` outside the archive.
 - A duplicate id across all folders (the first file by path wins).

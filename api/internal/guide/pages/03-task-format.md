@@ -1,7 +1,8 @@
 # Task format
 
 One file per task in `docs/board/tasks/`. The filename starts with the id: `<ID>-<slug>.md` or
-`<ID>.md`.
+`<ID>.md`. A file named `map.md` in `tasks/`, `archive/` or an epic folder is not a task and is skipped; any
+other file without an `id` is listed under Problems.
 
 ```markdown
 ---
