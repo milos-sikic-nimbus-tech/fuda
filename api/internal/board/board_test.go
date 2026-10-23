@@ -248,3 +248,40 @@ func TestLabelColorsAreDistinctWithinAGroupAndConfigurable(t *testing.T) {
 		t.Errorf("configured color (theme folds into epic) wins, got %q", c["epic:three"])
 	}
 }
+
+func TestEpicMapsCountTasksPerColumn(t *testing.T) {
+	epic := labels(taskfiles.Label{Group: "epic", Value: "auth"})
+	archived := task("A9", "done", epic)
+	archived.Archived = true
+	b := Build(Inputs{
+		Develop: taskfiles.Result{
+			Tasks: []taskfiles.Task{
+				task("A1", "backlog", epic),
+				task("A2", "backlog", epic),
+				task("A3", "in progress", epic),
+				task("A4", "merged", epic),
+				task("B1", "backlog"),
+			},
+			Archived: []taskfiles.Task{archived, task("B9", "done")},
+			Maps: []taskfiles.Map{
+				{Epic: "auth", Path: "docs/board/tasks/auth/map.md", Body: "# Destination\n"},
+			},
+		},
+		OpenPRs: map[string][]LinkedPR{"A3": {{Number: 7}}},
+	})
+	if len(b.Maps) != 1 {
+		t.Fatalf("want one map, got %+v", b.Maps)
+	}
+	m := b.Maps[0]
+	want := map[string]int{"backlog": 2, "in-review": 1, "merged": 1}
+	if m.Epic != "auth" || m.Body != "# Destination\n" || !reflect.DeepEqual(m.Counts, want) || m.Archived != 1 {
+		t.Errorf("unexpected map %+v, want counts %v", m, want)
+	}
+}
+
+func TestBoardWithoutMapsHasEmptyList(t *testing.T) {
+	b := Build(Inputs{})
+	if b.Maps == nil || len(b.Maps) != 0 {
+		t.Errorf("want an empty, non-nil list, got %#v", b.Maps)
+	}
+}

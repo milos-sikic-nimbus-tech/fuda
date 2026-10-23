@@ -4,6 +4,11 @@ One file per task in `docs/board/tasks/`. The filename starts with the id: `<ID>
 `<ID>.md`. A file named `map.md` in `tasks/`, `archive/` or an epic folder is not a task and is skipped; any
 other file without an `id` is listed under Problems.
 
+An epic folder's `map.md` with `label: wayfinder:map` in its frontmatter is the epic's map. Select that
+epic in the Filter menu and the **Map** button after the active filters (right of Clear) opens the map text with the epic's task count
+per column and its archived tasks. A `map.md` without the label is ignored; one with broken frontmatter
+is listed under Problems.
+
 ```markdown
 ---
 id: "SS-12"

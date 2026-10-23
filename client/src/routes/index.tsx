@@ -41,6 +41,7 @@ function BoardPage() {
     <main className="flex min-h-0 flex-1 flex-col">
       <FilterBar
         facets={data.facets}
+        maps={data.maps}
         columns={data.columns}
         cards={data.cards}
         shown={cards.length}

@@ -1,6 +1,8 @@
 package board
 
 import (
+	"slices"
+
 	"fuda/internal/taskfiles"
 )
 
@@ -8,6 +10,7 @@ type Board struct {
 	Columns  []Column  `json:"columns"`
 	Cards    []Card    `json:"cards"`
 	Facets   Facets    `json:"facets"`
+	Maps     []EpicMap `json:"maps"`
 	Problems []Problem `json:"problems"`
 }
 
@@ -41,6 +44,13 @@ type Card struct {
 	ReferencedBy []string   `json:"referencedBy"`
 	InProd       bool       `json:"inProd"`
 	Path         string     `json:"path"`
+}
+
+type EpicMap struct {
+	Epic     string         `json:"epic"`
+	Body     string         `json:"body"`
+	Counts   map[string]int `json:"counts"`
+	Archived int            `json:"archived"`
 }
 
 type Facets struct {
@@ -109,6 +119,7 @@ func Build(in Inputs) Board {
 		Columns:  columns.list,
 		Cards:    cards,
 		Facets:   buildFacets(in.Develop, people),
+		Maps:     buildMaps(in.Develop, cards),
 		Problems: problems(in.Develop.Problems),
 	}
 }
@@ -137,4 +148,25 @@ func orEmpty[T any](s []T) []T {
 		return []T{}
 	}
 	return s
+}
+
+func buildMaps(develop taskfiles.Result, cards []Card) []EpicMap {
+	maps := make([]EpicMap, 0, len(develop.Maps))
+	for _, m := range develop.Maps {
+		label := taskfiles.Label{Group: "epic", Value: m.Epic}.String()
+		counts := map[string]int{}
+		for _, c := range cards {
+			if slices.Contains(c.Labels, label) {
+				counts[c.Column]++
+			}
+		}
+		archived := 0
+		for _, t := range develop.Archived {
+			if slices.ContainsFunc(t.Labels, func(l taskfiles.Label) bool { return l.String() == label }) {
+				archived++
+			}
+		}
+		maps = append(maps, EpicMap{Epic: m.Epic, Body: m.Body, Counts: counts, Archived: archived})
+	}
+	return maps
 }

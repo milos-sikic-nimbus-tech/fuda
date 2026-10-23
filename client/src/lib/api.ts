@@ -46,6 +46,13 @@ export type Facets = {
   prefixes: string[]
 }
 
+export type EpicMap = {
+  epic: string
+  body: string
+  counts: Record<string, number>
+  archived: number
+}
+
 export type Problem = { path: string; reason: string }
 
 export type BranchStatus = { branch: string; sha: string; syncedAt: string; notYet?: boolean }
@@ -68,6 +75,7 @@ export type BoardData = {
   columns: Column[]
   cards: Card[]
   facets: Facets
+  maps: EpicMap[]
   problems: Problem[]
   sync: SyncStatus
   readOnly: boolean
