@@ -2,6 +2,7 @@ import { LayoutGrid, List } from 'lucide-react'
 import { Hint } from '@/components/atoms/Hint'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ActiveFilters } from '@/components/molecules/ActiveFilters'
+import { MapButton } from '@/components/molecules/MapButton'
 import { FilterMenu } from '@/components/molecules/FilterMenu'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import {
@@ -13,15 +14,17 @@ import {
 } from '@/components/ui/select'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import { useFilterGroups } from '@/hooks/useFilterGroups'
-import type { Card, Column, Facets } from '@/lib/api'
+import type { Card, Column, EpicMap, Facets } from '@/lib/api'
 
 export function FilterBar({
   facets,
+  maps,
   columns,
   cards,
   shown,
 }: {
   facets: Facets
+  maps: EpicMap[]
   columns: Column[]
   cards: Card[]
   shown: number
@@ -33,6 +36,7 @@ export function FilterBar({
     <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-card/50 px-3 py-2.5 backdrop-blur-sm sm:px-4">
       <SearchInput value={search.q} onChange={(q) => update({ q })} />
       <FilterMenu groups={groups} />
+      <MapButton maps={maps} columns={columns} />
       <ActiveFilters groups={groups} />
       <div className="ml-auto flex items-center gap-3">
         <ToggleGroup

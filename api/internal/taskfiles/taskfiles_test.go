@@ -126,6 +126,45 @@ func TestParseSkipsMapFiles(t *testing.T) {
 	}
 }
 
+func TestParseReadsEpicMaps(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/auth/map.md":    []byte("---\nlabel: wayfinder:map\n---\n# Destination\nSign in works.\n"),
+		"docs/board/tasks/billing/map.md": []byte("---\ntitle: unlabelled\n---\n# nope\n"),
+		"docs/board/tasks/notes/map.md":   []byte("# no frontmatter"),
+		"docs/board/tasks/broken/map.md":  []byte("---\nlabel: [unclosed\n---\n"),
+		"docs/board/tasks/other/map.md":   []byte("---\nlabel: something-else\n---\n"),
+		"docs/board/tasks/open/map.md":    []byte("---\nlabel: wayfinder:map\n"),
+		"docs/board/tasks/list/map.md":    []byte("---\n- wayfinder:map\n---\n"),
+		"docs/board/tasks/crlf/map.md":    []byte("---\r\nlabel: wayfinder:map\r\n---\r\nbody\r\n"),
+		"docs/board/tasks/map.md":         []byte("---\nlabel: wayfinder:map\n---\n"),
+		"docs/board/archive/auth/map.md":  []byte("---\nlabel: wayfinder:map\n---\n"),
+	}
+	r := Parse(files, layout)
+	if len(r.Maps) != 2 {
+		t.Fatalf("want the auth and crlf maps, got %+v", r.Maps)
+	}
+	if r.Maps[1].Epic != "crlf" || r.Maps[1].Body != "body\n" {
+		t.Errorf("CRLF map read wrong: %+v", r.Maps[1])
+	}
+	m := r.Maps[0]
+	if m.Epic != "auth" || m.Path != "docs/board/tasks/auth/map.md" || m.Body != "# Destination\nSign in works.\n" {
+		t.Errorf("unexpected map %+v", m)
+	}
+	problems := map[string]bool{}
+	for _, p := range r.Problems {
+		problems[p.Path] = true
+	}
+	broken := []string{"broken", "open", "list"}
+	if len(problems) != len(broken) {
+		t.Errorf("want problems only for the broken maps, got %+v", r.Problems)
+	}
+	for _, epic := range broken {
+		if !problems["docs/board/tasks/"+epic+"/map.md"] {
+			t.Errorf("want a problem for %s, got %+v", epic, r.Problems)
+		}
+	}
+}
+
 func TestParseKeepsGoodFilesNextToBadOnes(t *testing.T) {
 	files := map[string][]byte{
 		"docs/board/tasks/A1.md":      taskFile("id: A1\ntitle: one\nstatus: backlog", ""),

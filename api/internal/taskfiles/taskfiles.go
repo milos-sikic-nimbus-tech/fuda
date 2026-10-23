@@ -1,9 +1,12 @@
 package taskfiles
 
 import (
+	"errors"
 	"path"
 	"slices"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
 )
 
 type Task struct {
@@ -71,8 +74,15 @@ type Problem struct {
 	Reason string
 }
 
+type Map struct {
+	Epic string
+	Path string
+	Body string
+}
+
 type Result struct {
 	Tasks    []Task
+	Maps     []Map
 	Archived []Task
 	Config   Config
 	Problems []Problem
@@ -93,6 +103,11 @@ func Parse(files map[string][]byte, layout Layout) Result {
 	for _, p := range sortedPaths(files) {
 		loc, ok := taskLocation(p, layout)
 		if ok && path.Base(p) == mapFileName {
+			if m, reason := parseEpicMap(p, files[p], loc); reason != "" {
+				r.Problems = append(r.Problems, Problem{Path: p, Reason: reason})
+			} else if m != nil {
+				r.Maps = append(r.Maps, *m)
+			}
 			continue
 		}
 		if !ok {
@@ -146,7 +161,37 @@ func withEpic(labels []Label, epic string) []Label {
 	return append(out, Label{Group: "epic", Value: epic})
 }
 
-const mapFileName = "map.md"
+const (
+	mapFileName = "map.md"
+	mapLabel    = "wayfinder:map"
+)
+
+func parseEpicMap(p string, content []byte, loc location) (*Map, string) {
+	if loc.epic == "" || loc.archived {
+		return nil, ""
+	}
+	front, body, err := splitFrontmatter(content)
+	if errors.Is(err, errNoFrontmatter) {
+		return nil, ""
+	}
+	if err != nil {
+		return nil, err.Error()
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(front, &doc); err != nil {
+		return nil, "invalid YAML: " + err.Error()
+	}
+	fields, err := mappingPairs(&doc)
+	if err != nil {
+		return nil, err.Error()
+	}
+	for _, f := range fields {
+		if f.key == "label" && f.value.Kind == yaml.ScalarNode && f.value.Value == mapLabel {
+			return &Map{Epic: loc.epic, Path: p, Body: string(body)}, ""
+		}
+	}
+	return nil, ""
+}
 
 type location struct {
 	archived bool

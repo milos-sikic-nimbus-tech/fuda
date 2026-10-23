@@ -155,7 +155,7 @@ a token that expires within a minute.
 builds a new snapshot and swaps it in. A snapshot contains:
 
 - the parsed develop result (tasks, archive, config, problems) and, when watched, main;
-- the built `Board` (columns, cards, facets, problems), computed once per sync;
+- the built `Board` (columns, cards, facets, epic maps, problems), computed once per sync;
 - docs (`*.md`) and images under `docs/`, kept as bytes (images up to 5 MB each);
 - the open-PR result (which open PRs name each task: In review);
 - the head SHA per branch it was built from.
@@ -216,11 +216,21 @@ flowchart TD
   gets the "in prod" badge.
 - **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them.
 
+### Epic maps
+
+`tasks/<epic>/map.md` with `label: wayfinder:map` becomes an entry of `Board.maps`: the epic (folder
+name), the body without its frontmatter, the epic's task count per board column id (cards, so In review
+is included), and the number of its archived tasks. The client shows a Map button next to Filter, enabled
+only while the Filter menu selects exactly one epic that has a map; it opens a modal with the counts and
+the body as raw text. There is no percentage: fuda has no "done" column.
+
 ### Validation (what becomes a Problem)
 
 - No frontmatter, unclosed frontmatter, invalid YAML, frontmatter that isn't a mapping.
 - Missing `id`, `title` or `status`; a field with the wrong shape. Only `map.md` (in `tasks/`, `archive/` or
-  an epic folder) is skipped without a Problem; it is the epic's map, not a task.
+  an epic folder) is skipped without a Problem; it is the epic's map, not a task. A `tasks/<epic>/map.md`
+  whose frontmatter has `label: wayfinder:map` is read as that epic's map (see Epic maps); one whose
+  frontmatter is unclosed, invalid YAML or not a mapping is a Problem. Without the label it is ignored.
 - A filename that doesn't start with the id.
 - `status: done` outside the archive.
 - A duplicate id across all folders (the first file by path wins).
@@ -330,7 +340,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 
 | Route | Returns |
 |---|---|
-| `GET …/board` | Columns, cards, facets, problems, sync state, title, origin. 503 (same body) until a snapshot exists. |
+| `GET …/board` | Columns, cards, facets, epic maps, problems, sync state, title, origin. 503 (same body) until a snapshot exists. |
 | `GET …/tasks/{id}` | One card plus custom fields and the rendered body. |
 | `GET …/search?q=` | Ids of tasks whose title or body contains the text. |
 | `GET …/archive` | Archived tasks as cards. |
