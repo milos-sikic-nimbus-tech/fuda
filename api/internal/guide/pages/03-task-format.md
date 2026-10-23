@@ -11,7 +11,7 @@ status: "backlog"
 blocked_by: ""
 owner: ""
 tester: ""
-labels: ["type:bug", "area:api", "epic:invitations"]
+labels: ["type:bug", "area:api"]
 added: "2026-10-01"
 claimed: ""
 pr: []
@@ -37,7 +37,7 @@ What was checked or changed, with dates and commit shas.
 | `status` | yes | Decides the column. Default set: `backlog`, `in progress`, `merged`, `testing`, `validated`; `done` only in `archive/` |
 | `blocked_by` | no | Task ids (`"SS-3, SS-9"`) or text. Non-empty means blocked, at any status |
 | `owner`, `tester` | no | One or more names (`"Ron, Chinmay"` or a list) |
-| `labels` | no | A list of `group:value` strings, e.g. `type:bug`, `epic:billing` |
+| `labels` | no | A list of `group:value` strings, e.g. `type:bug`, `area:api`. The epic comes from the task's folder (`tasks/<epic>/`); `epic:` and `theme:` labels are deprecated: the task still loads, but each one is listed under Problems, and inside an epic folder they are ignored |
 | `added`, `claimed`, `done` | no | `YYYY-MM-DD`; `added` is what Insights and the Added filter use |
 | `pr` | no | Pull request numbers, or a branch name |
 | anything else | no | Custom fields, shown in the task panel, not used for columns or filters |

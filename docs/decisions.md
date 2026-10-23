@@ -189,6 +189,17 @@ updates [architecture.md](architecture.md).
 - **Proposal:** a GitHub Actions workflow that installs Go, Node and pnpm and runs `make check`
   on every PR, set as a required status check on `main`.
 
+### Removing `epic:` and `theme:` labels
+
+- **Settled:** the epic of a task is the folder it sits in (`tasks/<epic>/`, also under
+  `archive/`). `epic:` and `theme:` labels are deprecated: such a task still loads and is listed
+  as a Problem. In an epic folder the labels are ignored.
+- **Settled:** `archive/` keeps epic folders, so archiving a task is a plain `git mv` that keeps
+  its epic and its label.
+- **Open:** when to stop reading them. Tasks directly in `tasks/` still use them for the Epic group.
+- **Proposal:** once repos have moved their tasks into epic folders, stop reading the labels
+  (the Problem becomes the removal), and drop the `theme`/`epic` folding in `board/facets.go`.
+
 ### More git hosts
 
 - **Settled:** a host is a package under `internal/source` implementing `board.Source` (and

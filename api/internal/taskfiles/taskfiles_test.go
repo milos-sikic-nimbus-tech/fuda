@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,7 +25,7 @@ blocked_by: "Q26, J1"
 owner: "Ron, Chinmay"
 tester: ""
 batch: 3
-labels: ["theme:security", "area:be", "loose"]
+labels: ["sec:security", "area:be", "loose"]
 size: "S"
 added: "2026-09-25"
 pr: [1944, "#1950", "chore/c1-ruff"]
@@ -52,7 +53,7 @@ pr: chore/branch-name`, ""),
 	check(t, "blocked_by", s1.BlockedBy, "Q26, J1")
 	checkDeep(t, "owners", s1.Owners, []string{"Ron", "Chinmay"})
 	checkDeep(t, "testers", s1.Testers, []string(nil))
-	checkDeep(t, "labels", s1.Labels, []Label{{"theme", "security"}, {"area", "be"}, {"", "loose"}})
+	checkDeep(t, "labels", s1.Labels, []Label{{"sec", "security"}, {"area", "be"}, {"", "loose"}})
 	checkDeep(t, "prs", s1.PRs, []int{1944, 1950})
 	check(t, "pr ref", s1.PRRef, "chore/c1-ruff")
 	checkDeep(t, "custom", s1.Custom, []Field{{"batch", "3"}, {"size", "S"}})
@@ -80,7 +81,8 @@ func TestParseProblems(t *testing.T) {
 		{"filename", "docs/board/tasks/B2-x.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
 		{"prefix is not enough", "docs/board/tasks/A10.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
 		{"done outside archive", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "only valid in the archive"},
-		{"nested", "docs/board/tasks/old/A1.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "sub-folder"},
+		{"nested two deep", "docs/board/tasks/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "one epic folder"},
+		{"archive nested two deep", "docs/board/archive/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "one epic folder"},
 		{"title is a list", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: [a, b]\nstatus: backlog", ""), `field "title"`},
 	}
 	for _, c := range cases {
@@ -114,6 +116,51 @@ func TestParseKeepsGoodFilesNextToBadOnes(t *testing.T) {
 	}
 	if len(r.Problems) != 2 {
 		t.Fatalf("want duplicate + broken file problems, got %+v", r.Problems)
+	}
+}
+
+func TestParseEpicFolders(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/auth/A1.md":    taskFile("id: A1\ntitle: in folder\nstatus: backlog\nlabels: [\"type:bug\"]", ""),
+		"docs/board/tasks/auth/A2.md":    taskFile("id: A2\ntitle: ignored labels\nstatus: backlog\nlabels: [\"epic:other\", \"theme:x\", \"area:be\"]", ""),
+		"docs/board/tasks/B1.md":         taskFile("id: B1\ntitle: flat twin\nstatus: backlog", ""),
+		"docs/board/tasks/E1.md":         taskFile("id: E1\ntitle: flat\nstatus: backlog\nlabels: [\"theme:legacy\"]", ""),
+		"docs/board/tasks/billing/A1.md": taskFile("id: A1\ntitle: dup\nstatus: backlog", ""),
+		"docs/board/archive/B1.md":       taskFile("id: B1\ntitle: archived twin\nstatus: done", ""),
+		"docs/board/archive/auth/C1.md":  taskFile("id: C1\ntitle: old\nstatus: done", ""),
+	}
+	r := Parse(files, layout)
+
+	byID := map[string]Task{}
+	for _, task := range slices.Concat(r.Tasks, r.Archived) {
+		byID[task.ID] = task
+	}
+	checkDeep(t, "A1 labels", byID["A1"].Labels, []Label{{"type", "bug"}, {"epic", "auth"}})
+	checkDeep(t, "A2 labels", byID["A2"].Labels, []Label{{"area", "be"}, {"epic", "auth"}})
+	checkDeep(t, "E1 labels", byID["E1"].Labels, []Label{{"theme", "legacy"}})
+	checkDeep(t, "C1 labels", byID["C1"].Labels, []Label{{"epic", "auth"}})
+	check(t, "A2 path", byID["A2"].Path, "docs/board/tasks/auth/A2.md")
+
+	reasons := map[string]string{}
+	for _, p := range r.Problems {
+		reasons[p.Path] = p.Reason
+	}
+	if len(reasons) != 4 {
+		t.Fatalf("want deprecation for A2 and B1 plus the duplicate, got %+v", r.Problems)
+	}
+	for _, p := range []string{"docs/board/tasks/auth/A2.md", "docs/board/tasks/E1.md"} {
+		if !strings.Contains(reasons[p], "deprecated") {
+			t.Errorf("%s: want a deprecation notice, got %q", p, reasons[p])
+		}
+	}
+	if !strings.Contains(reasons["docs/board/tasks/B1.md"], "duplicate id B1") {
+		t.Errorf("want duplicate across tasks and archive, got %q", reasons["docs/board/tasks/B1.md"])
+	}
+	if !strings.Contains(reasons["docs/board/tasks/auth/A2.md"], "remove the label") {
+		t.Errorf("want remove-the-label advice inside a folder, got %q", reasons["docs/board/tasks/auth/A2.md"])
+	}
+	if !strings.Contains(reasons["docs/board/tasks/billing/A1.md"], "duplicate id A1") {
+		t.Errorf("want duplicate across folders, got %q", reasons["docs/board/tasks/billing/A1.md"])
 	}
 }
 

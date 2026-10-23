@@ -48,7 +48,8 @@ colors:
   a task but not listed still shows on the card, it just has no filter entry.
 - `colors` is optional. Without it, fuda gives every value in a group its own colour from a
   palette, and `type` keeps fixed defaults (bug red, feat blue, …).
-- `theme:` and `epic:` are treated as the same group, shown as Epic.
+- `theme:` and `epic:` are treated as the same group, shown as Epic. Both labels are deprecated:
+  put the task in `tasks/<epic>/` instead, which sets `epic:<folder>`.
 
 ## people.md: people and aliases
 

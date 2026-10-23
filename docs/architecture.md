@@ -57,7 +57,7 @@ are declared where they are used. The host names (`board.HostGitHub`, `board.Hos
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per host. `FUDA_HOSTS` lists the hosts (`FUDA_SOURCE` still works as the old name). `LoadDesktop` does the same for the desktop app, with the values built into the binary as defaults. |
 | `internal/board` | All behaviour. `context.go`: the caller's host token travels in the request context. `boards.go`: `Registry`, the open Boards. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `TaskEditor` (read a file, write it, name its last editor, say whether the caller may write). |
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
-| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place. No PRs. |
+| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place, at its real path (inside its epic folder if it has one). No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
@@ -222,8 +222,11 @@ flowchart TD
 - Missing `id`, `title` or `status`; a field with the wrong shape.
 - A filename that doesn't start with the id.
 - `status: done` outside the archive.
-- A duplicate id (the first file by path wins).
-- A task file in a sub-folder of `tasks/` or `archive/`.
+- A duplicate id across all folders (the first file by path wins).
+- A task file more than one folder below `tasks/` or `archive/`. One level is an epic folder: the
+  task gets the label `epic:<folder>`, and its own `epic:` and `theme:` labels are dropped.
+- A task with an `epic:` or `theme:` label (deprecated): it still loads, and the Problem says to
+  move it into an epic folder.
 - An invalid `stages.md`, `labels.md`, `people.md` or `repos.md`: the file is ignored and the board is derived
   from the tasks instead.
 
