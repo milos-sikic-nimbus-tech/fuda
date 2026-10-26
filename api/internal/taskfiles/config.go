@@ -126,8 +126,11 @@ func decodeLabelGroups(n *yaml.Node, dst *[]LabelGroup) error {
 }
 
 type personEntry struct {
+	ID      string   `yaml:"id"`
 	Name    string   `yaml:"name"`
 	Aliases []string `yaml:"aliases"`
+	GitHub  string   `yaml:"github"`
+	Kind    string   `yaml:"kind"`
 }
 
 func decodePeople(n *yaml.Node, dst *[]Person) error {
@@ -139,9 +142,24 @@ func decodePeople(n *yaml.Node, dst *[]Person) error {
 		return fmt.Errorf("people: %w", err)
 	}
 	people := make([]Person, 0, len(entries))
+	seen := map[string]bool{}
 	for i, e := range entries {
+		if e.ID == "" {
+			return fmt.Errorf("people: entry %d has no id", i+1)
+		}
+		if seen[strings.ToLower(e.ID)] {
+			return fmt.Errorf("people: id %q is listed twice", e.ID)
+		}
+		seen[strings.ToLower(e.ID)] = true
 		if e.Name == "" {
-			return fmt.Errorf("people: entry %d has no name", i+1)
+			return fmt.Errorf("people: %q has no name", e.ID)
+		}
+		switch e.Kind {
+		case "":
+			e.Kind = KindHuman
+		case KindHuman, KindAgent:
+		default:
+			return fmt.Errorf("people: %q has unknown kind %q (human or agent)", e.ID, e.Kind)
 		}
 		people = append(people, Person(e))
 	}

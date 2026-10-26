@@ -137,15 +137,27 @@ func TestReferencesAndBlocks(t *testing.T) {
 	check(t, "referenced by", card(b, "SS-3").ReferencedBy, []string{"SS-1"})
 }
 
-func TestPeopleFromConfigAreStrict(t *testing.T) {
-	b := Build(Inputs{Parsed: taskfiles.Result{
-		Tasks: []taskfiles.Task{task("A1", "backlog", owners("nemanja", "Guest"))},
-		Config: taskfiles.Config{People: []taskfiles.Person{
-			{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}},
-		}},
-	}})
-	check(t, "facet", b.Facets.People, []string{"Nemanja Mudrinic"})
-	check(t, "card owners", card(b, "A1").Owners, []string{"Nemanja Mudrinic", "Guest"})
+func TestPeopleFromConfigMatchIdsOnly(t *testing.T) {
+	b := Build(Inputs{
+		Parsed: taskfiles.Result{
+			Tasks: []taskfiles.Task{task("A1", "backlog", owners("Nemanja", "nemanja", "Guest"))},
+			Config: taskfiles.Config{People: []taskfiles.Person{
+				{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: taskfiles.KindHuman},
+				{ID: "research-agent", Name: "Research agent", Kind: taskfiles.KindAgent},
+			}},
+		},
+		OpenPRs: map[string][]LinkedPR{"A1": {{Number: 7, Author: "NMudrinic"}, {Number: 8, Author: "stranger"}}},
+	})
+	check(t, "facet", b.Facets.People, []Person{
+		{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: "human"},
+		{ID: "research-agent", Name: "Research agent", Aliases: []string{}, Kind: "agent"},
+	})
+	check(t, "card owners", card(b, "A1").Owners, []string{"Nemanja", "nemanja", "Guest"})
+	check(t, "problems", b.Problems, []Problem{
+		{Path: "docs/board/tasks/A1.md", Reason: `owner "Nemanja" is not an id in people.md`},
+		{Path: "docs/board/tasks/A1.md", Reason: `owner "Guest" is not an id in people.md`},
+	})
+	check(t, "pr authors", card(b, "A1").OpenPRs, []LinkedPR{{Number: 7, Author: "NMudrinic", AuthorID: "nemanja"}, {Number: 8, Author: "stranger"}})
 }
 
 func TestPeopleDerivedFoldUniqueFirstNames(t *testing.T) {
@@ -153,7 +165,12 @@ func TestPeopleDerivedFoldUniqueFirstNames(t *testing.T) {
 		task("A1", "backlog", owners("Nemanja", "Jack")),
 		task("A2", "backlog", owners("Nemanja Mudrinic", "Jack Westbrock", "Jack Black")),
 	}}})
-	check(t, "facet", b.Facets.People, []string{"Jack", "Jack Black", "Jack Westbrock", "Nemanja Mudrinic"})
+	var ids []string
+	for _, p := range b.Facets.People {
+		ids = append(ids, p.ID)
+	}
+	check(t, "facet", ids, []string{"Jack", "Jack Black", "Jack Westbrock", "Nemanja Mudrinic"})
+	check(t, "derived person", b.Facets.People[0], Person{ID: "Jack", Name: "Jack", Aliases: []string{}, Kind: "human"})
 	check(t, "A1 owners", card(b, "A1").Owners, []string{"Nemanja Mudrinic", "Jack"})
 }
 

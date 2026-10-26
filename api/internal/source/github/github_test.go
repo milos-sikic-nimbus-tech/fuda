@@ -191,3 +191,26 @@ func TestWriteFileKeepsAStaleShaApart(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 }
+
+func TestViewerLoginAndPullRequestAuthors(t *testing.T) {
+	s := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/user":
+			_, _ = w.Write([]byte(`{"login":"ann-gh"}`))
+		case "/repos/o/app/pulls":
+			_, _ = w.Write([]byte(`[{"number":3,"title":"T-1","head":{"ref":"t-1"},"user":{"login":"ben-gh"}}]`))
+		default:
+			t.Errorf("unexpected %s", r.URL.Path)
+		}
+	})
+	ctx := board.WithToken(context.Background(), "user-token")
+
+	login, err := s.ViewerLogin(ctx)
+	if err != nil || login != "ann-gh" {
+		t.Errorf("login: %q, %v", login, err)
+	}
+	pulls, err := s.OpenPRs(ctx, "o/app")
+	if err != nil || len(pulls) != 1 || pulls[0].Author != "ben-gh" {
+		t.Errorf("pulls: %+v, %v", pulls, err)
+	}
+}

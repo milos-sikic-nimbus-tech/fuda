@@ -242,8 +242,12 @@ the body as raw text. There is no percentage.
 
 ### Facets (what the filters offer)
 
-- **People:** from `people.md` (names + aliases) when present; otherwise every owner and tester,
-  matched case-insensitively, with a unique first name folded into the full name.
+- **People:** from `people.md` when present: each entry's `id`, `name`, `aliases`, `github` and
+  `kind`. `owner` and `tester` values must match an id exactly; any other value is a Problem on
+  that Task. A PR's author login is matched to `github` and sent as `authorId`. Otherwise every
+  owner and tester, matched case-insensitively, with a unique first name folded into the full name.
+- **Me:** `GET` of a board includes `me` (`login`, `personId`) when the source knows the caller's
+  login (GitHub `/user`, cached per token). The client uses it for "Assign to me" and "My tasks".
 - **Labels:** `group:value`. `theme` reads as `epic`; a bare value goes to the `label` group. From
   `labels.md` when present (only listed values are offered), otherwise from the tasks, with
   default `type` values added.
@@ -323,8 +327,8 @@ shows the card back in its real column.
 
 An Assign is the same kind of commit on the `owner` field. `board.Service.Assign` checks that the
 Task is not archived, then runs the retry loop it shares with Move. The request carries the Owners
-the client showed (`seen`). If the current Owners differ from `seen` (compared as sets, after
-`people.md` aliases are folded), the first write wins: 409 with "Ben set the owners to Cy just
+the client showed (`seen`). If the current Owners differ from `seen` (compared as sets of ids, or of
+derived names when there is no `people.md`; an id not in `people.md` is refused with 422), the first write wins: 409 with "Ben set the owners to Cy just
 now". Otherwise `taskfiles.ApplyAssign` rewrites the line: comma text, a block list or a flow
 list keeps its style, a new line is comma text after `status`, and an empty set deletes the line.
 

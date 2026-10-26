@@ -145,6 +145,9 @@ func (s *Source) OpenPRs(ctx context.Context, repo string) ([]board.PullRequest,
 		Head    struct {
 			Ref string `json:"ref"`
 		} `json:"head"`
+		User struct {
+			Login string `json:"login"`
+		} `json:"user"`
 	}
 	err := s.getJSON(ctx, "/repos/"+escapePath(repo)+"/pulls?state=open&per_page=100", &pulls)
 	if errors.Is(err, errNotFound) {
@@ -155,7 +158,7 @@ func (s *Source) OpenPRs(ctx context.Context, repo string) ([]board.PullRequest,
 	}
 	out := make([]board.PullRequest, len(pulls))
 	for i, p := range pulls {
-		out[i] = board.PullRequest{Number: p.Number, URL: p.HTMLURL, Title: p.Title, Branch: p.Head.Ref}
+		out[i] = board.PullRequest{Number: p.Number, URL: p.HTMLURL, Title: p.Title, Branch: p.Head.Ref, Author: p.User.Login}
 	}
 	return out, nil
 }

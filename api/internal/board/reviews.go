@@ -14,6 +14,7 @@ type PullRequest struct {
 	URL    string
 	Title  string
 	Branch string
+	Author string
 }
 
 type ReviewSource interface {
@@ -21,8 +22,10 @@ type ReviewSource interface {
 }
 
 type LinkedPR struct {
-	Number int    `json:"number"`
-	URL    string `json:"url"`
+	Number   int    `json:"number"`
+	URL      string `json:"url"`
+	Author   string `json:"author,omitempty"`
+	AuthorID string `json:"authorId,omitempty"`
 }
 
 type prsByTask map[string][]LinkedPR
@@ -47,7 +50,7 @@ func (s *Service) openReviews(ctx context.Context, parsed taskfiles.Result) (prs
 		}
 		for _, pr := range pulls {
 			for _, id := range KnownIDs(pr.Title+"\n"+pr.Branch, known) {
-				found[id] = append(found[id], LinkedPR{Number: pr.Number, URL: pr.URL})
+				found[id] = append(found[id], LinkedPR{Number: pr.Number, URL: pr.URL, Author: pr.Author})
 			}
 		}
 	}

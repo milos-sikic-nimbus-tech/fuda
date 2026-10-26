@@ -22,7 +22,10 @@ function BoardPage() {
   const { data: textMatches } = useTextSearch(search.q, !!search.text)
 
   const cards = useMemo(
-    () => (data ? sortCards(filterCards(data.cards, search, textMatches), search.sort) : []),
+    () =>
+      data
+        ? sortCards(filterCards(data.cards, search, textMatches, data.facets.people), search.sort)
+        : [],
     [data, search, textMatches],
   )
   const taskIds = useMemo(() => data?.cards.map((c) => c.id) ?? [], [data])
@@ -44,6 +47,7 @@ function BoardPage() {
         maps={data.maps}
         columns={data.columns}
         cards={data.cards}
+        me={data.me?.personId}
         shown={cards.length}
       />
       {data.readOnly && (

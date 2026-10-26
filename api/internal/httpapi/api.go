@@ -175,6 +175,11 @@ func (a api) board(w http.ResponseWriter, r *http.Request, service *board.Servic
 		a.log.Warn("write access could not be checked; showing a read-only board", "error", err)
 	}
 	view.ReadOnly = !canWrite
+	me, err := service.Me(r.Context())
+	if err != nil {
+		a.log.Warn("the logged-in user could not be read", "error", err)
+	}
+	view.Me = me
 	a.json(w, http.StatusOK, view)
 }
 
@@ -280,6 +285,8 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusNotFound, map[string]string{"error": err.Error(), "code": "no-main-branch"})
 	case errors.Is(err, board.ErrNotMovable), errors.Is(err, board.ErrProtectedBranch):
 		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+	case errors.Is(err, board.ErrUnknownPerson):
+		a.json(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	case errors.As(err, &conflict):
 		a.json(w, http.StatusConflict, map[string]string{"error": conflict.Message})
 	case err != nil:

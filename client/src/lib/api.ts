@@ -32,13 +32,23 @@ export type Card = {
   path: string
 }
 
-export type OpenPr = { number: number; url: string }
+export type OpenPr = { number: number; url: string; author?: string; authorId?: string }
+
+export type Person = {
+  id: string
+  name: string
+  aliases: string[]
+  github?: string
+  kind: 'human' | 'agent'
+}
+
+export type Me = { login: string; personId?: string }
 
 export type LabelGroup = { name: string; values: string[] }
 
 export type Facets = {
   statuses: string[]
-  people: string[]
+  people: Person[]
   testers: string[]
   labelGroups: LabelGroup[]
   labelColors: Record<string, string>
@@ -77,6 +87,7 @@ export type BoardData = {
   problems: Problem[]
   sync: SyncStatus
   readOnly: boolean
+  me?: Me
 }
 
 export type BoardListing = { host: Host; repo: string; path: string; title: string }

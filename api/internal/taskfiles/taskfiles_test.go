@@ -263,8 +263,13 @@ colors:
 `),
 		"docs/board/people.md": []byte(`---
 people:
-  - name: Nemanja Mudrinic
+  - id: nemanja
+    name: Nemanja Mudrinic
     aliases: [Nemanja]
+    github: nmudrinic
+  - id: research-agent
+    name: Research agent
+    kind: agent
 ---
 | table | stays |
 `),
@@ -284,7 +289,10 @@ people:
 		{Name: "epic", Values: []string{}},
 	})
 	checkDeep(t, "label colors", r.Config.LabelColors, map[string]string{"type:bug": "#ff0000"})
-	checkDeep(t, "people", r.Config.People, []Person{{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}}})
+	checkDeep(t, "people", r.Config.People, []Person{
+		{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: KindHuman},
+		{ID: "research-agent", Name: "Research agent", Kind: KindAgent},
+	})
 	checkDeep(t, "code repos", r.Config.CodeRepos, []string{"acme/app", "acme/web"})
 }
 
@@ -302,6 +310,21 @@ func TestParseInvalidConfigIsIgnored(t *testing.T) {
 		}
 		if r.Config.Stages != nil || r.Config.LabelGroups != nil || r.Config.People != nil || r.Config.CodeRepos != nil {
 			t.Fatalf("%s: invalid config must be ignored, got %+v", p, r.Config)
+		}
+	}
+}
+
+func TestParseInvalidPeople(t *testing.T) {
+	cases := map[string]string{
+		"no id":        "---\npeople:\n  - name: Ann\n---\n",
+		"duplicate id": "---\npeople:\n  - id: ann\n    name: Ann\n  - id: Ann\n    name: Ann B\n---\n",
+		"unknown kind": "---\npeople:\n  - id: ann\n    name: Ann\n    kind: robot\n---\n",
+		"no name":      "---\npeople:\n  - id: ann\n---\n",
+	}
+	for name, content := range cases {
+		r := Parse(map[string][]byte{"docs/board/people.md": []byte(content)}, layout)
+		if len(r.Problems) != 1 || r.Config.People != nil {
+			t.Errorf("%s: want one problem and no people, got %+v / %+v", name, r.Problems, r.Config.People)
 		}
 	}
 }

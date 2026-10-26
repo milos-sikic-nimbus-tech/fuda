@@ -54,7 +54,7 @@ type EpicMap struct {
 
 type Facets struct {
 	Statuses    []string          `json:"statuses"`
-	People      []string          `json:"people"`
+	People      []Person          `json:"people"`
 	Testers     []string          `json:"testers"`
 	LabelGroups []LabelGroup      `json:"labelGroups"`
 	LabelColors map[string]string `json:"labelColors"`
@@ -98,7 +98,7 @@ func Build(in Inputs) Board {
 			Claimed:      t.Claimed,
 			PRs:          orEmpty(t.PRs),
 			PRRef:        t.PRRef,
-			OpenPRs:      orEmpty(openPRs),
+			OpenPRs:      people.withAuthors(openPRs),
 			BlockedBy:    t.BlockedBy,
 			BlockedByIDs: refs.blockedBy[t.ID],
 			Blocks:       refs.blocks[t.ID],
@@ -113,7 +113,7 @@ func Build(in Inputs) Board {
 		Cards:    cards,
 		Facets:   buildFacets(in.Parsed, people),
 		Maps:     buildMaps(in.Parsed, cards),
-		Problems: problems(in.Parsed.Problems),
+		Problems: append(problems(in.Parsed.Problems), people.problems(tasks)...),
 	}
 }
 

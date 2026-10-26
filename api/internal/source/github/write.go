@@ -97,3 +97,13 @@ func (s *Source) CanWrite(ctx context.Context) (bool, error) {
 	}
 	return repo.Permissions.Push, nil
 }
+
+func (s *Source) ViewerLogin(ctx context.Context) (string, error) {
+	var user struct {
+		Login string `json:"login"`
+	}
+	if err := s.getJSON(ctx, "/user", &user); err != nil {
+		return "", err
+	}
+	return user.Login, nil
+}

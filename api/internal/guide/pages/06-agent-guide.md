@@ -23,7 +23,8 @@ description: Create, claim and move task files in docs/board/tasks so the fuda b
 
 Tasks live in docs/board/tasks/, one file per task, named <ID>-<slug>.md. The frontmatter is the
 task's state. Read docs/board/TASKS.md for the rules and docs/board/labels.md, stages.md and
-people.md for the allowed label values, statuses and names. Never invent a status or a label
+people.md for the allowed label values, statuses and people. `owner` holds a person's `id` from
+people.md (your own id when you are listed with `kind: agent`), never a display name. Never invent a status or a label
 group that is not there; if one is really new, add it to the config file in the same commit.
 
 Before writing code for a task:

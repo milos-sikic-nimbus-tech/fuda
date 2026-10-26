@@ -6,7 +6,7 @@ A board is its own tickets repository, named `fuda-<project>` (the prefix is req
 fuda reads them from GitHub, Azure DevOps (log in with your Microsoft account) or a local checkout, and shows them as a board with filters,
 a task reader and the repo's docs. People (and their AI agents) move tasks with ordinary commits.
 On GitHub a person can also drag a card to another Stage: fuda commits that one `status` change as
-the logged-in user, and pick a Task's Owners from the short names in `people.md`.
+the logged-in user, and pick a Task's Owners from the people in `people.md`, stored by id.
 
 > Status: early development, in use on two repositories.
 

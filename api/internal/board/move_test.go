@@ -17,6 +17,7 @@ type fakeHost struct {
 	head        int
 	writes      int
 	editor      string
+	login       string
 	readOnly    bool
 	beforeWrite func(h *fakeHost)
 }
@@ -76,6 +77,12 @@ func (h *fakeHost) WriteFile(_ context.Context, _, path string, content []byte, 
 
 func (h *fakeHost) LastEditor(context.Context, string, string) (string, error) {
 	return h.editor, nil
+}
+
+func (h *fakeHost) ViewerLogin(context.Context) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.login, nil
 }
 
 func (h *fakeHost) CanWrite(context.Context) (bool, error) {

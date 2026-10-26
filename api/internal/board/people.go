@@ -1,25 +1,39 @@
 package board
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
 	"fuda/internal/taskfiles"
 )
 
+type Person struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases"`
+	GitHub  string   `json:"github,omitempty"`
+	Kind    string   `json:"kind"`
+}
+
 type people struct {
+	configured  bool
 	canonicalOf map[string]string
-	listed      []string
+	byGitHub    map[string]string
+	listed      []Person
 }
 
 func newPeople(configured []taskfiles.Person, tasks []taskfiles.Task) *people {
-	p := &people{canonicalOf: map[string]string{}}
+	p := &people{canonicalOf: map[string]string{}, byGitHub: map[string]string{}}
 	if configured != nil {
+		p.configured = true
 		for _, person := range configured {
-			p.listed = append(p.listed, person.Name)
-			p.canonicalOf[key(person.Name)] = person.Name
-			for _, alias := range person.Aliases {
-				p.canonicalOf[key(alias)] = person.Name
+			p.listed = append(p.listed, Person{
+				ID: person.ID, Name: person.Name, Aliases: orEmpty(person.Aliases), GitHub: person.GitHub, Kind: person.Kind,
+			})
+			p.canonicalOf[person.ID] = person.ID
+			if person.GitHub != "" {
+				p.byGitHub[key(person.GitHub)] = person.ID
 			}
 		}
 		return p
@@ -36,12 +50,16 @@ func newPeople(configured []taskfiles.Person, tasks []taskfiles.Task) *people {
 		}
 	}
 	p.foldFirstNames()
+	var listed []string
 	for _, name := range p.canonicalOf {
-		if !slices.Contains(p.listed, name) {
-			p.listed = append(p.listed, name)
+		if !slices.Contains(listed, name) {
+			listed = append(listed, name)
 		}
 	}
-	slices.SortFunc(p.listed, func(a, b string) int { return strings.Compare(key(a), key(b)) })
+	slices.SortFunc(listed, func(a, b string) int { return strings.Compare(key(a), key(b)) })
+	for _, name := range listed {
+		p.listed = append(p.listed, Person{ID: name, Name: name, Aliases: []string{}, Kind: taskfiles.KindHuman})
+	}
 	return p
 }
 
@@ -65,7 +83,7 @@ func (p *people) foldFirstNames() {
 func (p *people) canonical(names []string) []string {
 	out := make([]string, 0, len(names))
 	for _, name := range names {
-		if c, ok := p.canonicalOf[key(name)]; ok {
+		if c, ok := p.lookup(name); ok {
 			name = c
 		}
 		if !slices.Contains(out, name) {
@@ -73,6 +91,54 @@ func (p *people) canonical(names []string) []string {
 		}
 	}
 	return out
+}
+
+func (p *people) lookup(name string) (string, bool) {
+	if p.configured {
+		id, ok := p.canonicalOf[name]
+		return id, ok
+	}
+	c, ok := p.canonicalOf[key(name)]
+	return c, ok
+}
+
+func (p *people) unknown(names []string) []string {
+	if !p.configured {
+		return nil
+	}
+	var out []string
+	for _, name := range names {
+		if _, ok := p.lookup(name); !ok {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+func (p *people) problems(tasks []taskfiles.Task) []Problem {
+	var out []Problem
+	for _, t := range tasks {
+		for _, name := range p.unknown(t.Owners) {
+			out = append(out, Problem{Path: t.Path, Reason: fmt.Sprintf("owner %q is not an id in people.md", name)})
+		}
+		for _, name := range p.unknown(t.Testers) {
+			out = append(out, Problem{Path: t.Path, Reason: fmt.Sprintf("tester %q is not an id in people.md", name)})
+		}
+	}
+	return out
+}
+
+func (p *people) withAuthors(prs []LinkedPR) []LinkedPR {
+	out := make([]LinkedPR, 0, len(prs))
+	for _, pr := range prs {
+		pr.AuthorID = p.byGitHub[key(pr.Author)]
+		out = append(out, pr)
+	}
+	return out
+}
+
+func (p *people) ofGitHub(login string) string {
+	return p.byGitHub[key(login)]
 }
 
 func key(name string) string {

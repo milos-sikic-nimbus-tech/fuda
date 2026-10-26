@@ -1,9 +1,11 @@
+import { Bot, User } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import type { Card, Column, Facets } from '@/lib/api'
 import { countFacets, listOf } from '@/lib/filters'
+import { kindValue, ownerMatches, personOf } from '@/lib/people'
 
 export type FilterValue = { value: string; label: ReactNode; text: string; count: number }
 
@@ -29,16 +31,21 @@ function titleOf(group: string): [string, string] {
   return groupTitles[group] ?? [group.charAt(0).toUpperCase() + group.slice(1), group]
 }
 
-function person(name: string): ReactNode {
+function person(id: string, name: string): ReactNode {
   return (
     <span className="inline-flex items-center gap-2">
-      <Avatar name={name} className="size-4.5 text-[8px]" />
+      <Avatar id={id} className="size-4.5 text-[8px]" />
       {name}
     </span>
   )
 }
 
-export function useFilterGroups(facets: Facets, columns: Column[], cards: Card[]): FilterGroup[] {
+export function useFilterGroups(
+  facets: Facets,
+  columns: Column[],
+  cards: Card[],
+  me?: string,
+): FilterGroup[] {
   const { search, toggle, update } = useBoardSearch()
   const counts = useMemo(() => countFacets(cards), [cards])
   const labels = listOf(search.label)
@@ -71,21 +78,49 @@ export function useFilterGroups(facets: Facets, columns: Column[], cards: Card[]
     }
   })
 
+  const kinds = facets.people.some((p) => p.kind === 'agent')
+    ? (['human', 'agent'] as const).map((kind) => {
+        const value = kindValue(kind)
+        const title = kind === 'agent' ? 'Agents' : 'Humans'
+        return {
+          value,
+          text: title,
+          label: (
+            <span className="inline-flex items-center gap-2">
+              {kind === 'agent' ? <Bot className="size-3.5" /> : <User className="size-3.5" />}
+              {title}
+            </span>
+          ),
+          count: cards.filter((c) => ownerMatches(facets.people, value, c.owners)).length,
+        }
+      })
+    : []
+
   const people = (
     key: 'owner' | 'tester',
     title: string,
     plural: string,
-    names: string[],
+    ids: string[],
+    extra: FilterValue[] = [],
   ): FilterGroup => ({
     id: key,
     title,
     plural,
-    values: names.map((n) => ({
-      value: n,
-      text: n,
-      label: person(n),
-      count: counts[key].get(n) ?? 0,
-    })),
+    values: [
+      ...extra,
+      ...[...ids]
+        .sort((a, b) => Number(b === me) - Number(a === me))
+        .map((id) => {
+          const p = personOf(facets.people, id)
+          const name = id === me ? `${p.name} (you)` : p.name
+          return {
+            value: id,
+            text: [name, ...p.aliases].join(' '),
+            label: person(id, name),
+            count: counts[key].get(id) ?? 0,
+          }
+        }),
+    ],
     selected: listOf(search[key]),
     toggle: (v) => toggle(key, v),
     clear: () => update({ [key]: undefined }),
@@ -95,7 +130,13 @@ export function useFilterGroups(facets: Facets, columns: Column[], cards: Card[]
 
   const groups: FilterGroup[] = [
     ...labelGroups.filter((g) => g.id === 'label:type' || g.id === 'label:epic'),
-    people('owner', 'Owner', 'owners', facets.people),
+    people(
+      'owner',
+      'Owner',
+      'owners',
+      facets.people.map((p) => p.id),
+      kinds,
+    ),
     ...labelGroups.filter((g) => g.id !== 'label:type' && g.id !== 'label:epic'),
     people('tester', 'Tester', 'testers', facets.testers),
     {

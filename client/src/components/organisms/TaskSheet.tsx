@@ -95,11 +95,12 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               )}
               <Field label="Owner">
                 {owners.map((o) => (
-                  <PersonChip key={o} name={o} onClick={() => toggle('owner', o)} />
+                  <PersonChip key={o} id={o} onClick={() => toggle('owner', o)} />
                 ))}
                 <OwnerPicker
                   people={board?.facets.people ?? []}
                   owners={owners}
+                  me={board?.me?.personId}
                   saving={!!pending}
                   readOnly={board?.readOnly ?? true}
                   onChange={(next) => assign.mutate({ card: task, owners: next })}
@@ -108,7 +109,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               {task.testers.length > 0 && (
                 <Field label="Tester">
                   {task.testers.map((o) => (
-                    <PersonChip key={o} name={o} onClick={() => toggle('tester', o)} />
+                    <PersonChip key={o} id={o} onClick={() => toggle('tester', o)} />
                   ))}
                 </Field>
               )}

@@ -57,9 +57,17 @@ type LabelGroup struct {
 }
 
 type Person struct {
+	ID      string
 	Name    string
 	Aliases []string
+	GitHub  string
+	Kind    string
 }
+
+const (
+	KindHuman = "human"
+	KindAgent = "agent"
+)
 
 type Config struct {
 	Stages      []Stage

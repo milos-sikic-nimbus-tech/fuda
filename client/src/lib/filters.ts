@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { Card } from './api'
+import type { Card, Person } from './api'
+import { ownerMatches, personOf } from './people'
 
 const optionalText = z.string().trim().min(1).optional().catch(undefined)
 const flag = z.boolean().optional().catch(undefined)
@@ -54,13 +55,20 @@ function labelsMatch(selected: string[], labels: string[]): boolean {
   return [...byGroup.values()].every((wanted) => wanted.some((l) => labels.includes(l)))
 }
 
-function quickText(card: Card): string {
-  return [card.id, card.title, ...card.owners, ...card.testers, ...card.labels]
-    .join(' ')
-    .toLowerCase()
+function quickText(card: Card, people: Person[]): string {
+  const names = [...card.owners, ...card.testers].flatMap((id) => {
+    const p = personOf(people, id)
+    return [id, p.name, ...p.aliases]
+  })
+  return [card.id, card.title, ...names, ...card.labels].join(' ').toLowerCase()
 }
 
-export function filterCards(cards: Card[], search: BoardSearch, textMatches?: string[]): Card[] {
+export function filterCards(
+  cards: Card[],
+  search: BoardSearch,
+  textMatches?: string[],
+  people: Person[] = [],
+): Card[] {
   const statuses = listOf(search.status)
   const owners = listOf(search.owner)
   const testers = listOf(search.tester)
@@ -72,7 +80,7 @@ export function filterCards(cards: Card[], search: BoardSearch, textMatches?: st
   return cards.filter(
     (card) =>
       anyOf(statuses, [card.status]) &&
-      anyOf(owners, card.owners) &&
+      (owners.length === 0 || owners.some((o) => ownerMatches(people, o, card.owners))) &&
       anyOf(testers, card.testers) &&
       anyOf(prefixes, [card.prefix]) &&
       labelsMatch(labels, card.labels) &&
@@ -80,7 +88,7 @@ export function filterCards(cards: Card[], search: BoardSearch, textMatches?: st
       (!search.available || isAvailable(card)) &&
       (!search.from || (card.added !== '' && card.added >= search.from)) &&
       (!search.to || (card.added !== '' && card.added <= search.to)) &&
-      (!q || quickText(card).includes(q) || bodyHits.has(card.id)),
+      (!q || quickText(card, people).includes(q) || bodyHits.has(card.id)),
   )
 }
 

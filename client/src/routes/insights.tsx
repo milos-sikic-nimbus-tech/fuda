@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Avatar } from '@/components/atoms/PersonChip'
+import { Avatar, PersonName } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { DateRange } from '@/components/molecules/DateRange'
 import { StatTile } from '@/components/molecules/StatTile'
@@ -158,8 +158,8 @@ function InsightsPage() {
             slices={view.byOwner}
             labelOf={(key) => (
               <>
-                <Avatar name={key} className="size-4 text-[7px]" />
-                {key}
+                <Avatar id={key} className="size-4 text-[7px]" />
+                <PersonName id={key} />
               </>
             )}
             onSelect={(key) => filterBoard({ owner: key })}

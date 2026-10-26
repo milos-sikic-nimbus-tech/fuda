@@ -49,12 +49,7 @@ function Row({ card }: { card: Card }) {
         </span>
         <span className="flex w-12 shrink-0 justify-end -space-x-1">
           {card.owners.map((o) => (
-            <Avatar
-              key={o}
-              name={o}
-              hint={`Owner: ${o}`}
-              className="size-5 ring-2 ring-background"
-            />
+            <Avatar key={o} id={o} role="Owner" className="size-5 ring-2 ring-background" />
           ))}
         </span>
       </div>

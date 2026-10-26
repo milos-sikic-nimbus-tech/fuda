@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -14,6 +15,8 @@ type AssignRequest struct {
 	FromOwners []string `json:"seen"`
 	Owners     []string `json:"owners"`
 }
+
+var ErrUnknownPerson = errors.New("not an id in people.md")
 
 func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 	editor, err := s.requireEditor(ctx)
@@ -33,6 +36,9 @@ func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 	}
 
 	known := newPeople(snap.parsed.Config.People, snap.parsed.Tasks)
+	if unknown := known.unknown(req.Owners); len(unknown) > 0 {
+		return fmt.Errorf("%w: %s", ErrUnknownPerson, strings.Join(unknown, ", "))
+	}
 	return s.commit(ctx, editor, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
 		if !sameNames(known.canonical(current.Owners), known.canonical(req.FromOwners)) {
 			who := s.lastEditor(ctx, editor, task.Path)

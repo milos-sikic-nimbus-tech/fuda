@@ -73,18 +73,33 @@ func TestAssignLosesWhenOwnersChangedFirst(t *testing.T) {
 	check(t, "writes", host.writes, 0)
 }
 
-func TestAssignSeesTheSameOwnersWhateverTheOrderOrAlias(t *testing.T) {
+func TestAssignSeesTheSameOwnersWhateverTheOrder(t *testing.T) {
 	host := newFakeHost(map[string]string{
-		taskPath:               taskContent("backlog", "owner: Ben, ann\n"),
-		"docs/board/people.md": "---\npeople:\n  - name: Ann\n    aliases: [ann]\n  - name: Ben\n---\n",
+		taskPath:               taskContent("backlog", "owner: ben, ann\n"),
+		"docs/board/people.md": "---\npeople:\n  - id: ann\n    name: Ann\n  - id: ben\n    name: Ben\n---\n",
 	})
 	s := newMoveService(t, host)
 
-	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"Ann", "Ben"}, Owners: []string{"Ben"}}); err != nil {
+	if err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", FromOwners: []string{"ann", "ben"}, Owners: []string{"ben"}}); err != nil {
 		t.Fatal(err)
 	}
 
-	check(t, "file", host.file(), taskContent("backlog", "owner: Ben\n"))
+	check(t, "file", host.file(), taskContent("backlog", "owner: ben\n"))
+}
+
+func TestAssignRefusesUnknownIdsWhenPeopleAreListed(t *testing.T) {
+	host := newFakeHost(map[string]string{
+		taskPath:               taskContent("backlog", ""),
+		"docs/board/people.md": "---\npeople:\n  - id: ann\n    name: Ann\n---\n",
+	})
+	s := newMoveService(t, host)
+
+	err := s.Assign(context.Background(), AssignRequest{TaskID: "T-1", Owners: []string{"Ann Smith"}})
+
+	if !errors.Is(err, ErrUnknownPerson) {
+		t.Fatalf("got %v, want ErrUnknownPerson", err)
+	}
+	check(t, "writes", host.writes, 0)
 }
 
 func TestAssignRefusals(t *testing.T) {

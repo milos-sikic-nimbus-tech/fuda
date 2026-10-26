@@ -16,8 +16,14 @@ with a proposal.
   [0002](adr/0002-tasks-in-their-own-repository.md).
 - **Assign writes `owner` in the file's own style.** Comma text stays comma text, a YAML list
   stays a YAML list, and a new `owner` line is comma text right after `status`. Removing every
-  Owner deletes the line. The names come from `people.md`, or from the names already on the board
-  when there is none. Archived Tasks cannot be assigned.
+  Owner deletes the line. With `people.md` it writes ids, and refuses one that is not listed;
+  without it, the names already on the board. Archived Tasks cannot be assigned.
+- **`owner` holds a person's id.** Each `people.md` entry has a required, unique `id`, a display
+  `name`, optional `aliases` (search only), `github` (login) and `kind` (`human` or `agent`).
+  With the file, an owner or tester that is not an id is a Problem on that Task; aliases are not
+  used to match. The GitHub login maps the logged-in user and pull request authors to people and
+  gives the avatar. Without the file, people are derived from the Tasks as before. See
+  [ADR 0007](adr/0007-owners-are-person-ids.md).
 - **A Move or Assign that loses a conflict goes back.** If other lines of the file changed first, fuda
   applies the edit again, up to four times. If `status` changed first, the first write wins: the
   card goes back with a message such as "Ben moved this to Testing just now". An Assign works the

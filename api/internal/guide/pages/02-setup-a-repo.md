@@ -28,7 +28,7 @@ environment.
       archive/                 tasks off the board, any status (the Archive view)
       stages.md                optional: the columns
       labels.md                optional: label groups, values and colours
-      people.md                optional: people and aliases
+      people.md                optional: people, ids and agents
       repos.md                 optional: code repositories whose PRs put tasks In review
       TASKS.md                 recommended: the workflow, copied from this guide
       WORKFLOW.md              optional: your own rules; fuda ignores it
