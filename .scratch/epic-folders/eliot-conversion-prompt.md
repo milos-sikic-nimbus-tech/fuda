@@ -29,11 +29,10 @@ Under `.scratch/` at the repository root (if it is elsewhere, find it and tell m
 
 ```
 docs/board/
-  stages.md, labels.md        from the guide's Board setup
+  stages.md, labels.md        from the guide's Board setup (with a Done Stage after Validated)
   TASKS.md                    the guide's Workflow page
   tasks/document-engine/      map.md + open wayfinder tickets
   tasks/engine-fixes/         engine-fixes tickets
-  archive/document-engine/    closed wayfinder tickets that were resolved
 docs/agents/issue-tracker.md  the guide's tracker doc, <PREFIX> = EL
 .claude/skills/fuda-tasks/SKILL.md   the guide's fuda-tasks skill
 ```
@@ -43,7 +42,7 @@ Rules:
 - **Ids**: one sequence, `EL-N`. document-engine tickets first in their number order (01 → EL-1 …),
   then engine-fixes in theirs. Filename `EL-N-<old slug without the NN- prefix>.md`. The map gets no id.
 - **Frontmatter** for every ticket: `id`, `title` (from the heading, without an `NN:` prefix),
-  `status`, `blocked_by`, `owner`, `labels`, `added`, `claimed`, plus `done` for archived ones. Fields
+  `status`, `blocked_by`, `owner`, `labels`, `added`, `claimed`, plus `done` for resolved ones. Fields
   already there are carried over (`assignee` → `owner`, `blocked-by` → `blocked_by`, `type: X` →
   `labels: ["wayfinder:X"]`); any other existing field is kept as it is. `added` is the date of the
   file's first commit (`git log --diff-filter=A --format=%as -- <old path> | tail -1`). Body-line
@@ -54,11 +53,11 @@ Rules:
 - **Status**:
   - wayfinder `open` with no assignee → `backlog`; `open` with an assignee → `in progress`, `claimed`
     = the date of the commit that set the assignee.
-  - wayfinder `closed` with a `## Resolution` → rename that heading to `## Answer`, move to
-    `archive/document-engine/`, `status: "done"`, `done` = the date of the commit that closed it.
+  - wayfinder `closed` with a `## Resolution` → rename that heading to `## Answer`, stays in
+    `tasks/document-engine/`, `status: "done"`, `done` = the date of the commit that closed it.
+    Archiving is later cleanup, not part of this conversion.
   - wayfinder `closed` that was ruled out of scope or abandoned (no real answer, or listed under the
-    map's Out of scope) → stays in `tasks/`, `status: "wontfix"`, reason under `## Answer`. Never
-    archive these: fuda counts archived tickets as finished work. When you cannot tell, ask me.
+    map's Out of scope) → stays in `tasks/`, `status: "wontfix"`, reason under `## Answer`. When you cannot tell, ask me.
   - engine-fixes: the `**Status:**` word as is (`ready-for-agent` etc.). A ticket whose boxes are all
     ticked and whose work is in eliot's `main` → ask me before changing it.
 - **Links**: rewrite every link and path between tickets and in the map to the new relative paths:
@@ -83,5 +82,5 @@ Rules:
    ```
    then `curl -s localhost:8099/api/boards` for the board's path, and its `/board` response's
    `problems` must be empty. Open `http://localhost:8099` and confirm the document-engine epic shows
-   its Map and its archived tickets. Fix and amend commit 2 until clean, then stop the server.
+   its Map and its resolved tickets in the Done column. Fix and amend commit 2 until clean, then stop the server.
 5. **Stop**: show me `git log --stat -2` and the problems check. Push to `main` only after I approve.

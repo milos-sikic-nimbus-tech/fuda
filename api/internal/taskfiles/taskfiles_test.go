@@ -80,7 +80,6 @@ func TestParseProblems(t *testing.T) {
 		{"missing status", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: t", ""), "missing required field status"},
 		{"filename", "docs/board/tasks/B2-x.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
 		{"prefix is not enough", "docs/board/tasks/A10.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
-		{"done outside archive", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "only valid in the archive"},
 		{"nested two deep", "docs/board/tasks/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "one epic folder"},
 		{"archive nested two deep", "docs/board/archive/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "one epic folder"},
 		{"title is a list", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: [a, b]\nstatus: backlog", ""), `field "title"`},
@@ -162,6 +161,16 @@ func TestParseReadsEpicMaps(t *testing.T) {
 		if !problems["docs/board/tasks/"+epic+"/map.md"] {
 			t.Errorf("want a problem for %s, got %+v", epic, r.Problems)
 		}
+	}
+}
+
+func TestParseAcceptsAnyStatusInTasksAndArchive(t *testing.T) {
+	r := Parse(map[string][]byte{
+		"docs/board/tasks/A1.md":   taskFile("id: A1\ntitle: t\nstatus: done", ""),
+		"docs/board/archive/A2.md": taskFile("id: A2\ntitle: t\nstatus: wontfix", ""),
+	}, layout)
+	if len(r.Problems) != 0 || len(r.Tasks) != 1 || len(r.Archived) != 1 || r.Archived[0].Status != "wontfix" {
+		t.Fatalf("want done in tasks and wontfix in archive with no problems, got %+v", r)
 	}
 }
 

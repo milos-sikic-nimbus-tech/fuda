@@ -21,6 +21,8 @@ stages:
     status: [testing, in qa]
   - name: Validated
     status: [validated]
+  - name: Done
+    status: [done]
 ---
 ```
 

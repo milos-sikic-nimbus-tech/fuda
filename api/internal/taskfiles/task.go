@@ -71,8 +71,6 @@ func parseTask(p string, content []byte, archived bool) (Task, string) {
 		return Task{}, "missing required field status"
 	case !nameMatchesID(path.Base(p), t.ID):
 		return Task{}, fmt.Sprintf("filename must start with the id %q", t.ID)
-	case t.Status == "done" && !archived:
-		return Task{}, `status "done" is only valid in the archive`
 	}
 	return t, ""
 }

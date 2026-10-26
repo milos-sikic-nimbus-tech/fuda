@@ -64,7 +64,7 @@ func TestDefaultColumnsWithoutStages(t *testing.T) {
 		task("A3", "qa"),
 	}}})
 
-	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated", "unknown-qa"}
+	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated", "done", "unknown-qa"}
 	if got := columnIDs(b); !reflect.DeepEqual(got, want) {
 		t.Fatalf("columns: got %v, want %v", got, want)
 	}

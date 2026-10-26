@@ -3,6 +3,7 @@ import type { Card } from './api'
 import {
   activity,
   countBy,
+  doneCount,
   insightsSearchSchema,
   isOpen,
   labelsOf,
@@ -115,5 +116,19 @@ describe('breakdowns', () => {
   })
   it('treats merged and later as not open', () => {
     expect(cards.filter(isOpen).map((c) => c.id)).toEqual(['A', 'B'])
+  })
+})
+
+describe('doneCount', () => {
+  it('counts done Tasks by done date on the board and in the archive, not other archived statuses', () => {
+    const onBoard = [
+      card('A', { status: 'done', done: '2026-10-02' }),
+      card('B', { status: 'done', done: '2026-01-01' }),
+    ]
+    const archived = [
+      card('C', { status: 'done', done: '2026-10-03' }),
+      card('D', { status: 'wontfix', done: '2026-10-04' }),
+    ]
+    expect(doneCount(onBoard, archived, (d) => d.startsWith('2026-10'))).toBe(2)
   })
 })

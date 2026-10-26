@@ -11,7 +11,8 @@ reviews) in `WORKFLOW.md`.
 | Retest | `status: "testing"` (and `tester`), then `"validated"`; on failure back to `"in progress"` with what failed | Small commits on `main` |
 | Blocked | Set or clear `blocked_by` | A small commit |
 | Abandon | `status: "backlog"`, clear `owner` and `claimed`, the reason in `## Evidence` | A small commit |
-| Archive | Move to `archive/`, `status: "done"`, `done` = the date | A small commit, once the task has been validated for a while |
+| Done | `status: "done"`, `done` = the date | A small commit once the task is validated. Move to Done in fuda changes only the status; set `done` in git |
+| Archive | Move the file to `archive/`, nothing in it changes | A small commit, later cleanup for done and won't-do tasks. Fix links to the moved file in the same commit |
 
 ```mermaid
 stateDiagram-v2
@@ -21,7 +22,8 @@ stateDiagram-v2
   merged --> testing: retest
   testing --> validated: passes
   testing --> in_progress: fails
-  validated --> [*]: archive
+  validated --> done: sign off
+  done --> [*]: archive
 ```
 
 A claimed task stays where its status says until someone moves it. The status alone decides the

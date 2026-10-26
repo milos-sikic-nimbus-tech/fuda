@@ -213,7 +213,8 @@ flowchart TD
 - **Statuses compare** case-insensitively with whitespace collapsed.
 - **In prod** is off: nothing sets the badge, and fuda reads no branch besides `main`. See TBD in
   [decisions.md](decisions.md).
-- **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them.
+- **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them, with whatever Status they have.
+  The Archive is a place, not a status (ADR 0006): `done` is valid in `tasks/`, and the default Stages end with Done.
 
 ### Epic maps
 
@@ -221,7 +222,7 @@ flowchart TD
 name), the body without its frontmatter, the epic's task count per board column id (cards, so In review
 is included), and the number of its archived tasks. The client shows a Map button after the active filters and Clear, enabled
 only while the Filter menu selects exactly one epic that has a map; it opens a modal with the counts and
-the body as raw text. There is no percentage: fuda has no "done" column.
+the body as raw text. There is no percentage.
 
 ### Validation (what becomes a Problem)
 
@@ -231,7 +232,6 @@ the body as raw text. There is no percentage: fuda has no "done" column.
   whose frontmatter has `label: wayfinder:map` is read as that epic's map (see Epic maps); one whose
   frontmatter is unclosed, invalid YAML or not a mapping is a Problem. Without the label it is ignored.
 - A filename that doesn't start with the id.
-- `status: done` outside the archive.
 - A duplicate id across all folders (the first file by path wins).
 - A task file more than one folder below `tasks/` or `archive/`. One level is an epic folder: the
   task gets the label `epic:<folder>`, and its own `epic:` and `theme:` labels are dropped.
@@ -269,7 +269,9 @@ sequenceDiagram
   Note over Fuda: SS-12 in Merged
   Tester->>Main: status testing, then validated
   Note over Fuda: Testing, then Validated
-  Dev->>Main: move to archive/, status done
+  Tester->>Main: status done, done date
+  Note over Fuda: Done
+  Dev->>Main: later, move to archive/ (file unchanged)
   Note over Fuda: off the board, in the Archive view
 ```
 

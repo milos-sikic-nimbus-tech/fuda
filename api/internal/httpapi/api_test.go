@@ -56,7 +56,7 @@ func TestAPISmoke(t *testing.T) {
 		Problems []struct{ Path string }
 	}
 	getJSON(t, base+"/board", http.StatusOK, &b)
-	if b.Title != "test" || len(b.Columns) != 6 || len(b.Cards) != 2 || len(b.Problems) != 1 {
+	if b.Title != "test" || len(b.Columns) != 7 || len(b.Cards) != 2 || len(b.Problems) != 1 {
 		t.Fatalf("board: %+v", b)
 	}
 

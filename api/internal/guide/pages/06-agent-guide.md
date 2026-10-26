@@ -40,14 +40,16 @@ New work found while working:
 After the pull request that delivers the task merges:
 - In the tickets repository, set status "merged", add the PR number to pr, and write what was checked under "## Evidence".
 
-Retest, blocked, abandon, archive:
+Retest, blocked, abandon, done, archive:
 - testing (with tester), then validated; on failure back to "in progress" with what failed.
+- Done: status "done" and done (today) once the task is validated. The file stays where it is.
 - Set or clear blocked_by.
 - Abandon: status "backlog", clear owner and claimed, explain why under "## Evidence".
-- Never write status "done" except when moving a file to docs/board/archive/.
+- Archive is later cleanup: `git mv` a done or won't-do file to docs/board/archive/ (keeping its
+  folder) and change nothing in the file, then fix every link to it in the same commit.
 
 Commits that change task files touch only docs/board/ and use
-"chore(tasks): <add|claim|testing|validated|blocked|abandon|archive> <ID>".
+"chore(tasks): <add|claim|testing|validated|done|blocked|abandon|archive> <ID>".
 
 Keep files valid: an invalid task file disappears from the board into Problems.
 ```
@@ -60,7 +62,7 @@ use the fuda board as their tracker, as they use local markdown or GitHub Issues
 
 ### Board setup
 
-The triage roles are statuses, and a won't-do ticket keeps its own column, outside the archive.
+The triage roles are statuses, and a won't-do ticket keeps its own column.
 Add them to the board's `stages.md`, and the ticket types to `labels.md`:
 
 ```markdown
@@ -78,6 +80,8 @@ stages:
     status: [testing]
   - name: Validated
     status: [validated]
+  - name: Done
+    status: [done]
   - name: Won't do
     status: [wontfix]
 ---
@@ -98,7 +102,7 @@ place of `<PREFIX>`. It is the one copy: code repositories point to it.
 
 Tickets, specs and wayfinder maps live as task files in the board repository `fuda-<project>`, on
 `main`. fuda shows them as a board. The task file format is in fuda's Guide (Task format); the
-delivery lifecycle (claim, merged, testing, archive) and the commit messages are in the
+delivery lifecycle (claim, merged, testing, done, archive) and the commit messages are in the
 `fuda-tasks` skill and `docs/board/TASKS.md`. This doc maps the issue-tracker operations onto them.
 
 ## The board checkout
@@ -158,10 +162,11 @@ the `title` fields and ask when more than one matches.
 ## Closing a ticket
 
 - **Done**: decision tickets as in Resolve below; implementation tickets through the `fuda-tasks`
-  lifecycle, which ends in `archive/`.
+  lifecycle, which ends in `status: "done"`.
 - **Won't do** (wontfix, out of scope, abandoned): `status: "wontfix"`, clear `owner`, the reason
-  under `## Answer`. The file stays in `tasks/<epic>/`. Only finished work goes to `archive/`,
-  because fuda counts archived tickets as done in the epic's progress.
+  under `## Answer`. The file stays in `tasks/<epic>/`.
+- **Archive**: later cleanup for finished or won't-do tickets: `git mv` the file to
+  `archive/<epic>/`, change nothing in it, and fix every link to it in the same commit.
 
 ## Wayfinding operations
 
@@ -173,16 +178,16 @@ files beside it.
   Destination / Notes / Decisions so far / Not yet specified / Out of scope sections.
 - **Child ticket**: a ticket in the map's folder, `status: "backlog"`, labels `["wayfinder:<type>"]`
   (`research`/`prototype`/`grilling`/`task`), the question under `## Question`.
-- **Blocking**: `blocked_by`. A ticket is unblocked when every ticket it lists is in `archive/` or
-  has `status: "wontfix"`.
+- **Blocking**: `blocked_by`. A ticket is unblocked when every ticket it lists has `status: "done"`
+  or `status: "wontfix"`, wherever the file is.
 - **Frontier**: the tickets in `tasks/<epic>/` with `status: "backlog"`, an empty `owner`, and no
   open blocker; lowest id first.
 - **Claim**: set `owner` to the driving dev, `status: "in progress"`, `claimed` today; commit and push
   before any work. A rejected push means someone else wrote first: pull, and if the ticket now has an
   owner, take the next frontier ticket.
-- **Resolve**: write the answer under `## Answer`, `git mv` the file to `archive/<epic>/`, set
-  `status: "done"` and `done` today, fix links to it, and append
-  `- [Title](../../archive/<epic>/<file>): <gist>` to the map's Decisions so far. One commit.
+- **Resolve**: write the answer under `## Answer`, set `status: "done"` and `done` today, and
+  append `- [Title](<file>): <gist>` to the map's Decisions so far. The file stays in
+  `tasks/<epic>/`. One commit.
 - **Out of scope**: close it as won't-do (above) and add its line to the map's Out of scope.
 
 ## Commits

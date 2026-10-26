@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useArchive } from '@/lib/queries'
 
@@ -29,8 +30,8 @@ function ArchivePage() {
       </div>
       {isLoading ? null : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nothing archived{q ? ' matches' : ' yet'}. Tasks move to docs/board/archive/ after they
-          have been validated for a while.
+          Nothing archived{q ? ' matches' : ' yet'}. Archiving moves finished Tasks out of
+          docs/board/tasks/ to docs/board/archive/.
         </p>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -43,7 +44,8 @@ function ArchivePage() {
               >
                 <span className="w-20 font-mono text-xs text-muted-foreground">{c.id}</span>
                 <span className="flex-1">{c.title}</span>
-                <span className="text-xs text-muted-foreground">{c.done}</span>
+                <Badge variant="secondary">{c.status}</Badge>
+                <span className="w-24 text-right text-xs text-muted-foreground">{c.done}</span>
               </Link>
             </li>
           ))}

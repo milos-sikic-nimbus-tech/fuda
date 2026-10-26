@@ -4,7 +4,7 @@
 
 **Blocked by:** 08
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Why: today `status: done` outside `archive/` is a Problem (`api/internal/taskfiles/task.go:74`), so done and archived mean one thing. No commit, spec or doc records a reason; the rule came with the first parser commit (`3ce19af`). It forces the Matt tracker doc (ticket 08) into workarounds: a resolved wayfinder Task must leave the board at once, and a won't-do Task must never be archived.
 
@@ -25,8 +25,8 @@ Why: today `status: done` outside `archive/` is a Problem (`api/internal/taskfil
 
 Not here: Insights' open-work count (`isOpen`, a hardcoded list where `wontfix` counts as open) is ticket 14.
 
-- [ ] A `done` Task in `tasks/` loads with no Problem and shows in the default Done Stage
-- [ ] An archived Task with any Status loads, and the Archive view shows its Status
-- [ ] The Done tile counts `done` Tasks by `done` date in both places, and no archived `wontfix`
-- [ ] ADR 0006 written; no doc says `done` belongs only in the Archive
+- [x] A `done` Task in `tasks/` loads with no Problem and shows in the default Done Stage
+- [x] An archived Task with any Status loads, and the Archive view shows its Status
+- [x] The Done tile counts `done` Tasks by `done` date in both places, and no archived `wontfix`
+- [x] ADR 0006 written; no doc says `done` belongs only in the Archive
 - [ ] Both eliot prompts written; `fuda-eliot` shows the 13 resolved Tasks in its Done column with no Problems

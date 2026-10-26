@@ -188,7 +188,7 @@ func TestRepositoryWithoutTasksIsAnEmptyBoardWithDefaultStages(t *testing.T) {
 	if len(view.Cards) != 0 || len(view.Problems) != 0 {
 		t.Errorf("cards %d, problems %v", len(view.Cards), view.Problems)
 	}
-	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated"}
+	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated", "done"}
 	if got := columnIDs(view.Board); !reflect.DeepEqual(got, want) {
 		t.Errorf("columns: got %v, want %v", got, want)
 	}

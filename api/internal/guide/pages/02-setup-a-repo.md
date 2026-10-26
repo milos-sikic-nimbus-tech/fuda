@@ -25,7 +25,7 @@ environment.
   docs/                        every markdown file here opens in the Docs reader
     board/
       tasks/                   required: one file per task, flat
-      archive/                 finished tasks (the Archive view)
+      archive/                 tasks off the board, any status (the Archive view)
       stages.md                optional: the columns
       labels.md                optional: label groups, values and colours
       people.md                optional: people and aliases

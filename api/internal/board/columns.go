@@ -13,6 +13,7 @@ var defaultStages = []taskfiles.Stage{
 	{Name: "Merged", Statuses: []string{"merged"}},
 	{Name: "Testing", Statuses: []string{"testing"}},
 	{Name: "Validated", Statuses: []string{"validated"}},
+	{Name: "Done", Statuses: []string{"done"}},
 }
 
 type columns struct {

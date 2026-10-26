@@ -21,6 +21,10 @@ _Avoid_: ticket, issue, card (a card is only how a Task is drawn on the board)
 The field on a Task that says where it is in the workflow.
 In code: the `status` line, changed by `taskfiles.StatusEdit`.
 
+**Done**:
+The Status `done`, a step on the board after Validated, with the `done` date. The default Stages have a Done Stage; a board with its own `stages.md` adds it itself. A Task is Done before, and independent of, being archived.
+In code: `board/columns.go` default Stages, the `done` line.
+
 **Stage**:
 A column on the board. One Stage groups one or more Statuses.
 In code: `board.Column`, configured in `stages.md`.
@@ -40,7 +44,7 @@ Changing a Task's Owner from fuda.
 In code: `board.Service.Assign`.
 
 **Archive**:
-The place for Tasks that are off the board: `archive/`, and `archive/<epic>/` for an epic's. Archived Tasks are listed in the Archive view and are read-only in the app; archiving is a file move in git.
+The place for Tasks that are off the board: `archive/`, and `archive/<epic>/` for an epic's. A place, not a Status: an archived Task keeps whatever Status it has. Archived Tasks are listed in the Archive view with that Status and are read-only in the app; archiving is a file move in git that changes nothing in the file.
 In code: `taskfiles.Task.Archived`, `/api/archive`.
 
 **Problem**:
