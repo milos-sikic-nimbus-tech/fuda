@@ -39,6 +39,10 @@ In code: `board.Service.Move`.
 Changing a Task's Owner from fuda.
 In code: `board.Service.Assign`.
 
+**Archive**:
+The place for Tasks that are off the board: `archive/`, and `archive/<epic>/` for an epic's. Archived Tasks are listed in the Archive view and are read-only in the app; archiving is a file move in git.
+In code: `taskfiles.Task.Archived`, `/api/archive`.
+
 **Problem**:
 A repository file fuda could not read. It is shown to people, never fatal.
 In code: `board.Problem`.
