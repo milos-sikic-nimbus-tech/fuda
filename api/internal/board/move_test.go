@@ -132,6 +132,19 @@ func TestMoveWritesTheStatusAndClaimsTheTask(t *testing.T) {
 	check(t, "column after the move", cardColumn(t, s, "T-1"), "in-progress")
 }
 
+func TestMoveToTheDefaultDoneStageWritesStatusAndClaimedNotDone(t *testing.T) {
+	host := newFakeHost(map[string]string{taskPath: taskContent("validated", "claimed: 2026-01-01\n")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "validated", ToColumn: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", host.file(), taskContent("done", "claimed: 2026-01-01\n"))
+	check(t, "column after the move", cardColumn(t, s, "T-1"), "done")
+}
+
 func TestMoveWritesToTheFileInsideItsEpicFolder(t *testing.T) {
 	epicPath := "docs/board/tasks/auth/T-1.md"
 	host := newFakeHost(map[string]string{epicPath: taskContent("backlog", "")})

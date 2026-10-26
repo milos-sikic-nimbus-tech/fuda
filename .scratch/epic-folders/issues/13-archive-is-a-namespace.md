@@ -11,7 +11,7 @@ Why: today `status: done` outside `archive/` is a Problem (`api/internal/taskfil
 - **Rule removed:** no Problem for `done` outside the Archive; an archived Task keeps whatever Status it has.
 - **Default Stages** (no `stages.md`): a Done Stage with `[done]` after Validated (`api/internal/board/columns.go`). A board with its own `stages.md` adds it itself.
 - **Workflow:** validated → done is a step on the board, with `done` = the date. Archiving is later cleanup: a file move that changes nothing in the file, done or won't-do, fixing links to the moved file in the same commit.
-- **Move to Done** writes only the Status line (ADR 0001); the `done` date is set in git.
+- **Move to Done** writes the Status line, plus `claimed` on a first move out of the first Stage (ADR 0001); the `done` date is set in git.
 - **Insights:** the "Archived as done" tile becomes "Done": Tasks with Status `done` and a `done` date in the period, on the board or archived (`client/src/routes/insights.tsx:49`).
 - **Archive view:** a Status badge on each Task, so done and won't-do are told apart.
 - **Matt tracker doc** (Agent guide): Resolve = `## Answer`, `status: "done"`, `done` today, the Task stays in `tasks/<epic>/`, the map's Decisions-so-far line links it there. Blocking: a blocker is closed when its Status is `done` or `wontfix`, wherever it is. Closing: won't-do Tasks may be archived; drop the "fuda counts archived as done" reason. Archiving fixes every link to the moved file.

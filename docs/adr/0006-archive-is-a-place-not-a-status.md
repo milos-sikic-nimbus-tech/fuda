@@ -26,4 +26,4 @@ A Task with `status: done` outside `archive/` was a Problem, so "done" and "arch
 - The default Stages gain a Done Stage after Validated. A board with its own `stages.md` adds it itself.
 - Insights counts Tasks with Status `done` and a `done` date in the period, on the board or archived. Archived `wontfix` Tasks are not counted.
 - The Archive view shows each Task's Status, so done and won't-do are told apart.
-- Moving a Task to Done in fuda writes only the Status line (ADR 0001); the `done` date is set in git.
+- Moving a Task to Done in fuda writes the Status line, plus `claimed` on a first move out of the first Stage (ADR 0001); the `done` date is set in git.
