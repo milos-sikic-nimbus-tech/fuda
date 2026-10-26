@@ -4,7 +4,7 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 Why: ticket 05 changes how boards work, and the docs still describe tasks on `develop` in the code repo. Land this right after 05, since `docs/` must state only what is true in the code.
 
@@ -15,5 +15,5 @@ Why: ticket 05 changes how boards work, and the docs still describe tasks on `de
 - A short migration section: moving an old `develop` board into a `fuda-` repo.
 - `docs/architecture.md` and `docs/decisions.md` match.
 
-- [ ] Every Guide page, the README, `.env.example`, `CONTRIBUTING.md` and `docs/` match the code after 05
-- [ ] The migration section exists
+- [x] Every Guide page, the README, `.env.example`, `CONTRIBUTING.md` and `docs/` match the code after 05
+- [x] The migration section exists

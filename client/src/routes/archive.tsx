@@ -30,7 +30,7 @@ function ArchivePage() {
       {isLoading ? null : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nothing archived{q ? ' matches' : ' yet'}. Tasks move to docs/board/archive/ after they
-          have been in prod for a while.
+          have been validated for a while.
         </p>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">

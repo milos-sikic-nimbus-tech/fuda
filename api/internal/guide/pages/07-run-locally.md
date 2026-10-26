@@ -11,8 +11,7 @@ make dev                      # API on :8080, app on http://localhost:5173
 
 With the local source the board shows your working tree, uncommitted edits included. In the desktop
 app, Move and Assign change the task file on disk and you commit them; a server shows it read-only. The folder can have `docs/board/tasks/` or
-`tasks/`. In the desktop app, use File → Open folder…. If the
-checkout has `origin/main` and `FUDA_WATCH_MAIN=true`, "in prod" works too.
+`tasks/`. In the desktop app, use File → Open folder….
 
 | Setting | Use |
 |---|---|

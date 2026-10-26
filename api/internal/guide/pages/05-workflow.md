@@ -5,13 +5,13 @@ reviews) in `WORKFLOW.md`.
 
 | Step | Change in the task file | Where |
 |---|---|---|
-| Add | A new file, `status: "backlog"`, `added` = today | A small commit on `develop` |
-| Claim | `owner`, `status: "in progress"`, `claimed` = today. Already owned: pick another task | A small commit on `develop`, **before** branching |
-| Deliver | `status: "merged"`, the PR number in `pr`, an `## Evidence` section | **In the pull request**, in the same diff as the code. While a pull request whose title or branch names the task is open, the card shows In review |
-| Retest | `status: "testing"` (and `tester`), then `"validated"`; on failure back to `"in progress"` with what failed | Small commits on `develop` |
+| Add | A new file, `status: "backlog"`, `added` = today | A small commit on `main` of the tickets repo |
+| Claim | `owner`, `status: "in progress"`, `claimed` = today. Already owned: pick another task | A small commit on `main`, **before** branching in the code repo |
+| Deliver | `status: "merged"`, the PR number in `pr`, an `## Evidence` section | A small commit on `main` once the code pull request merges. While a pull request whose title or branch names the task is open, the card shows In review |
+| Retest | `status: "testing"` (and `tester`), then `"validated"`; on failure back to `"in progress"` with what failed | Small commits on `main` |
 | Blocked | Set or clear `blocked_by` | A small commit |
 | Abandon | `status: "backlog"`, clear `owner` and `claimed`, the reason in `## Evidence` | A small commit |
-| Archive | Move to `archive/`, `status: "done"`, `done` = the date | A small commit, once the task has been in prod for a while |
+| Archive | Move to `archive/`, `status: "done"`, `done` = the date | A small commit, once the task has been validated for a while |
 
 ```mermaid
 stateDiagram-v2
@@ -27,19 +27,21 @@ stateDiagram-v2
 A claimed task stays where its status says until someone moves it. The status alone decides the
 column.
 
-Small commits touch only `docs/board/`. If your branch policy blocks direct pushes to `develop`,
-give the people who move tasks permission to push them, or use tiny pull requests.
+Small commits touch only `docs/board/`. fuda pushes moves and owner changes straight to `main`, so
+`main` must allow it. When a branch rule refuses the push, the move fails with a message saying `main`
+is protected: give the people who move tasks permission to push to it.
 
 ## CI/CD
 
-Task commits are frequent and change no code, so skip builds when every changed file is under
-`docs/board/`:
+Task commits go to the tickets repository, which usually builds nothing. If a code repository still
+has a `docs/board/` folder (for example a submodule pointer), skip builds when every changed file is
+under it:
 
 ```yaml
 # GitHub Actions
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
     paths-ignore: ['docs/board/**']
   pull_request:
     paths-ignore: ['docs/board/**']
@@ -48,10 +50,10 @@ on:
 ```yaml
 # Azure Pipelines
 trigger:
-  branches: { include: [develop, main] }
+  branches: { include: [main] }
   paths:
     exclude: [docs/board/*]
 ```
 
-On Azure DevOps, give the develop build-validation policy the same path filter
+On Azure DevOps, give the `main` build-validation policy the same path filter
 (`!/docs/board/*`), or board-only pull requests will wait for a build.

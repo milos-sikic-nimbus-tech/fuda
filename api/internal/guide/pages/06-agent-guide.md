@@ -7,8 +7,8 @@ add this pointer to your `CLAUDE.md`:
 ## Tasks
 Work is tracked as task files in `docs/board/tasks/` (rules: `docs/board/TASKS.md`; columns,
 labels and people: `docs/board/stages.md`, `labels.md`, `people.md`). Before starting work, find
-or create its task and claim it on develop. The PR that delivers it sets `status: "merged"` and
-its PR number. Follow the `fuda-tasks` skill for every task change.
+or create its task and claim it on `main` of the tickets repository. After the PR that delivers it
+merges, set `status: "merged"` and its PR number there. Follow the `fuda-tasks` skill for every task change.
 ```
 
 ## The skill
@@ -16,7 +16,7 @@ its PR number. Follow the `fuda-tasks` skill for every task change.
 ```markdown
 ---
 name: fuda-tasks
-description: Create, claim and move task files in docs/board/tasks so the fuda board stays right. Use before starting any task, when opening the PR that delivers it, and when retesting, blocking, abandoning or archiving one.
+description: Create, claim and move task files in docs/board/tasks so the fuda board stays right. Use before starting any task, when the PR that delivers it merges, and when retesting, blocking, abandoning or archiving one.
 ---
 
 # Task files for the fuda board
@@ -27,18 +27,18 @@ people.md for the allowed label values, statuses and names. Never invent a statu
 group that is not there; if one is really new, add it to the config file in the same commit.
 
 Before writing code for a task:
-1. Pull develop and open the task file.
+1. Pull `main` of the tickets repository and open the task file.
 2. If it has an owner, stop and ask the human.
 3. Otherwise set owner, status "in progress" and claimed (today), commit only that file as
-   "chore(tasks): claim <ID>", show the commit to the human and push to develop only after they
+   "chore(tasks): claim <ID>", show the commit to the human and push to `main` only after they
    approve.
 
 New work found while working:
 - Create a task from the template with the next unused id, status "backlog", added today and a
   type label. Show it before pushing.
 
-In the pull request that delivers the task:
-- Set status "merged", add the PR number to pr, and write what was checked under "## Evidence".
+After the pull request that delivers the task merges:
+- In the tickets repository, set status "merged", add the PR number to pr, and write what was checked under "## Evidence".
 
 Retest, blocked, abandon, archive:
 - testing (with tester), then validated; on failure back to "in progress" with what failed.

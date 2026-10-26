@@ -257,19 +257,19 @@ the body as raw text. There is no percentage: fuda has no "done" column.
 sequenceDiagram
   actor Dev
   actor Tester
-  participant Develop as main
+  participant Main as main of the tickets repo
   participant Fuda as fuda
-  Dev->>Develop: claim SS-12 (status in progress, owner, claimed)
-  Develop-->>Fuda: poll sees a new head
+  Dev->>Main: claim SS-12 (status in progress, owner, claimed)
+  Main-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in In progress
   Dev->>Fuda: opens a PR whose title or branch names SS-12
   Note over Fuda: SS-12 in In review, PR #n
-  Dev->>Develop: PR completes
-  Develop-->>Fuda: poll sees a new head
+  Dev->>Main: PR merged, set status merged
+  Main-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in Merged
-  Tester->>Develop: status testing, then validated
+  Tester->>Main: status testing, then validated
   Note over Fuda: Testing, then Validated
-  Dev->>Develop: move to archive/, status done
+  Dev->>Main: move to archive/, status done
   Note over Fuda: off the board, in the Archive view
 ```
 

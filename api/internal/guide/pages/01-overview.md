@@ -1,9 +1,10 @@
 # What fuda is
 
-fuda is a board over a git repository. Each task is a markdown file in
-`docs/board/tasks/`, and its frontmatter (`status`, `owner`, `labels`, …) is its state. fuda reads
-those files from GitHub, Azure DevOps or a local checkout and shows them as a board, an insights
-view, an archive and a reader for the repository's docs.
+fuda is a board over a tickets repository: one repository per board, named `fuda-<project>` (the
+prefix is required), with its tasks on `main`. Each task is a markdown file in `docs/board/tasks/`, and its
+frontmatter (`status`, `owner`, `labels`, …) is its state. fuda reads those files from GitHub,
+Azure DevOps or a local checkout and shows them as a board, an insights view, an archive and a
+reader for the repository's docs.
 
 People, and their AI agents, move tasks with ordinary commits. On GitHub, people can also drag a
 card to another column. fuda then commits one change to the task file as the person who dragged:
@@ -19,7 +20,7 @@ about 10 seconds.
 
 ```mermaid
 flowchart LR
-  dev[Developer or agent] -- commit --> repo[(Repository<br/>docs/board/tasks)]
+  dev[Developer or agent] -- commit to main --> repo[(Tickets repository<br/>docs/board/tasks)]
   repo -- read with the user's own login --> fuda[fuda]
   fuda --> board[Board · Insights · Archive · Docs]
 ```
@@ -42,7 +43,5 @@ flowchart LR
 - **In review** is the one derived column: a task whose id is in the title or branch name of an
   open pull request in a repository listed in `repos.md`. Such a card is locked. When the pull
   request closes, the card goes back to its `status` column; fuda never sets `merged`.
-- **In prod** appears when fuda also watches `main` and the task's file there is merged, testing
-  or validated.
 - **Problems** lists files fuda could not read. They are left off the board and the rest still
   works.
