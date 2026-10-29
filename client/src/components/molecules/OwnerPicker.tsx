@@ -50,11 +50,10 @@ export function OwnerPicker({
             variant="ghost"
             size="xs"
             disabled={saving || readOnly}
-            aria-label="Pick owners"
             className="text-muted-foreground"
           >
             <UserPlus className="size-3.5" />
-            {saving && 'Saving…'}
+            {saving ? 'Saving…' : 'Add owner'}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-0">
