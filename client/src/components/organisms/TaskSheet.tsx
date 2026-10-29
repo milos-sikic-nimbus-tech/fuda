@@ -79,6 +79,11 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
           <SheetTitle className="text-lg leading-snug">
             {task?.title ?? (isError ? 'Task not found' : 'Loading…')}
           </SheetTitle>
+          {task && (
+            <p title={task.path} className="truncate font-mono text-[11px] text-muted-foreground">
+              {task.path}
+            </p>
+          )}
         </SheetHeader>
         {task && (
           <div className="space-y-5 p-4">
@@ -190,7 +195,6 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               lead="Done when"
               dropTitle
             />
-            <p className="font-mono text-[11px] text-muted-foreground">{task.path}</p>
           </div>
         )}
       </SheetContent>
