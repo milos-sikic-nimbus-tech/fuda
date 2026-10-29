@@ -47,7 +47,8 @@ colors:
 ```
 
 - Each group becomes a filter that offers **only these values**, in this order. A value used in
-  a task but not listed still shows on the card, it just has no filter entry.
+  a task but not listed still shows on the card, it just has no filter entry. Epic is the
+  exception: every epic folder with a task is in the Epic filter, listed in `groups` or not.
 - `colors` is optional. Without it, fuda gives every value in a group its own colour from a
   palette, and `type` keeps fixed defaults (bug red, feat blue, …).
 - `theme:` and `epic:` are treated as the same group, shown as Epic. Both labels are deprecated:

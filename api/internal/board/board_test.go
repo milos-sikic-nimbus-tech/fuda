@@ -2,6 +2,7 @@ package board
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"fuda/internal/taskfiles"
@@ -198,6 +199,15 @@ func TestLabelGroups(t *testing.T) {
 	check(t, "configured groups are strict", configured.Facets.LabelGroups, []LabelGroup{
 		{Name: "type", Values: []string{"bug"}},
 		{Name: "epic", Values: []string{"security"}},
+	})
+
+	foldered := append(slices.Clone(tasks), task("A2", "backlog", labels(taskfiles.Label{Group: "epic", Value: "billing"})))
+	withoutEpic := Build(Inputs{Parsed: taskfiles.Result{Tasks: foldered, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
+		{Name: "area", Values: []string{"web"}},
+	}}}})
+	check(t, "epics always become a group", withoutEpic.Facets.LabelGroups, []LabelGroup{
+		{Name: "area", Values: []string{"web"}},
+		{Name: "epic", Values: []string{"billing", "security"}},
 	})
 }
 

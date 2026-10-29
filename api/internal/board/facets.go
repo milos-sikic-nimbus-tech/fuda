@@ -97,6 +97,9 @@ func labelGroups(configured []taskfiles.LabelGroup, tasks []taskfiles.Task) []La
 		for _, g := range configured {
 			out = mergeGroup(out, groupName(g.Name), g.Values)
 		}
+		if epics := epicValues(tasks); len(epics) > 0 {
+			out = mergeGroup(out, epicGroup, epics)
+		}
 		return out
 	}
 
@@ -126,6 +129,19 @@ func labelGroups(configured []taskfiles.LabelGroup, tasks []taskfiles.Task) []La
 		}
 		out = append(out, LabelGroup{Name: group, Values: values})
 	}
+	return out
+}
+
+func epicValues(tasks []taskfiles.Task) []string {
+	var out []string
+	for _, t := range tasks {
+		for _, l := range t.Labels {
+			if groupName(l.Group) == epicGroup && !slices.Contains(out, l.Value) {
+				out = append(out, l.Value)
+			}
+		}
+	}
+	slices.Sort(out)
 	return out
 }
 
