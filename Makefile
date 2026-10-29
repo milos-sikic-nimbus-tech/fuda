@@ -53,6 +53,7 @@ desktop-macos: client
 	cp api/cmd/fuda-desktop/icon.icns bin/fuda.app/Contents/Resources/icon.icns
 	sed 's/@VERSION@/$(VERSION)/' api/cmd/fuda-desktop/Info.plist > bin/fuda.app/Contents/Info.plist
 	codesign --force --sign - --identifier io.nimbus-tech.fuda bin/fuda.app
+	touch bin/fuda.app
 
 desktop-macos-dmg: desktop-macos
 	rm -rf bin/dmg-staging bin/fuda-desktop_darwin_$(ARCH).dmg
