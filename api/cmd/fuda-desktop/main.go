@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"fuda/internal/board"
 	"fuda/internal/config"
@@ -74,7 +75,7 @@ func run(log *slog.Logger) error {
 		},
 	})
 	desktop.Menu.Set(newMenu(desktop, folders, log))
-	desktop.Window.NewWithOptions(application.WebviewWindowOptions{
+	window := desktop.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "fuda",
 		Width:     1280,
 		Height:    820,
@@ -82,6 +83,13 @@ func run(log *slog.Logger) error {
 		MinHeight: 480,
 		URL:       "/",
 	})
+	if runtime.GOOS == "darwin" {
+		// Closing destroys the window, and the dock icon can only reopen a hidden one.
+		window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+			window.Hide()
+			event.Cancel()
+		})
+	}
 	go checkForUpdates(desktop, log, false)
 	return desktop.Run()
 }
