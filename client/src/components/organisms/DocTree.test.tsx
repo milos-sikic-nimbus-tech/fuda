@@ -6,12 +6,11 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { cleanup, render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { renderWithListing } from '@/test/render'
 import { DocTree } from './DocTree'
-
-afterEach(cleanup)
 
 async function renderTree(openPath: string) {
   const root = createRootRoute({
@@ -24,7 +23,7 @@ async function renderTree(openPath: string) {
     routeTree: root.addChildren([splat]),
     history: createMemoryHistory({ initialEntries: ['/docs/' + openPath] }),
   })
-  render(<RouterProvider router={router} />)
+  renderWithListing(<RouterProvider router={router} />, { boards: [], hosts: [] })
   await screen.findByRole('navigation', { name: 'Docs' })
 }
 
@@ -42,5 +41,11 @@ describe('DocTree', () => {
     expect(screen.queryByRole('link', { name: 'stages.md' })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'board' }))
     expect(screen.getByRole('link', { name: 'stages.md' })).toBeTruthy()
+  })
+
+  it('collapses the folder of the open doc too', async () => {
+    await renderTree('board/stages.md')
+    await userEvent.click(screen.getByRole('button', { name: 'board' }))
+    expect(screen.queryByRole('link', { name: 'stages.md' })).toBeNull()
   })
 })

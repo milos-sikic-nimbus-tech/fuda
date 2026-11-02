@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDocTree, foldersOf } from './docTree'
+import { buildDocTree } from './docTree'
 
 describe('buildDocTree', () => {
   it('puts folders first, then files, each A to Z', () => {
@@ -28,12 +28,5 @@ describe('buildDocTree', () => {
 
   it('is empty without docs', () => {
     expect(buildDocTree([])).toEqual([])
-  })
-})
-
-describe('foldersOf', () => {
-  it('lists every folder above a doc, outermost first', () => {
-    expect(foldersOf('a/b/c.md')).toEqual(['a', 'a/b'])
-    expect(foldersOf('c.md')).toEqual([])
   })
 })

@@ -1,18 +1,17 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, FileText } from 'lucide-react'
 import { useState } from 'react'
-import { buildDocTree, foldersOf, type DocNode } from '@/lib/docTree'
+import { buildDocTree, type DocNode } from '@/lib/docTree'
 import { cn } from '@/lib/utils'
 
 export function DocTree({ paths, openPath }: { paths: string[]; openPath: string }) {
   const [collapsed, setCollapsed] = useState<string[]>([])
-  const open = new Set(foldersOf(openPath))
 
   const toggle = (path: string) =>
     setCollapsed((current) =>
       current.includes(path) ? current.filter((p) => p !== path) : [...current, path],
     )
-  const isExpanded = (path: string) => open.has(path) || !collapsed.includes(path)
+  const isExpanded = (path: string) => !collapsed.includes(path)
 
   const renderNode = (node: DocNode, depth: number) => {
     const indent = { paddingLeft: `${depth * 12 + 8}px` }
