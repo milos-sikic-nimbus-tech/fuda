@@ -17,6 +17,11 @@ One unit of work, stored as one markdown file in the repository.
 In code: `taskfiles.Task` as parsed, `board.Card` as drawn.
 _Avoid_: ticket, issue, card (a card is only how a Task is drawn on the board)
 
+**Doc**:
+A markdown file in the repository's docs that is not a Task: anything outside the Board's tasks and Archive folders. Board-config files such as `stages.md` are Docs too. Shown in the Docs view.
+In code: `snapshot.docs`, `/api/…/docs`.
+_Avoid_: page, note
+
 **Status**:
 The field on a Task that says where it is in the workflow.
 In code: the `status` line, changed by `taskfiles.StatusEdit`.
