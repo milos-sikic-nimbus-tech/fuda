@@ -4,7 +4,7 @@ fuda is a board over a tickets repository: one repository per board, named `fuda
 prefix is required), with its tasks on `main`. Each task is a markdown file in `docs/board/tasks/`, and its
 frontmatter (`status`, `owner`, `labels`, …) is its state. fuda reads those files from GitHub,
 Azure DevOps or a local checkout and shows them as a board, an insights view, an archive and a
-reader for the repository's docs.
+reader for the repository's docs, with a file tree to browse them.
 
 People, and their AI agents, move tasks with ordinary commits. On GitHub, people can also drag a
 card to another column. fuda then commits one change to the task file as the person who dragged:

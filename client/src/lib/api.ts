@@ -139,6 +139,7 @@ export const api = {
   task: (id: string) => request<TaskDetail>(`${scoped}/tasks/${encodeURIComponent(id)}`),
   search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),
   archive: () => request<Card[]>(`${scoped}/archive`),
+  docList: () => request<string[]>(`${scoped}/docs/list`),
   doc: (path: string) => request<DocDetail>(`${scoped}/docs?path=${encodeURIComponent(path)}`),
   move: (id: string, seen: string, column: string) =>
     request<void>(

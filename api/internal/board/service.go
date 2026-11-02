@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -247,6 +248,23 @@ func (s *Service) Doc(relative string) (DocView, error) {
 		HTML:      html,
 		Backlinks: backlinks,
 	}, nil
+}
+
+func (s *Service) Docs() []string {
+	snap := s.snapshot.Load()
+	if snap == nil {
+		return []string{}
+	}
+	taskRoots := []string{path.Join(s.opts.BoardDir, "tasks") + "/", path.Join(s.opts.BoardDir, "archive") + "/"}
+	paths := []string{}
+	for repoPath := range snap.docs {
+		if slices.ContainsFunc(taskRoots, func(root string) bool { return strings.HasPrefix(repoPath, root) }) {
+			continue
+		}
+		paths = append(paths, strings.TrimPrefix(repoPath, s.opts.DocsRoot+"/"))
+	}
+	slices.Sort(paths)
+	return paths
 }
 
 func (s *Service) Asset(repoPath string) ([]byte, string, error) {

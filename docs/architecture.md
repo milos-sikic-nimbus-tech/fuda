@@ -345,6 +345,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `GET …/tasks/{id}` | One card plus custom fields and the rendered body. |
 | `GET …/search?q=` | Ids of tasks whose title or body contains the text. |
 | `GET …/archive` | Archived tasks as cards. |
+| `GET …/docs/list` | Paths of every Doc (relative to `docs/`, sorted): markdown under `docs/` outside `board/tasks/` and `board/archive/`. |
 | `GET …/docs?path=` | A doc under `docs/`: rendered HTML, title, tasks linking to it. |
 | `GET …/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
@@ -362,7 +363,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 React 19, TypeScript, Vite, TanStack Router (file routes, typed search params) and TanStack
 Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 
-- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`. Outside a
+- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$` (a file tree of the Docs on the left, the open doc on the right; with no `board/README.md` the Docs tab shows "Pick a doc"), `/guide/$`. Outside a
   Board, `/` lists the caller's Boards, or opens the only one. One top-bar button shows the current Board (host icon, name, branch) and, as a dropdown grouped by host
   then "Local", switches Boards with a full page load; its current row has "Open repo". An account menu next
   to the theme toggle lists each host with Log in or Log out as menu items (so the keyboard reaches them), and "Log out of all". The task sheet has a Stage row with a "Move to" menu, the keyboard and touch way to do what drag and drop does. Any 401 sends the browser to the login, which returns to the same

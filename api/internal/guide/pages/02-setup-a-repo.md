@@ -22,7 +22,8 @@ environment.
 
 ```
 <fuda-project>/                the tickets repository, branch main
-  docs/                        every markdown file here opens in the Docs reader
+  docs/                        every markdown file here opens in the Docs reader and shows in its file tree
+                               (except tasks and the archive)
     board/
       tasks/                   required: one file per task, flat
       archive/                 tasks off the board, any status (the Archive view)

@@ -91,9 +91,7 @@ export function CommandPalette() {
                 Archive
               </CommandItem>
               <CommandItem
-                onSelect={() =>
-                  run(() => void navigate({ to: '/docs/$', params: { _splat: 'board/README.md' } }))
-                }
+                onSelect={() => run(() => void navigate({ to: '/docs/$', params: { _splat: '' } }))}
               >
                 <FileText />
                 Docs

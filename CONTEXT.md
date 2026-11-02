@@ -19,7 +19,7 @@ _Avoid_: ticket, issue, card (a card is only how a Task is drawn on the board)
 
 **Doc**:
 A markdown file in the repository's docs that is not a Task: anything outside the Board's tasks and Archive folders. Board-config files such as `stages.md` are Docs too. Shown in the Docs view.
-In code: `snapshot.docs`, `/api/…/docs`.
+In code: `snapshot.docs`; the list is `Service.Docs`, served at `/api/…/docs/list`.
 _Avoid_: page, note
 
 **Status**:

@@ -46,6 +46,7 @@ func (a api) routes(mux *http.ServeMux) {
 			"GET /search":             a.search,
 			"GET /archive":            a.archive,
 			"GET /docs":               a.doc,
+			"GET /docs/list":          a.docList,
 			"GET /files":              a.file,
 			"POST /sync":              a.sync,
 		} {
@@ -237,6 +238,10 @@ func (a api) archive(w http.ResponseWriter, _ *http.Request, service *board.Serv
 func (a api) doc(w http.ResponseWriter, r *http.Request, service *board.Service) {
 	view, err := service.Doc(r.URL.Query().Get("path"))
 	a.result(w, view, err)
+}
+
+func (a api) docList(w http.ResponseWriter, _ *http.Request, service *board.Service) {
+	a.json(w, http.StatusOK, service.Docs())
 }
 
 func (a api) file(w http.ResponseWriter, r *http.Request, service *board.Service) {

@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Today the Docs tab opens `board/README.md` (`client/src/components/organisms/AppHeader.tsx`, `CommandPalette.tsx`) and `GET …/docs?path=` returns one doc. There is no list, so other docs are only reachable through links in tasks or docs.
 
@@ -15,9 +15,9 @@ A **Doc** (see `CONTEXT.md`) is any `.md` under `docs/` outside `docs/board/task
 - With no `board/README.md`, the Docs tab shows the tree and a "Pick a doc" empty page.
 - Update the `Doc` entry's "In code" line in `CONTEXT.md` to name where the list lives.
 
-- [ ] `board` returns the Doc list, with unit tests that Tasks, epic files and archived Tasks are left out and config files are kept
-- [ ] Docs view shows the tree and opens the clicked doc
-- [ ] The open doc is highlighted and its folders are expanded on a direct link
-- [ ] Without `board/README.md`, the Docs tab shows the empty page
-- [ ] `docs/architecture.md` (API table) and the Guide page for Docs are updated
+- [x] `board` returns the Doc list, with unit tests that Tasks, epic files and archived Tasks are left out and config files are kept
+- [x] Docs view shows the tree and opens the clicked doc
+- [x] The open doc is highlighted and its folders are expanded on a direct link
+- [x] Without `board/README.md`, the Docs tab shows the empty page
+- [x] `docs/architecture.md` (API table) and the Guide page for Docs are updated
 - [ ] Checked in the running app in light and dark mode (by hand)

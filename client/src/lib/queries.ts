@@ -18,6 +18,7 @@ export const keys = {
   task: (id: string) => ['task', id] as const,
   search: (q: string) => ['search', q] as const,
   archive: ['archive'] as const,
+  docList: ['docList'] as const,
   doc: (path: string) => ['doc', path] as const,
   guide: ['guide'] as const,
   guidePage: (slug: string) => ['guide', slug] as const,
@@ -132,8 +133,12 @@ export function useArchive() {
   return useQuery({ queryKey: keys.archive, queryFn: api.archive })
 }
 
+export function useDocList() {
+  return useQuery({ queryKey: keys.docList, queryFn: api.docList })
+}
+
 export function useDoc(path: string) {
-  return useQuery({ queryKey: keys.doc(path), queryFn: () => api.doc(path) })
+  return useQuery({ queryKey: keys.doc(path), queryFn: () => api.doc(path), enabled: path !== '' })
 }
 
 export function useSync() {

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -88,6 +89,12 @@ func TestAPISmoke(t *testing.T) {
 		t.Errorf("doc: %+v", doc)
 	}
 	getJSON(t, base+"/docs?path=../../etc/passwd", http.StatusNotFound, nil)
+
+	var docs []string
+	getJSON(t, base+"/docs/list", http.StatusOK, &docs)
+	if !slices.Contains(docs, "board/TASKS.md") || slices.ContainsFunc(docs, func(p string) bool { return strings.HasPrefix(p, "board/tasks/") }) {
+		t.Errorf("docs list: %v", docs)
+	}
 
 	res, err := http.Get(base + "/files?path=docs/board/assets/flow.png")
 	if err != nil {
