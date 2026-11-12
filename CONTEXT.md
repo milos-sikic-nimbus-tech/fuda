@@ -68,6 +68,10 @@ In code: `Service.CanWrite`, `TaskEditor.CanWrite`.
 Where a Board lives: `github`, `azure` or `local`.
 In code: `board.Host`, `FUDA_HOSTS`.
 
+**Backend**:
+What a Board is stored in and written to, for example markdown files in a repository. A Board has exactly one Backend, and that Backend is its only source of truth. A Host is where a person logs in; one Host can serve more than one Backend.
+_Avoid_: storage, tracker, provider
+
 **Board id**:
 A host and a repository, for example `github/owner/repo`. It is also the path of the Board's URL.
 In code: `board.ID`.
