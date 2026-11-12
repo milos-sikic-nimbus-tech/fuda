@@ -46,7 +46,7 @@ func newGitHubApp(clientID string) *provider {
 		tokenURL:  "https://github.com/login/oauth/access_token",
 		deviceURL: "https://github.com/login/device/code",
 		client:    &http.Client{Timeout: 30 * time.Second},
-		now:       time.Now,
+		now:       wallClock,
 	}
 }
 
@@ -63,7 +63,7 @@ func newAzureApp(tenant, clientID, clientSecret, redirectURL string) *provider {
 		tokenURL:     authority + "/token",
 		deviceURL:    authority + "/devicecode",
 		client:       &http.Client{Timeout: 30 * time.Second},
-		now:          time.Now,
+		now:          wallClock,
 	}
 }
 
@@ -192,3 +192,7 @@ func (g *provider) pollDevice(ctx context.Context, code string) (Token, error) {
 }
 
 const AzureScope = "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation offline_access"
+
+// Monotonic readings stop while macOS sleeps, so an expiry computed from one
+// still looks valid after the laptop wakes. Compare by wall clock instead.
+func wallClock() time.Time { return time.Now().Round(0) }

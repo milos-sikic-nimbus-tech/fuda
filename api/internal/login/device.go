@@ -61,7 +61,7 @@ func NewKeychainDevice(log *slog.Logger, cfg DeviceConfig) *Device {
 }
 
 func assembleDevice(app *provider, sessions sessions, open func(string) error, log *slog.Logger) *Device {
-	d := &Device{app: app, sessions: sessions, open: open, log: log, now: time.Now}
+	d := &Device{app: app, sessions: sessions, open: open, log: log, now: wallClock}
 	d.refreshes = newRefreshMemo(app, func() time.Time { return d.now() })
 	return d
 }

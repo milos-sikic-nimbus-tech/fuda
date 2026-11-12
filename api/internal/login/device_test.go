@@ -159,6 +159,20 @@ func TestDeviceTokenRefreshesAnExpiringToken(t *testing.T) {
 	}
 }
 
+func TestARefreshedTokenExpiresByWallClockSoSleepDoesNotHideExpiry(t *testing.T) {
+	f := newFakeDeviceGitHub(t)
+	store := &memoryStore{token: Token{Access: "old", Refresh: "r", Expires: time.Now().Add(10 * time.Second)}}
+	var opened []string
+	d := newDevice(t, f, store, &opened)
+
+	if _, err := d.Token(nil, httptest.NewRequest("GET", "/", nil)); err != nil {
+		t.Fatal(err)
+	}
+	if expires := store.token.Expires; expires != expires.Round(0) {
+		t.Fatalf("Expires = %v, want no monotonic reading", expires)
+	}
+}
+
 type staleStore struct{ memoryStore }
 
 func (s *staleStore) Save(Token) error { return nil }
