@@ -152,6 +152,19 @@ func TestMoveToTheDefaultDoneStageWritesStatusAndClaimedNotDone(t *testing.T) {
 	check(t, "column after the move", cardColumn(t, s, "T-1"), "done")
 }
 
+func TestMoveToTheDefaultInReviewStageWritesItsStatus(t *testing.T) {
+	host := newFakeHost(map[string]string{taskPath: taskContent("in progress", "claimed: 2026-01-01\n")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "in progress", ToColumn: "in-review"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", host.file(), taskContent("in review", "claimed: 2026-01-01\n"))
+	check(t, "column after the move", cardColumn(t, s, "T-1"), "in-review")
+}
+
 func TestMoveWritesToTheFileInsideItsEpicFolder(t *testing.T) {
 	epicPath := "docs/board/tasks/auth/T-1.md"
 	host := newFakeHost(map[string]string{epicPath: taskContent("backlog", "")})
@@ -266,8 +279,9 @@ func TestMoveGivesUpInsteadOfForcing(t *testing.T) {
 func TestMoveRefusals(t *testing.T) {
 	archivePath := "docs/board/archive/T-2.md"
 	host := newFakeHost(map[string]string{
-		taskPath:    taskContent("backlog", ""),
-		archivePath: "---\nid: T-2\ntitle: Two\nstatus: done\n---\n",
+		taskPath:               taskContent("backlog", ""),
+		archivePath:            "---\nid: T-2\ntitle: Two\nstatus: done\n---\n",
+		"docs/board/stages.md": "---\nstages:\n  - name: Backlog\n    status: [backlog]\n  - name: In review\n    when: pr-open\n---\n",
 	})
 	s := newMoveService(t, host)
 	ctx := context.Background()

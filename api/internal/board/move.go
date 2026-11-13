@@ -54,7 +54,7 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 	if !ok {
 		return ErrNotFound
 	}
-	if target.PROpen || len(target.Statuses) == 0 {
+	if len(target.Statuses) == 0 {
 		return ErrNotMovable
 	}
 

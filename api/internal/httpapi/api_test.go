@@ -375,7 +375,6 @@ func TestMoveThroughTheHandler(t *testing.T) {
 	move("", json, `{"seen":"backlog","column":"in-progress"}`, http.StatusUnauthorized)
 	move("member", "text/plain", `{"seen":"backlog","column":"in-progress"}`, http.StatusUnsupportedMediaType)
 	move("member", json, `nonsense`, http.StatusBadRequest)
-	move("member", json, `{"seen":"backlog","column":"in-review"}`, http.StatusForbidden)
 
 	move("member", json, `{"seen":"backlog","column":"in-progress"}`, http.StatusNoContent)
 	if !strings.Contains(source.content, "status: in progress\n") {

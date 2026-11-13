@@ -14,6 +14,7 @@ stages:
   - name: In progress
     status: [in progress]
   - name: In review
+    status: [in review]
     when: pr-open
   - name: Merged
     status: [merged]
@@ -28,8 +29,9 @@ stages:
 
 - The list order is the column order. A column can hold several statuses; the card then shows its
   own status icon.
-- `when: pr-open` is the derived column: a task that an open pull request names shows there,
-  whatever its status.
+- `when: pr-open` is the In review column: a task that an open pull request names shows there,
+  whatever its status, and is locked. With a `status` list as well, a card can also be dragged
+  there, which writes the first status. Without one, only open pull requests fill it.
 - A status no column lists gets its own column at the end, marked unknown.
 
 ## labels.md: label groups, values and colours

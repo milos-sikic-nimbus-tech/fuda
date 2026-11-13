@@ -21,7 +21,7 @@ export function canDrag(card: Card, saving: boolean, readOnly: boolean): boolean
 }
 
 export function canDrop(card: Card, column: Column): boolean {
-  return !column.prOpen && column.statuses.length > 0 && card.column !== column.id
+  return column.statuses.length > 0 && card.column !== column.id
 }
 
 export function moveTargets(

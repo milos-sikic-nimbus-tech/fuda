@@ -35,8 +35,12 @@ with a proposal.
 - **In review comes from open PRs that name the task.** The board lists its code repositories in
   `repos.md` (`code_repos: [org/app]`). An open PR in any of them, on any base branch, puts every
   task whose id is in its title or branch name In review. Such a card is locked: it cannot be
-  dragged, a Move is refused, and nothing is dropped into that Stage by hand. When the PR closes
-  the card returns to its `status` Stage; fuda never sets `merged`. A person who cannot see a code
+  dragged and a Move is refused. When the PR closes the card returns to its `status` Stage; fuda
+  never sets `merged`.
+- **In review can also be set by hand.** A `pr-open` Stage that also lists a status accepts a
+  Move, which writes that status; the default In review lists `in review`. Both ways work on one
+  Board: the PR still locks the card while it is open, and a card moved by hand stays in In review
+  after the PR closes. A `pr-open` Stage with no status stays PR-only. A person who cannot see a code
   repository still gets the Board, without that repository's In review. Ids are matched whole,
   case-insensitively: `T-1` does not match `T-12`.
 - **The repository decides its board.** Columns come from an optional `stages.md`, label groups

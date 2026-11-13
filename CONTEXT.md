@@ -57,7 +57,7 @@ A repository file fuda could not read. It is shown to people, never fatal.
 In code: `board.Problem`.
 
 **In review**:
-The Stage a Task is in while an open pull request names it. The pull request, not the Status, puts it there.
+The Stage a Task is in while an open pull request names it, or when its Status is one the Stage lists (`in review` by default), set by a Move.
 In code: `board/reviews.go`, `board.LinkedPR`.
 
 **Read-only Board**:

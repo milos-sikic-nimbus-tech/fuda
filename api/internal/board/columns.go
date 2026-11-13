@@ -9,7 +9,7 @@ import (
 var defaultStages = []taskfiles.Stage{
 	{Name: "Backlog", Statuses: []string{"backlog"}},
 	{Name: "In progress", Statuses: []string{"in progress"}},
-	{Name: "In review", WhenPROpen: true},
+	{Name: "In review", Statuses: []string{"in review"}, WhenPROpen: true},
 	{Name: "Merged", Statuses: []string{"merged"}},
 	{Name: "Testing", Statuses: []string{"testing"}},
 	{Name: "Validated", Statuses: []string{"validated"}},

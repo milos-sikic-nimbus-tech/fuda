@@ -208,6 +208,9 @@ flowchart TD
   of an open PR in a repository listed in `repos.md`, on any base branch. One PR can name several
   tasks. A card held in In review this way is locked: a Move is refused. Closing the PR returns the
   card to its `status` Stage; fuda never sets `merged`.
+- **By hand:** when the `pr-open` Stage also lists a status (the default In review lists
+  `in review`), a Move into it writes that status. Such a card stays in In review after a PR that
+  named it closes, because its status puts it there.
 - **A repository the caller cannot see** is skipped, so the Board loads without its In review. Any
   other failure keeps the board, drops In review and is reported as the sync error.
 - **Statuses compare** case-insensitively with whitespace collapsed.
@@ -298,7 +301,7 @@ the author). `board.Service.Move` does this:
 
 ```mermaid
 flowchart TD
-  R["POST …/tasks/{id}/move<br/>seen status, target column"] --> C{"archived, or a<br/>PR-derived column?"}
+  R["POST …/tasks/{id}/move<br/>seen status, target column"] --> C{"archived, locked by an open PR,<br/>or a column with no status?"}
   C -- yes --> F["403"]
   C -- no --> READ["read the file and its version"]
   READ --> SAME{"status still<br/>equals seen?"}
