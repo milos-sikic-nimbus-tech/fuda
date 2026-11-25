@@ -18,7 +18,27 @@ The five ideas:
 4. **Activity log and epic folders.** Upstream: agents log each step in `## Activity`, shown as a timeline. The fork: epics are folders, with optional maps. Open: whether epic folders are the direction, and whether Activity logging is a rule for everyone or only for the pipeline.
 5. **How fuda's own work is tracked.** Upstream removed `.scratch/` tickets, ADRs and retros after PR review, and keeps decisions in `docs/decisions.md`. The fork kept them. Open: whether to adopt upstream's rules and move the tickets onto a fuda board.
 
-- [ ] Upstream maintainer has seen the review doc
-- [ ] Each of the five ideas has a recorded decision in `docs/decisions.md` (or a TBD entry with a proposal)
-- [ ] The merge is split into PRs, one per agreed idea, with the smaller one-side changes placed with the idea they depend on
-- [ ] Open questions for each idea are answered or moved to TBD
+## Agreed (25 November 2026)
+
+Nemanja agreed to the fork's side on all five ideas, with two changes:
+
+1. Board repo read from `main`, no submodule. **Change:** boards without the `fuda-` prefix must keep working, because Nemanja's own setup needs it. Upstream's F-10 setting (`FUDA_GITHUB_BOARDS`, `FUDA_AZURE_BOARDS`) stays.
+2. Done is a status, and the archive is a place.
+3. Owners are person ids from `people.md`.
+4. Epic folders with maps, plus upstream's Activity timeline.
+5. `.scratch/` tickets and ADRs stay for now. **Change:** a follow-up moves `.scratch/` into a fuda board folder so fuda shows its own tickets (`.scratch/own-board/issues/01-scratch-to-board.md`).
+
+Follow-up answers (25 November 2026):
+
+- "In prod" comes back later, only as a label the user sets. Deferred: a TBD entry in `docs/decisions.md`, no ticket yet.
+- The Done column is on by default (04).
+- Owners switch to person ids strictly now. The README tells agents how to reconcile `people.md` and task owners (05).
+
+- Activity logging is a board-wide switch in the board repo, off by default, shown to users in the task panel and the Guide (06).
+
+The merge plan is tickets 02 to 07 in this folder.
+
+- [x] Upstream maintainer has seen the review doc
+- [ ] Each of the five ideas has a recorded decision in `docs/decisions.md` (done in 02)
+- [x] The merge plan is split into tickets, with the smaller one-side changes placed with the idea they depend on
+- [x] Open questions for each idea are answered or moved to TBD
