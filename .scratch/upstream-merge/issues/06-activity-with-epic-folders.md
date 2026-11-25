@@ -8,7 +8,7 @@
 
 Why: we agreed on both epic folders and the Activity timeline (idea 4). They touch the same task parsing and the same agent guide.
 
-Decided (25 November 2026): Activity logging is a board-wide switch, **off** by default. It lives in the board repo (a board-level key in `stages.md`), so fuda and every agent read the same value and turning it on is one commit. It is separate from the per-column `activity: true`, which only decides whether cards show the latest entry. No toggle in the UI. Record this in `docs/decisions.md`.
+Decided (25 November 2026): Activity logging is a board-wide switch, **off** by default. It lives in the board repo (a board-level key in `stages.md`), so fuda and every agent read the same value and turning it on is one commit. It is separate from the per-column `activity: true`, which only decides whether cards show the latest entry. No toggle in the UI. Record this in the idea 4 ADR (ticket 02).
 
 How users find it:
 

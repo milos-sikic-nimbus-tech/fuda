@@ -36,7 +36,7 @@ Follow-up answers (25 November 2026):
 
 - Activity logging is a board-wide switch in the board repo, off by default, shown to users in the task panel and the Guide (06).
 
-The merge plan is tickets 02 to 07 in this folder.
+The merge plan is tickets 02 to 09 in this folder: 02 merges, 03 to 06 fit upstream's features to the agreed ideas, 08 gives fuda one version, 09 adds the Board format and the 0.1 to 0.2 migration, and 07 sends it all back to upstream and tags `v0.2.0`.
 
 - [x] Upstream maintainer has seen the review doc
 - [ ] Each of the five ideas has a recorded decision in `docs/decisions.md` (done in 02)

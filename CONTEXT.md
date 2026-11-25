@@ -27,8 +27,15 @@ The field on a Task that says where it is in the workflow.
 In code: the `status` line, changed by `taskfiles.StatusEdit`.
 
 **Done**:
-The Status `done`, a step on the board after Validated, with the `done` date. The default Stages have a Done Stage; a board with its own `stages.md` adds it itself. A Task is Done before, and independent of, being archived.
+The Status `done`, a step on the board after Validated, with the `done` date. A Task is Done before, and independent of, being archived.
 In code: `board/columns.go` default Stages, the `done` line.
+
+**Board format**:
+The version of the file layout a Board follows, numbered like fuda's releases (`0.2` is read by fuda 0.2). A Board states it with `format:` in `stages.md`; a `stages.md` without it is format 0.1, and a Board without `stages.md` is current. fuda reads a Board of any format as well as it can and shows a notice when the format is older or newer than its own.
+In code: the `format` key in `stages.md`.
+
+**Done Stage**:
+The one Stage that shows Done Tasks. It shows every Done Task still on the board, and archived Done Tasks whose `done` date is within the last `days` days (default 14), newest first. Only archived cards in it are locked. In `stages.md` it is the Stage that lists the status `done`. A board whose own `stages.md` has none shows no Done Stage.
 
 **Stage**:
 A column on the board. One Stage groups one or more Statuses.

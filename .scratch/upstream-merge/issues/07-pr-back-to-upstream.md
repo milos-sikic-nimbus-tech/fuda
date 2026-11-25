@@ -2,7 +2,7 @@
 
 **What to build:** Open a PR from the fork's `main` to `nemanja-mudrinic-nimbus-tech/fuda` `main`, with upstream's PR template filled in. Once Nemanja merges it, upstream `main` is the one codebase: the fork resets its `main` to it and works through PRs from then on.
 
-**Blocked by:** 03, 04, 05, 06
+**Blocked by:** 03, 04, 05, 06, 08, 09
 
 **Status:** needs-triage
 
@@ -11,4 +11,5 @@ Why: the goal is one codebase, not two that agree. Because 02 merged upstream in
 - [ ] Fork `main` contains `upstream/main` (no new upstream commits left unmerged; merge again if there are)
 - [ ] PR opened against upstream `main`, reviewed by Nemanja (CODEOWNERS)
 - [ ] After merge: fork `main` equals upstream `main`, and new work starts from upstream `main`
+- [ ] Tag `v0.2.0` on upstream `main`; the release workflow builds it from `VERSION` (ticket 08)
 - [ ] Ticket 01's open points are all answered or under TBD in `docs/decisions.md`

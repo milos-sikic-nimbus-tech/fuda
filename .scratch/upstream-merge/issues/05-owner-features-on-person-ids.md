@@ -8,10 +8,11 @@
 
 Why: we agreed owners are person ids (idea 3). Upstream built both features on names.
 
-Decided: switch strictly now. An owner that is not an id in `people.md` is a Problem. Agents can fix existing boards quickly given clear steps, so the README carries them.
+Decided: switch strictly now. An owner that is not an id in `people.md` is a Problem. Agents can fix existing boards quickly given clear steps, so the migration page (ticket 09) carries them, and the Problem links it.
 
 - [ ] The Owner filter offers No owner, Humans, Agents, My tasks and the people, and No owner stays out of the names pill
 - [ ] Assign refuses a value that is not an id in `people.md`, replacing upstream's name-shape check
 - [ ] An owner written as a name is listed under Problems, naming the task and the value
-- [ ] README has a section an agent can follow to move a board to ids: give each `people.md` entry an `id`, `github` and `kind`; rewrite each task's `owner` from name to id; check fuda shows no owner Problems
+- [ ] The steps to move a board to ids are written for the migration page (ticket 09): give each `people.md` entry an `id`, `github` and `kind`; rewrite each task's `owner` from name to id; check fuda shows no owner Problems
+- [ ] ADR 0007 records the strict switch
 - [ ] Tests for each filter choice and for Assign
