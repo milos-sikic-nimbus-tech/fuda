@@ -6,7 +6,10 @@ export type Column = {
   name: string
   statuses: string[]
   prOpen: boolean
+  done: boolean
+  days?: number
   unknown: boolean
+  activity: boolean
 }
 
 export type Card = {
@@ -29,7 +32,19 @@ export type Card = {
   blocks: string[]
   references: string[]
   referencedBy: string[]
+  activity?: Activity
+  archived: boolean
   path: string
+}
+
+export type Activity = {
+  when?: string
+  actor?: string
+  event?: string
+  result?: string
+  usage?: string
+  text: string
+  details?: string[]
 }
 
 export type OpenPr = { number: number; url: string; author?: string; authorId?: string }
@@ -94,6 +109,7 @@ export type BoardListing = { host: Host; repo: string; path: string; title: stri
 
 export type TaskDetail = Card & {
   custom: { key: string; value: string }[]
+  activities: Activity[]
   html: string
 }
 

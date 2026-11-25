@@ -24,6 +24,8 @@ export const boardSearchSchema = z.object({
 
 export type BoardSearch = z.infer<typeof boardSearchSchema>
 
+export const NO_OWNER = 'none'
+
 export type ListKey = 'status' | 'owner' | 'tester' | 'label' | 'prefix'
 
 export function listOf(value: string | undefined): string[] {
@@ -36,6 +38,28 @@ export function toggled(value: string | undefined, item: string): string | undef
   return next.length ? next.join(',') : undefined
 }
 
+export function splitOwners(owner: string | undefined) {
+  const list = listOf(owner)
+  const names = list.filter((o) => o !== NO_OWNER)
+  const noOwner = list.includes(NO_OWNER)
+  return {
+    noOwner,
+    names,
+    withoutNames: noOwner ? NO_OWNER : undefined,
+    withoutNoOwner: names.join(',') || undefined,
+  }
+}
+
+export function namesOnly<G extends { values: { value: string }[]; selected: string[] }>(
+  group: G,
+): G {
+  return {
+    ...group,
+    values: group.values.filter((v) => v.value !== NO_OWNER),
+    selected: group.selected.filter((v) => v !== NO_OWNER),
+  }
+}
+
 export function isAvailable(card: Card): boolean {
   return (
     card.status.trim().toLowerCase() === 'backlog' && card.owners.length === 0 && !card.blockedBy
@@ -44,6 +68,12 @@ export function isAvailable(card: Card): boolean {
 
 function anyOf(selected: string[], values: string[]): boolean {
   return selected.length === 0 || selected.some((s) => values.includes(s))
+}
+
+function ownersMatch(people: Person[], selected: string[], owners: string[]): boolean {
+  if (selected.length === 0) return true
+  if (owners.length === 0 && selected.includes(NO_OWNER)) return true
+  return selected.some((o) => o !== NO_OWNER && ownerMatches(people, o, owners))
 }
 
 function labelsMatch(selected: string[], labels: string[]): boolean {
@@ -80,7 +110,7 @@ export function filterCards(
   return cards.filter(
     (card) =>
       anyOf(statuses, [card.status]) &&
-      (owners.length === 0 || owners.some((o) => ownerMatches(people, o, card.owners))) &&
+      ownersMatch(people, owners, card.owners) &&
       anyOf(testers, card.testers) &&
       anyOf(prefixes, [card.prefix]) &&
       labelsMatch(labels, card.labels) &&
@@ -94,12 +124,16 @@ export function filterCards(
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
+const byId = (a: Card, b: Card) => collator.compare(a.id, b.id)
+const byAdded = (a: Card, b: Card) => b.added.localeCompare(a.added) || byId(a, b)
+const byDone = (a: Card, b: Card) => (b.done ?? '').localeCompare(a.done ?? '') || byId(a, b)
+
 export function sortCards(cards: Card[], sort: BoardSearch['sort']): Card[] {
-  const sorted = [...cards]
-  if (sort === 'added') {
-    return sorted.sort((a, b) => b.added.localeCompare(a.added) || collator.compare(a.id, b.id))
-  }
-  return sorted.sort((a, b) => collator.compare(a.id, b.id))
+  const open = sort === 'added' ? byAdded : byId
+  return [...cards].sort((a, b) => {
+    if (a.archived !== b.archived) return a.archived ? 1 : -1
+    return a.archived ? byDone(a, b) : open(a, b)
+  })
 }
 
 export function activeFilterCount(search: BoardSearch): number {
@@ -134,6 +168,7 @@ export function countFacets(cards: Card[]): FacetCounts {
     add(counts.status, card.status)
     add(counts.prefix, card.prefix)
     card.owners.forEach((o) => add(counts.owner, o))
+    if (card.owners.length === 0) add(counts.owner, NO_OWNER)
     card.testers.forEach((t) => add(counts.tester, t))
     card.labels.forEach((l) => add(counts.label, l))
   }

@@ -63,6 +63,10 @@ In code: `taskfiles.Task.Archived`, `/api/archive`.
 A repository file fuda could not read. It is shown to people, never fatal.
 In code: `board.Problem`.
 
+**Activity entry**:
+One line of a Task's `## Activity` section: time, actor, event, result and an optional usage. A line in another form keeps only its text. Lines indented under it (two spaces, then `- `) are its **detail lines**. The task panel shows all entries as a timeline with their detail lines; a Stage with `activity: true` shows the latest on its cards, without detail lines.
+In code: `taskfiles.Activity` (`Details` for detail lines), parsed by `taskfiles.SplitActivity`; `board.Card.Activity`, `board.TaskView.Activities`; client `ActivityTimeline`, `lib/activity.ts`.
+
 **In review**:
 The Stage a Task is in while an open pull request names it, or when its Status is one the Stage lists (`in review` by default), set by a Move.
 In code: `board/reviews.go`, `board.LinkedPR`.

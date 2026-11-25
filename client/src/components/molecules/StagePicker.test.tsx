@@ -12,7 +12,9 @@ const column = (id: string, name: string): Column => ({
   name,
   statuses: [name.toLowerCase()],
   prOpen: false,
+  done: false,
   unknown: false,
+  activity: false,
 })
 
 describe('StagePicker', () => {

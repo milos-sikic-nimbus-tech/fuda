@@ -31,3 +31,7 @@ need to be told apart from humans.
 - Cards show the GitHub avatar, an agent badge, and the author of an open PR as a person when the
   login matches. The Owner filter can pick Humans or Agents.
 - Azure DevOps logins are not mapped yet; only `github` exists.
+
+## Switching existing boards (agreed with upstream, 25 November 2026)
+
+Upstream stored names. The switch is strict from the merge on, with no grace period that accepts names with a warning: an agent can rewrite a board's owners quickly with clear steps, and those steps are on the migration page (ADR 0011), linked from the Problem. Upstream's "No owner" choice in the Owner filter stays, next to Humans, Agents and My tasks.

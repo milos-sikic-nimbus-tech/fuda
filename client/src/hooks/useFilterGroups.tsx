@@ -1,10 +1,10 @@
-import { Bot, User } from 'lucide-react'
+import { Bot, User, UserRound } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { Avatar } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import type { Card, Column, Facets } from '@/lib/api'
-import { countFacets, listOf } from '@/lib/filters'
+import { countFacets, listOf, NO_OWNER } from '@/lib/filters'
 import { kindValue, ownerMatches, personOf } from '@/lib/people'
 
 export type FilterValue = { value: string; label: ReactNode; text: string; count: number }
@@ -38,6 +38,20 @@ function person(id: string, name: string): ReactNode {
       {name}
     </span>
   )
+}
+
+function noOwner(count: number): FilterValue {
+  return {
+    value: NO_OWNER,
+    text: 'No owner',
+    count,
+    label: (
+      <span className="inline-flex items-center gap-2">
+        <UserRound className="size-5 shrink-0 rounded-full border border-dashed border-muted-foreground/60 p-0.5 text-muted-foreground" />
+        No owner
+      </span>
+    ),
+  }
 }
 
 export function useFilterGroups(
@@ -135,7 +149,7 @@ export function useFilterGroups(
       'Owner',
       'owners',
       facets.people.map((p) => p.id),
-      kinds,
+      [noOwner(counts.owner.get(NO_OWNER) ?? 0), ...kinds],
     ),
     ...labelGroups.filter((g) => g.id !== 'label:type' && g.id !== 'label:epic'),
     people('tester', 'Tester', 'testers', facets.testers),

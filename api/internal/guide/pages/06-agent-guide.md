@@ -49,6 +49,23 @@ Retest, blocked, abandon, done, archive:
 - Archive is later cleanup: `git mv` a done or won't-do file to docs/board/archive/ (keeping its
   folder) and change nothing in the file, then fix every link to it in the same commit.
 
+Activity:
+- When you finish a step on a task (claim, spec, build, review, test, merge, block), add one line
+  at the end of its "## Activity" section; create the section at the end of the body if it is
+  missing. One line per step, in this form (the usage part is optional):
+  - 2026-10-27 10:40 · <your name> · <step> · <result> · <usage>
+  The time is YYYY-MM-DD HH:MM. The result is one word, for example PASS, READY, CHANGES,
+  BLOCKED or FAILED, or WORD: VALUE such as VERDICT: CHANGES (the board shows the value).
+- Under the line, add detail lines indented by two spaces when the result alone does not say
+  enough: findings, what happens next, a failure reason, or the path or URL of the evidence.
+  For example:
+  - 2026-10-27 11:05 · reviewer · code review · VERDICT: CHANGES · 40k tokens
+    - The Move handler does not check the token.
+    - The new parser has no test for an empty section.
+    - next: build fixes both findings
+    - ~/runs/A1/review.md
+- Only add lines. Never change, reorder or delete an existing Activity line.
+
 Commits that change task files touch only docs/board/ and use
 "chore(tasks): <add|claim|testing|validated|done|blocked|abandon|archive> <ID>".
 

@@ -4,6 +4,7 @@ import { LabelChip } from '@/components/atoms/LabelChip'
 import { PersonChip } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { TaskLink } from '@/components/atoms/TaskLink'
+import { ActivityTimeline } from '@/components/molecules/ActivityTimeline'
 import { OwnerPicker } from '@/components/molecules/OwnerPicker'
 import { StagePicker } from '@/components/molecules/StagePicker'
 import { RichContent } from '@/components/molecules/RichContent'
@@ -49,8 +50,8 @@ function Ids({ ids }: { ids: string[] }) {
 
 export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: string }) {
   const { search, toggle, openTask } = useBoardSearch()
-  const { data: task, isError } = useTask(search.task)
-  const { data: board } = useBoard()
+  const { data: task, isError, dataUpdatedAt: taskUpdatedAt } = useTask(search.task)
+  const { data: board, dataUpdatedAt: boardUpdatedAt } = useBoard()
   const assign = useAssign()
   const move = useMove()
   const movePending = usePendingMoves().some((m) => m.cardId === search.task)
@@ -107,7 +108,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
                   owners={owners}
                   me={board?.me?.personId}
                   saving={!!pending}
-                  readOnly={board?.readOnly ?? true}
+                  readOnly={(board?.readOnly ?? true) || task.archived}
                   onChange={(next) => assign.mutate({ card: task, owners: next })}
                 />
               </Field>
@@ -194,6 +195,10 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               selfId={task.id}
               lead="Done when"
               dropTitle
+            />
+            <ActivityTimeline
+              entries={task.activities}
+              now={Math.max(boardUpdatedAt, taskUpdatedAt)}
             />
           </div>
         )}

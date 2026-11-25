@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 
 	"fuda/internal/taskfiles"
 )
+
+var ErrInvalidOwner = errors.New("an owner name must be one line of text with no commas")
 
 type AssignRequest struct {
 	TaskID     string   `json:"-"`
@@ -19,6 +22,9 @@ type AssignRequest struct {
 var ErrUnknownPerson = errors.New("not an id in people.md")
 
 func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
+	if slices.ContainsFunc(req.Owners, invalidOwner) {
+		return ErrInvalidOwner
+	}
 	editor, err := s.requireEditor(ctx)
 	if err != nil {
 		return err
@@ -70,4 +76,10 @@ func sameNames(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func invalidOwner(name string) bool {
+	return strings.TrimSpace(name) == "" || strings.ContainsFunc(name, func(r rune) bool {
+		return r == ',' || unicode.IsControl(r)
+	})
 }

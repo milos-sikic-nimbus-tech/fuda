@@ -4,6 +4,7 @@ import { Hint } from '@/components/atoms/Hint'
 import { LabelChip } from '@/components/atoms/LabelChip'
 import { labelText } from '@/lib/labels'
 import { Avatar } from '@/components/atoms/PersonChip'
+import { ResultBadge } from '@/components/molecules/ActivityTimeline'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import { usePeople } from '@/hooks/usePeople'
@@ -156,6 +157,18 @@ export function TaskCard({
         </span>
       </div>
       <p className="mt-1 text-[13px] leading-snug text-card-foreground">{card.title}</p>
+      {card.activity && (
+        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="truncate">
+            {card.activity.actor
+              ? `${card.activity.actor} · ${card.activity.event}`
+              : card.activity.text}
+          </span>
+          {card.activity.actor && card.activity.result && (
+            <ResultBadge result={card.activity.result} className="h-4 px-1.5 text-[10px]" />
+          )}
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-1 empty:hidden">
         <CardSignals card={card} />
         {ranked.slice(0, visibleLabels).map((label) => (

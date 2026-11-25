@@ -88,6 +88,7 @@ type snapshot struct {
 	links   markdown.Links
 	byID    map[string]taskfiles.Task
 	heads   map[string]string
+	day     string
 }
 
 func NewService(source Source, opts Options) *Service {
@@ -124,8 +125,9 @@ func (s *Service) Status() SyncStatus {
 
 type TaskView struct {
 	Card
-	Custom []taskfiles.Field `json:"custom"`
-	HTML   string            `json:"html"`
+	Custom     []taskfiles.Field    `json:"custom"`
+	Activities []taskfiles.Activity `json:"activities"`
+	HTML       string               `json:"html"`
 }
 
 func (s *Service) Task(id string) (TaskView, error) {
@@ -137,11 +139,12 @@ func (s *Service) Task(id string) (TaskView, error) {
 	if !ok {
 		return TaskView{}, ErrNotFound
 	}
-	html, err := markdown.Render([]byte(t.Body), t.Path, snap.links)
+	body, activities := taskfiles.SplitActivity(t.Body)
+	html, err := markdown.Render([]byte(body), t.Path, snap.links)
 	if err != nil {
 		return TaskView{}, err
 	}
-	view := TaskView{Custom: orEmpty(t.Custom), HTML: html}
+	view := TaskView{Custom: orEmpty(t.Custom), Activities: orEmpty(activities), HTML: html}
 	if card, found := snap.cardByID(id); found {
 		view.Card = card
 	} else {
@@ -177,30 +180,6 @@ func (s *Service) Archive() []Card {
 		out = append(out, archivedCard(t))
 	}
 	return out
-}
-
-func archivedCard(t taskfiles.Task) Card {
-	return Card{
-		ID:           t.ID,
-		Title:        t.Title,
-		Status:       t.Status,
-		Owners:       orEmpty(t.Owners),
-		Testers:      orEmpty(t.Testers),
-		Labels:       labelStrings(t.Labels),
-		Prefix:       idPrefix(t.ID),
-		Added:        t.Added,
-		Claimed:      t.Claimed,
-		Done:         t.Done,
-		PRs:          orEmpty(t.PRs),
-		PRRef:        t.PRRef,
-		OpenPRs:      []LinkedPR{},
-		BlockedBy:    t.BlockedBy,
-		BlockedByIDs: []string{},
-		Blocks:       []string{},
-		References:   []string{},
-		ReferencedBy: []string{},
-		Path:         t.Path,
-	}
 }
 
 var markdownLink = regexp.MustCompile(`\]\(([^)\s#]+)`)

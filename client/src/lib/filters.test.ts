@@ -5,7 +5,10 @@ import {
   boardSearchSchema,
   countFacets,
   filterCards,
+  namesOnly,
+  NO_OWNER,
   sortCards,
+  splitOwners,
   toggled,
 } from './filters'
 
@@ -27,6 +30,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
     blocks: [],
     references: [],
     referencedBy: [],
+    archived: false,
     path: `docs/board/tasks/${id}.md`,
     ...overrides,
   }
@@ -60,11 +64,54 @@ describe('filterCards', () => {
     expect(ids(filterCards(cards, { label: 'type:bug,area:api' }))).toEqual(['SS-2'])
   })
 
+  it('filters cards in the Done column like any other card', () => {
+    const done = card('SS-9', {
+      status: 'done',
+      column: 'done',
+      archived: true,
+      owners: ['Ana'],
+      done: '2026-10-27',
+    })
+    const all = [...cards, done]
+    expect(ids(filterCards(all, { status: 'done' }))).toEqual(['SS-9'])
+    expect(ids(filterCards(all, { owner: 'Ana' }))).toContain('SS-9')
+    expect(ids(filterCards(all, { owner: 'Ben' }))).not.toContain('SS-9')
+  })
+
   it('filters by status, owner, blocked and available', () => {
     expect(ids(filterCards(cards, { status: 'merged' }))).toEqual(['SS-2'])
     expect(ids(filterCards(cards, { owner: 'Ben,Ana' }))).toEqual(['SS-2', 'SS-3'])
     expect(ids(filterCards(cards, { blocked: true }))).toEqual(['SS-3'])
     expect(ids(filterCards(cards, { available: true }))).toEqual(['SS-10'])
+  })
+
+  describe('no owner', () => {
+    const board = [...cards, card('SS-4', { status: 'in progress', labels: ['type:bug'] })]
+
+    it('matches only cards without an owner, in every status', () => {
+      expect(ids(filterCards(board, { owner: NO_OWNER }))).toEqual(['SS-10', 'SS-4'])
+    })
+
+    it('adds the cards of the named owners', () => {
+      expect(ids(filterCards(board, { owner: `${NO_OWNER},Ana` }))).toEqual([
+        'SS-2',
+        'SS-10',
+        'SS-4',
+      ])
+    })
+
+    it('narrows together with status and label filters', () => {
+      expect(ids(filterCards(board, { owner: NO_OWNER, status: 'in progress' }))).toEqual(['SS-4'])
+      expect(ids(filterCards(board, { owner: `${NO_OWNER},Ben`, label: 'type:bug' }))).toEqual([
+        'SS-3',
+        'SS-4',
+      ])
+    })
+
+    it('never matches a card with owners', () => {
+      const owned = [card('SS-5', { owners: ['Ana', 'Ben'] })]
+      expect(filterCards(owned, { owner: NO_OWNER })).toEqual([])
+    })
   })
 
   it('filters by added range, skipping tasks without a date', () => {
@@ -91,6 +138,11 @@ describe('url state', () => {
     expect(toggled('merged', 'testing')).toBe('merged,testing')
     expect(toggled('merged,testing', 'merged')).toBe('testing')
     expect(toggled('merged', 'merged')).toBeUndefined()
+    expect(toggled(`${NO_OWNER},Claude`, NO_OWNER)).toBe('Claude')
+  })
+
+  it('keeps the no owner token in the owner list', () => {
+    expect(boardSearchSchema.parse({ owner: 'none,Claude' })).toEqual({ owner: 'none,Claude' })
   })
 
   it('counts active filters', () => {
@@ -98,10 +150,45 @@ describe('url state', () => {
   })
 })
 
+describe('owner pills', () => {
+  it('splits no owner from the names and says what each remove leaves', () => {
+    expect(splitOwners('none,Claude,Ana')).toEqual({
+      noOwner: true,
+      names: ['Claude', 'Ana'],
+      withoutNames: 'none',
+      withoutNoOwner: 'Claude,Ana',
+    })
+    expect(splitOwners('none')).toMatchObject({ withoutNames: 'none', withoutNoOwner: undefined })
+    expect(splitOwners('Claude')).toMatchObject({ noOwner: false, withoutNames: undefined })
+  })
+
+  it('keeps only the names in the owner names pill', () => {
+    const group = {
+      values: [{ value: NO_OWNER }, { value: 'Claude' }, { value: 'Ana' }],
+      selected: [NO_OWNER, 'Claude'],
+    }
+    expect(namesOnly(group)).toEqual({
+      values: [{ value: 'Claude' }, { value: 'Ana' }],
+      selected: ['Claude'],
+    })
+  })
+})
+
 describe('sortCards', () => {
   it('sorts ids naturally, or by newest added', () => {
     expect(ids(sortCards(cards, 'id'))).toEqual(['SS-2', 'SS-3', 'SS-10'])
     expect(ids(sortCards(cards, 'added'))).toEqual(['SS-10', 'SS-3', 'SS-2'])
+  })
+
+  it('keeps Done cards newest done first in every sort', () => {
+    const done = [
+      card('SS-4', { archived: true, done: '2026-10-26', added: '2026-10-01' }),
+      card('SS-11', { archived: true, done: '2026-10-28', added: '2026-09-01' }),
+      card('SS-5', { archived: true, done: '2026-10-27', added: '2026-10-20' }),
+    ]
+    for (const sort of ['id', 'added'] as const) {
+      expect(ids(sortCards([...done, ...cards], sort)).slice(-3)).toEqual(['SS-11', 'SS-5', 'SS-4'])
+    }
   })
 })
 
@@ -111,5 +198,9 @@ describe('countFacets', () => {
     expect(counts.label.get('type:bug')).toBe(2)
     expect(counts.owner.get('Ana')).toBe(1)
     expect(counts.status.get('backlog')).toBe(2)
+  })
+
+  it('counts cards without an owner under no owner', () => {
+    expect(countFacets(cards).owner.get(NO_OWNER)).toBe(1)
   })
 })

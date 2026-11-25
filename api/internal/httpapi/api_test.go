@@ -424,6 +424,8 @@ func TestAssignThroughTheHandler(t *testing.T) {
 	if !strings.Contains(body, "Ben set the owners to Ann just now") {
 		t.Errorf("conflict body: %s", body)
 	}
+
+	assign("member", `{"seen":["Ann"],"owners":["Ann\nBen"]}`, http.StatusBadRequest)
 }
 
 type protectedSource struct{ movableSource }

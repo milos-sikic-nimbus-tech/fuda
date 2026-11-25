@@ -250,6 +250,7 @@ stages:
     when: pr-open
   - name: Testing
     status: [testing, in qa]
+    activity: true
 ---
 # Stages
 `),
@@ -282,7 +283,7 @@ people:
 	checkDeep(t, "stages", r.Config.Stages, []Stage{
 		{Name: "Backlog", Statuses: []string{"backlog"}},
 		{Name: "In review", WhenPROpen: true},
-		{Name: "Testing", Statuses: []string{"testing", "in qa"}},
+		{Name: "Testing", Statuses: []string{"testing", "in qa"}, Activity: true},
 	})
 	checkDeep(t, "label groups", r.Config.LabelGroups, []LabelGroup{
 		{Name: "type", Values: []string{"bug", "feat"}},
@@ -294,6 +295,55 @@ people:
 		{ID: "research-agent", Name: "Research agent", Kind: KindAgent},
 	})
 	checkDeep(t, "code repos", r.Config.CodeRepos, []string{"acme/app", "acme/web"})
+}
+
+func TestParseDoneStage(t *testing.T) {
+	cases := []struct {
+		name     string
+		days     string
+		want     int
+		problems int
+	}{
+		{"default window", "", defaultDoneDays, 0},
+		{"set window", "\n    days: 7", 7, 0},
+		{"zero days", "\n    days: 0", defaultDoneDays, 1},
+		{"text days", "\n    days: soon", defaultDoneDays, 1},
+		{"fraction days", "\n    days: 1.5", defaultDoneDays, 1},
+		{"list days", "\n    days: [3]", defaultDoneDays, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			content := "---\nstages:\n  - name: Backlog\n    status: [backlog]\n  - name: Done\n    when: done" + c.days + "\n---\n"
+			r := Parse(map[string][]byte{"docs/board/stages.md": []byte(content)}, layout)
+			if len(r.Problems) != c.problems {
+				t.Fatalf("want %d problems, got %+v", c.problems, r.Problems)
+			}
+			if c.problems > 0 && r.Problems[0].Path != "docs/board/stages.md" {
+				t.Errorf("problem path %q", r.Problems[0].Path)
+			}
+			checkDeep(t, "stages", r.Config.Stages, []Stage{
+				{Name: "Backlog", Statuses: []string{"backlog"}},
+				{Name: "Done", WhenDone: true, Days: c.want},
+			})
+		})
+	}
+}
+
+func TestParseSecondDoneStageIsAProblem(t *testing.T) {
+	content := "---\nstages:\n  - name: Done\n    when: done\n  - name: Shipped\n    when: done\n    days: 3\n---\n"
+	r := Parse(map[string][]byte{"docs/board/stages.md": []byte(content)}, layout)
+	if len(r.Problems) != 1 || !strings.Contains(r.Problems[0].Reason, "Shipped") {
+		t.Fatalf("want one problem about Shipped, got %+v", r.Problems)
+	}
+	checkDeep(t, "stages", r.Config.Stages, []Stage{{Name: "Done", WhenDone: true, Days: defaultDoneDays}})
+}
+
+func TestParseDoneStageWithStatusIsIgnored(t *testing.T) {
+	content := "---\nstages:\n  - name: Done\n    when: done\n    status: [done]\n---\n"
+	r := Parse(map[string][]byte{"docs/board/stages.md": []byte(content)}, layout)
+	if len(r.Problems) != 1 || r.Config.Stages != nil {
+		t.Fatalf("want the file ignored with one problem, got %+v %+v", r.Problems, r.Config.Stages)
+	}
 }
 
 func TestParseInvalidConfigIsIgnored(t *testing.T) {

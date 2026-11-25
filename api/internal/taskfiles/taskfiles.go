@@ -10,22 +10,23 @@ import (
 )
 
 type Task struct {
-	Path      string
-	ID        string
-	Title     string
-	Status    string
-	BlockedBy string
-	Owners    []string
-	Testers   []string
-	Labels    []Label
-	Added     string
-	Claimed   string
-	Done      string
-	PRs       []int
-	PRRef     string
-	Custom    []Field
-	Body      string
-	Archived  bool
+	Path       string
+	ID         string
+	Title      string
+	Status     string
+	BlockedBy  string
+	Owners     []string
+	Testers    []string
+	Labels     []Label
+	Added      string
+	Claimed    string
+	Done       string
+	PRs        []int
+	PRRef      string
+	Custom     []Field
+	Body       string
+	Activities []Activity
+	Archived   bool
 }
 
 type Label struct {
@@ -49,6 +50,9 @@ type Stage struct {
 	Name       string
 	Statuses   []string
 	WhenPROpen bool
+	WhenDone   bool
+	Days       int
+	Activity   bool
 }
 
 type LabelGroup struct {

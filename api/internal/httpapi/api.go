@@ -292,6 +292,8 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 	case errors.Is(err, board.ErrUnknownPerson):
 		a.json(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	case errors.Is(err, board.ErrInvalidOwner):
+		a.json(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 	case errors.As(err, &conflict):
 		a.json(w, http.StatusConflict, map[string]string{"error": conflict.Message})
 	case err != nil:

@@ -5,7 +5,8 @@ built is in [decisions.md § TBD](decisions.md#tbd). Change this file in the sam
 it describes.
 
 For how a repo is set up and how teams use the board, see the Guide pages in
-[`api/internal/guide/pages`](../api/internal/guide/pages) (also served inside the app).
+[`api/internal/guide/pages`](../api/internal/guide/pages) (also served inside the app). The words
+used here (Board, Stage, Move, Assign, Host, …) are defined in [CONTEXT.md](../CONTEXT.md).
 
 ## The shape
 
@@ -54,10 +55,10 @@ are declared where they are used. The host names (`board.HostGitHub`, `board.Hos
 | `cmd/fuda` | Reads config, builds the logins and the Board registry, wires the HTTP server, graceful shutdown. |
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per host. `FUDA_HOSTS` lists the hosts (`FUDA_SOURCE` still works as the old name). `LoadDesktop` does the same for the desktop app, with the values built into the binary as defaults. |
 | `internal/board` | All behaviour. `context.go`: the caller's host token travels in the request context. `boards.go`: `Registry`, the open Boards. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `TaskEditor` (read a file, write it, name its last editor, say whether the caller may write). |
-| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. |
+| `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. `activity.go`: `SplitActivity` takes the `## Activity` section out of a body as Activity entries; a line that does not match keeps only its text, and lines indented under an entry (two spaces, then `- `) become its `Details`. |
 | `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for the board branch, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place, at its real path (inside its epic folder if it has one). No PRs. |
-| `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories. 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
-| `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations and `fuda-` repositories of the user, the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
+| `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories and the ones in the board setting (`FUDA_GITHUB_BOARDS`). 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
+| `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations of the user and their `fuda-` repositories and the ones in the board setting (`FUDA_AZURE_BOARDS`), the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
 | `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. `menu.go`: the menu. `update.go`, `release.go`: "Check for updates" lists GitHub Releases, takes the newest published one by version (no matching asset needed) and opens its release page if it is newer; it does not install anything. On macOS it ships as an ad-hoc-signed `fuda.app` (`Info.plist`, `icon.icns`) inside a DMG. The GitHub client id and app slug are built in; the build fails without them. |
@@ -154,6 +155,7 @@ builds a new snapshot and swaps it in. A snapshot contains:
 
 - the parsed result (tasks, archive, config, problems);
 - the built `Board` (columns, cards, facets, epic maps, problems), computed once per sync;
+- the date it was built on, so a sync rebuilds the Board when the day changes (Done column);
 - docs (`*.md`) and images under `docs/`, kept as bytes (images up to 5 MB each);
 - the open-PR result (which open PRs name each task: In review);
 - the head SHA per branch it was built from.
@@ -202,6 +204,9 @@ flowchart TD
   M -- yes --> COL["that stage's column"]
   M -- no --> UNK["a column named after the status,<br/>flagged unknown, at the end"]
   ST -- no --> DEF["default stages: Backlog, In progress, In review,<br/>Merged, Testing, Validated; other statuses flagged unknown"]
+  A["task file in docs/board/archive/"] --> DQ{"a stage has when: done,<br/>and done is within its days?"}
+  DQ -- yes --> DONE["Done column, the last one"]
+  DQ -- no --> AV["Archive view only"]
 ```
 
 - **Names:** the task's id appears, as a whole word and in any case, in the title or branch name
@@ -218,6 +223,12 @@ flowchart TD
   [decisions.md](decisions.md).
 - **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them, with whatever Status they have.
   The Archive is a place, not a status (ADR 0006): `done` is valid in `tasks/`, and the default Stages end with Done.
+  The exception is a `stages.md` entry with `when: done`: it makes a Done column, always the last,
+  with the archived tasks whose `done` date is within the last `days` days (default 14), today
+  included, in the server's local date, newest first. A task without a valid `done` date is not
+  in it. Its cards are archived, so a Move or an Assign is refused, and the column has no
+  statuses, so nothing drops on it. The filters and facets cover them like other cards; Insights
+  ignore them.
 
 ### Epic maps
 
@@ -242,6 +253,8 @@ the body as raw text. There is no percentage.
   move it into an epic folder.
 - An invalid `stages.md`, `labels.md`, `people.md` or `repos.md`: the file is ignored and the board is derived
   from the tasks instead.
+- A `when: done` stage with a `days` that is not a positive whole number: the stage stays and its
+  window is 14 days. A second `when: done` stage: it is ignored.
 
 ### Facets (what the filters offer)
 
@@ -249,6 +262,9 @@ the body as raw text. There is no percentage.
   `kind`. `owner` and `tester` values must match an id exactly; any other value is a Problem on
   that Task. A PR's author login is matched to `github` and sent as `authorId`. Otherwise every
   owner and tester, matched case-insensitively, with a unique first name folded into the full name.
+  The Owner facet starts with "No owner" (`none` in the `owner` URL list): it matches cards with an
+  empty `owner`, any-of with the named owners. `none` is reserved, so a person with the id "none" is
+  not supported.
 - **Me:** `GET` of a board includes `me` (`login`, `personId`) when the source knows the caller's
   login (GitHub `/user`, cached per token). The client uses it for "Assign to me" and "My tasks".
 - **Labels:** `group:value`. `theme` reads as `epic`; a bare value goes to the `label` group. From
@@ -256,7 +272,7 @@ the body as raw text. There is no percentage.
   default `type` values added.
 - **Label colours:** `labels.md` `colors:` first, then fixed colours for the default types, then
   a palette in order per group.
-- **Statuses, testers, id prefixes:** from the tasks.
+- **Statuses, testers, id prefixes:** from the tasks, including those in the Done column.
 
 ## End to end
 
@@ -344,8 +360,8 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 
 | Route | Returns |
 |---|---|
-| `GET …/board` | Columns, cards, facets, epic maps, problems, sync state, title, origin. 503 (same body) until a snapshot exists. |
-| `GET …/tasks/{id}` | One card plus custom fields and the rendered body. |
+| `GET …/board` | Columns, cards, facets, epic maps, problems, sync state, title, origin. A card in a column with `activity: true` carries its latest Activity entry, without its detail lines. 503 (same body) until a snapshot exists. |
+| `GET …/tasks/{id}` | One card plus custom fields, the Activity entries with their detail lines and the rendered body without its `## Activity` section. |
 | `GET …/search?q=` | Ids of tasks whose title or body contains the text. |
 | `GET …/archive` | Archived tasks as cards. |
 | `GET …/docs/list` | Paths of every Doc (relative to `docs/`, sorted): markdown under `docs/` outside `board/tasks/` and `board/archive/`. |
@@ -354,7 +370,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
 | `POST …/sync` | 202, or 429 inside the cooldown. |
 | `POST …/tasks/{id}/move` | Body `{"seen": "<status the client showed>", "column": "<column id>"}`, `application/json`. 204 when committed. 409 with a message when `status` changed first. 403 for archived Tasks, PR-derived Stages and sources that cannot write. 401 when the login expired. |
-| `POST …/tasks/{id}/assign` | Body `{"seen": ["<owners the client showed>"], "owners": ["<short names>"]}`, `application/json`. 204 when committed. 409 with a message when the owners changed first. 403 for archived Tasks and sources that cannot write. 401 when the login expired. |
+| `POST …/tasks/{id}/assign` | Body `{"seen": ["<owners the client showed>"], "owners": ["<short names>"]}`, `application/json`. 204 when committed. 409 with a message when the owners changed first. 400 when a name is empty, has a comma or a control character. 403 for archived Tasks and sources that cannot write. 401 when the login expired. |
 | `GET /api/boards` | `{boards, hosts}`. `boards` are the Boards the caller can open on every host they are logged in to: `host`, `repo`, `path`, `title`. `hosts` has one entry per login host: `host`, `loggedIn`, `login` (where to log in), and `error` when that host's list failed. Always 200: a host without a login only shows `loggedIn: false`. |
 | `GET /auth/<host>/login?return=`, `GET /auth/<host>/callback`, `POST /auth/<host>/logout` | The login flow of `github` or `azure` (only when `FUDA_HOSTS` includes it). `return` must be a path on this site. Logout clears only that host. |
 | `POST /auth/logout` | Clears every host's login. 204. |

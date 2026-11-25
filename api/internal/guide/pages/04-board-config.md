@@ -13,6 +13,7 @@ stages:
     status: [backlog]
   - name: In progress
     status: [in progress]
+    activity: true
   - name: In review
     status: [in review]
     when: pr-open
@@ -32,7 +33,18 @@ stages:
 - `when: pr-open` is the In review column: a task that an open pull request names shows there,
   whatever its status, and is locked. With a `status` list as well, a card can also be dragged
   there, which writes the first status. Without one, only open pull requests fill it.
-- A status no column lists gets its own column at the end, marked unknown.
+- `activity: true` makes the column's cards show the latest entry of the task's `## Activity`
+  section in short form: `<actor> · <event>`. A card without that section looks the same as in
+  any other column.
+- `when: done` adds a Done column with the archived tasks whose `done` date is within the last
+  `days` days, today included, newest first whatever the board's sort. Without `days` the window is 14 days. An archived
+  task without a valid `done` date (`YYYY-MM-DD`) is not in the column. Older tasks show only on
+  the Archive tab. The column is always the last one and takes no status list. Its cards cannot
+  be moved or assigned, and nothing can be dropped on it. The filters apply to it as to the other
+  columns. Without a `when: done` entry, archived tasks show only on the Archive tab.
+- `days` must be a positive whole number. Any other value is listed under Problems and the column
+  uses 14. Only one `when: done` entry counts; a second one is listed under Problems and ignored.
+- A status no column lists gets its own column, marked unknown, before the Done column.
 
 ## labels.md: label groups, values and colours
 
@@ -86,6 +98,7 @@ writes ids, and only ids listed here.
 
 Without the file, people come from the names used in tasks, matched case-insensitively, and a
 unique first name is matched to the full name.
+The Owner filter also offers "No owner" for the cards that have no owner.
 
 ## repos.md: code repositories for In review
 

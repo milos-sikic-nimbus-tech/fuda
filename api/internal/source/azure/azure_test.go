@@ -92,7 +92,7 @@ func asUser() context.Context { return board.WithToken(context.Background(), "us
 
 func TestListBoardsKeepsOnlyFudaRepositories(t *testing.T) {
 	s := serve(t, &fakeHost{})
-	got, err := s.listBoards(asUser())
+	got, err := s.listBoards(asUser(), nil)
 	if err != nil || !slices.Equal(got, []string{"acme/Team/fuda-tasks"}) {
 		t.Errorf("got %v, %v", got, err)
 	}
@@ -183,5 +183,28 @@ func TestWriteFileReportsAProtectedBranch(t *testing.T) {
 	err := serve(t, f).WriteFile(asUser(), "main", "docs/a.md", []byte("x"), "blob-1", "m")
 	if !errors.Is(err, board.ErrProtectedBranch) {
 		t.Errorf("err %v", err)
+	}
+}
+
+func TestListBoardsAddsTheListedRepositories(t *testing.T) {
+	s := serve(t, &fakeHost{})
+	tests := []struct {
+		name   string
+		listed []string
+		want   []string
+	}{
+		{"prefix only", nil, []string{"acme/Team/fuda-tasks"}},
+		{"listed", []string{"acme/Team/api"}, []string{"acme/Team/fuda-tasks", "acme/Team/api"}},
+		{"case ignored", []string{"ACME/team/API"}, []string{"acme/Team/fuda-tasks", "acme/Team/api"}},
+		{"prefix and listed once", []string{"acme/Team/fuda-tasks"}, []string{"acme/Team/fuda-tasks"}},
+		{"listed but not returned", []string{"acme/Team/secret"}, []string{"acme/Team/fuda-tasks"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.listBoards(asUser(), tt.listed)
+			if err != nil || !slices.Equal(got, tt.want) {
+				t.Errorf("got %v, %v, want %v", got, err, tt.want)
+			}
+		})
 	}
 }

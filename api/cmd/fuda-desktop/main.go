@@ -24,6 +24,8 @@ var (
 	githubClientID = ""
 	githubAppSlug  = ""
 	azureClientID  = ""
+	githubBoards   = ""
+	azureBoards    = ""
 )
 
 //go:embed icon.png
@@ -49,6 +51,8 @@ func run(log *slog.Logger) error {
 		GitHubClientID: githubClientID,
 		GitHubAppSlug:  githubAppSlug,
 		AzureClientID:  azureClientID,
+		GitHubBoards:   githubBoards,
+		AzureBoards:    azureBoards,
 		CacheDir:       filepath.Join(cacheRoot, "fuda"),
 	})
 	if err != nil {
