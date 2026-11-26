@@ -18,6 +18,7 @@ const choices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 export function ThemeToggle() {
   const { choice, resolved, setChoice } = useTheme()
   const Current = resolved === 'dark' ? Moon : Sun
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

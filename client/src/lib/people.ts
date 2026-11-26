@@ -16,5 +16,6 @@ export function ownerMatches(people: Person[], selected: string, owners: string[
   if (selected.startsWith('kind:')) {
     return owners.some((o) => kindValue(personOf(people, o).kind) === selected)
   }
+
   return owners.includes(selected)
 }

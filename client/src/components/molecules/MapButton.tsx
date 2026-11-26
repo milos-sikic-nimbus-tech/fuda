@@ -10,7 +10,11 @@ import { mapForSelection } from '@/lib/epicMaps'
 export function MapButton({ maps, columns }: { maps: EpicMap[]; columns: Column[] }) {
   const { search } = useBoardSearch()
   const [open, setOpen] = useState(false)
-  if (maps.length === 0) return null
+
+  if (maps.length === 0) {
+    return null
+  }
+
   const selected = mapForSelection(maps, search.label)
 
   return (

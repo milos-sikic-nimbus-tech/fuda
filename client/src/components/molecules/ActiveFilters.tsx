@@ -29,6 +29,7 @@ export function ActiveFilters({ groups }: { groups: FilterGroup[] }) {
     )
     .filter((g) => g.selected.length > 0)
   const dated = Boolean(search.from || search.to)
+
   if (
     active.length === 0 &&
     !noOwner &&
@@ -36,8 +37,9 @@ export function ActiveFilters({ groups }: { groups: FilterGroup[] }) {
     !search.blocked &&
     !search.available &&
     !search.q
-  )
+  ) {
     return null
+  }
 
   return (
     <>

@@ -34,8 +34,15 @@ export function PillShell({
 
 function valueSummary(group: FilterGroup): ReactNode {
   const chosen = group.values.filter((v) => group.selected.includes(v.value))
-  if (chosen.length === 1) return chosen[0].label
-  if (chosen.length <= 2) return chosen.map((v) => v.text).join(', ')
+
+  if (chosen.length === 1) {
+    return chosen[0].label
+  }
+
+  if (chosen.length <= 2) {
+    return chosen.map((v) => v.text).join(', ')
+  }
+
   return `${chosen.length} ${group.plural}`
 }
 

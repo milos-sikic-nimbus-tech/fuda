@@ -66,6 +66,7 @@ export function OwnerPicker({
                 owners,
               ).map((id) => {
                 const person = personOf(people, id)
+
                 return (
                   <CommandItem
                     key={id}

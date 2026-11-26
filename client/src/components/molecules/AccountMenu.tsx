@@ -14,8 +14,13 @@ import { useBoardListing } from '@/lib/queries'
 
 export function AccountMenu() {
   const { data } = useBoardListing()
-  if (!data || data.hosts.length === 0) return null
+
+  if (!data || data.hosts.length === 0) {
+    return null
+  }
+
   const returnTo = window.location.pathname + window.location.search
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -39,6 +44,7 @@ export function AccountMenu() {
               </span>
             </>
           )
+
           return host.loggedIn ? (
             <DropdownMenuItem key={host.host} onSelect={() => void logOut(host.host)}>
               {row}

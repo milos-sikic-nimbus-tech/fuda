@@ -29,12 +29,17 @@ export function Avatar({ id, role, className }: { id: string; role?: string; cla
       )}
     </span>
   )
-  if (!role) return avatar
+
+  if (!role) {
+    return avatar
+  }
+
   return <Hint label={`${role}: ${person.name}${agent ? ' (agent)' : ''}`}>{avatar}</Hint>
 }
 
 export function PersonChip({ id, onClick }: { id: string; onClick?: () => void }) {
   const person = usePeople().personOf(id)
+
   return (
     <button
       type="button"

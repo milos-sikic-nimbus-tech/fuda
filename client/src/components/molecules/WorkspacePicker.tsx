@@ -26,10 +26,18 @@ function PickerPlaceholder() {
 
 export function WorkspacePicker({ board }: { board?: BoardData }) {
   const { data } = useBoardListing()
-  if (!data) return BOARD_PREFIX ? <PickerPlaceholder /> : null
-  if (data.boards.length === 0 && data.hosts.length === 0) return null
+
+  if (!data) {
+    return BOARD_PREFIX ? <PickerPlaceholder /> : null
+  }
+
+  if (data.boards.length === 0 && data.hosts.length === 0) {
+    return null
+  }
+
   const listed = data.boards.find((entry) => entry.path === BOARD_PREFIX)
   const host = board?.origin.host ?? listed?.host
+
   return (
     <>
       <span className="hidden text-border sm:inline">/</span>
@@ -57,6 +65,7 @@ export function WorkspacePicker({ board }: { board?: BoardData }) {
               <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
               {group.boards.map((entry) => {
                 const current = entry.path === BOARD_PREFIX
+
                 return (
                   <Fragment key={entry.path}>
                     <DropdownMenuItem asChild className="gap-2">

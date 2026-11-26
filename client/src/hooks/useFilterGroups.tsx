@@ -67,6 +67,7 @@ export function useFilterGroups(
   const labelGroups: FilterGroup[] = facets.labelGroups.map((g) => {
     const prefix = `${g.name}:`
     const [title, plural] = titleOf(g.name)
+
     return {
       id: `label:${g.name}`,
       title,
@@ -96,6 +97,7 @@ export function useFilterGroups(
     ? (['human', 'agent'] as const).map((kind) => {
         const value = kindValue(kind)
         const title = kind === 'agent' ? 'Agents' : 'Humans'
+
         return {
           value,
           text: title,
@@ -127,6 +129,7 @@ export function useFilterGroups(
         .map((id) => {
           const p = personOf(facets.people, id)
           const name = id === me ? `${p.name} (you)` : p.name
+
           return {
             value: id,
             text: [name, ...p.aliases].join(' '),
@@ -187,5 +190,6 @@ export function useFilterGroups(
       clear: () => update({ prefix: undefined }),
     },
   ]
+
   return groups.filter((g) => g.values.length > 0)
 }

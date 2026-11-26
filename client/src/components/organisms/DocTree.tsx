@@ -15,6 +15,7 @@ export function DocTree({ paths, openPath }: { paths: string[]; openPath: string
 
   const renderNode = (node: DocNode, depth: number) => {
     const indent = { paddingLeft: `${depth * 12 + 8}px` }
+
     if (node.kind === 'doc') {
       return (
         <Link
@@ -33,7 +34,9 @@ export function DocTree({ paths, openPath }: { paths: string[]; openPath: string
         </Link>
       )
     }
+
     const expanded = isExpanded(node.path)
+
     return (
       <div key={node.path}>
         <button

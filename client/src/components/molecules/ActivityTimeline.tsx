@@ -16,6 +16,7 @@ const visibleDetails = 3
 
 export function ResultBadge({ result, className }: { result: string; className?: string }) {
   const tone = resultTone(result)
+
   return (
     <span
       data-tone={tone}
@@ -38,6 +39,7 @@ function CopyPath({ path }: { path: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     })
+
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
       <code className="font-mono text-xs [overflow-wrap:anywhere]">{path}</code>
@@ -77,6 +79,7 @@ function Details({ details }: { details: string[] }) {
   const [expanded, setExpanded] = useState(false)
   const hidden = details.length - visibleDetails
   const shown = expanded || hidden <= 0 ? details : details.slice(0, visibleDetails)
+
   return (
     <div className="mt-1 text-xs text-muted-foreground">
       <ul className="list-disc space-y-0.5 pl-4">
@@ -101,6 +104,7 @@ function Details({ details }: { details: string[] }) {
 
 function Entry({ entry, now }: { entry: Activity; now: number }) {
   const details = entry.details ?? []
+
   if (!entry.actor) {
     return (
       <>
@@ -109,6 +113,7 @@ function Entry({ entry, now }: { entry: Activity; now: number }) {
       </>
     )
   }
+
   return (
     <>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
@@ -135,8 +140,12 @@ function Entry({ entry, now }: { entry: Activity; now: number }) {
 }
 
 export function ActivityTimeline({ entries, now }: { entries: Activity[]; now: number }) {
-  if (entries.length === 0) return null
+  if (entries.length === 0) {
+    return null
+  }
+
   const newestFirst = entries.map((entry, index) => ({ entry, index })).reverse()
+
   return (
     <section aria-label="Activity">
       <h2 className="mb-2 text-sm font-semibold">Activity</h2>

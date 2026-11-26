@@ -11,11 +11,13 @@ afterEach(cleanup)
 export function renderWithListing(ui: ReactElement, listing: BoardListData) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(keys.boards, listing)
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 export function renderWithBoard(ui: ReactElement, board: Partial<BoardData> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(keys.board, { facets: { people: [] }, ...board })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }

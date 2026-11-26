@@ -17,7 +17,10 @@ export function StagePicker({
   saving: boolean
   onMove: (column: Column) => void
 }) {
-  if (targets.length === 0) return null
+  if (targets.length === 0) {
+    return null
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

@@ -10,7 +10,9 @@ export function BoardList() {
   const only = data && onlyBoard(data)
 
   useEffect(() => {
-    if (only) window.location.replace(only.path)
+    if (only) {
+      window.location.replace(only.path)
+    }
   }, [only])
 
   if (error) {
@@ -18,11 +20,14 @@ export function BoardList() {
       <p className="p-6 text-sm text-muted-foreground">Could not list Boards: {error.message}</p>
     )
   }
+
   if (!data || only) {
     return <p className="p-6 text-sm text-muted-foreground">Loading Boards…</p>
   }
+
   const { boards, hosts } = data
   const missingApp = missingInstallUrl(data)
+
   if (boards.length === 0 && hosts.every((host) => host.loggedIn)) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
@@ -40,6 +45,7 @@ export function BoardList() {
       </p>
     )
   }
+
   return (
     <main className="mx-auto w-full max-w-md p-6">
       <h1 className="mb-3 text-base font-semibold">Boards</h1>

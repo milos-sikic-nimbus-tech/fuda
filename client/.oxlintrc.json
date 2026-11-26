@@ -1,5 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "import"],
+  "jsPlugins": ["@stylistic/eslint-plugin"],
+  "rules": {
+    "curly": ["error", "all"],
+    "@stylistic/padding-line-between-statements": [
+      "error",
+      { "blankLine": "always", "prev": "*", "next": "if" },
+      { "blankLine": "always", "prev": "if", "next": "*" },
+      { "blankLine": "always", "prev": "*", "next": "return" }
+    ]
+  },
   "ignorePatterns": ["src/routeTree.gen.ts", "src/components/ui/**"]
 }
