@@ -30,7 +30,6 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
     blocks: [],
     references: [],
     referencedBy: [],
-    inProd: false,
     archived: false,
     path: `docs/board/tasks/${id}.md`,
     ...overrides,

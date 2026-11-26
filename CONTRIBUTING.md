@@ -2,7 +2,7 @@
 
 Thanks for helping. fuda is small on purpose; read [docs/architecture.md](docs/architecture.md)
 for how it works and [docs/decisions.md](docs/decisions.md) for why, before larger changes.
-[docs/glossary.md](docs/glossary.md) defines the words both use.
+[CONTEXT.md](CONTEXT.md) defines the words both use.
 
 ## Set up
 
@@ -22,7 +22,8 @@ make dev                  # API on :8080 and the app on http://localhost:5173
 | `make fmt` | Formats Go and client code. |
 | `make build` | Builds the client into `api/internal/web/dist`, then the binary `bin/fuda`. |
 | `make docker` | Builds the image (`fuda`). |
-| `make desktop-macos` | The desktop app for macOS as the bundle `bin/fuda.app`. Needs a Mac with Xcode command line tools. `ARCH=amd64` for Intel. Needs the GitHub App values (see "GitHub App locally"). |
+| `make desktop-macos` | The desktop app for macOS as the ad-hoc-signed bundle `bin/fuda.app`. Needs a Mac with Xcode command line tools. `ARCH=amd64` for Intel. Needs the GitHub App values (see "GitHub App locally"). |
+| `make desktop-macos-dmg` | `make desktop-macos`, then the disk image `bin/fuda-desktop_darwin_<arch>.dmg` with `fuda.app` and an Applications link. This is what the release uploads. |
 | `make desktop-windows` | The desktop app for Windows in `bin/fuda-desktop.exe`. Cross-builds from any host. |
 | `make clean` | Removes build output and the local cache. |
 
@@ -68,16 +69,11 @@ source the same poll picks up edits to your working tree.
 
 ## Start a new Board
 
-Create a repository named `fuda-<something>` and install the fuda GitHub App on it. Open it in fuda:
-with no Task files, or no `develop` branch yet, it shows an empty Board with the default Stages and the hint "No Tasks yet: add
+Create a repository named `fuda-<something>` and install the fuda GitHub App on it. Push a first commit to its `main` branch: a repository without
+`main` shows an error page. Open it in fuda: with no Task files, it shows an empty Board with the default Stages and the hint "No Tasks yet: add
 files in `tasks/`". Add Task files under `docs/board/tasks/` and they appear on the next sync.
 
 ## Move `docs/board` into a `fuda-` repository
-
-> **Not usable yet.** The steps below put the Tasks at the root of `main` in the `fuda-` repository,
-> but the GitHub and Azure Boards still read `docs/board/` on `develop`, so a Board moved this way
-> shows up empty, without an error. Keep `docs/board` in the code repository until the hosts read the
-> `fuda-` layout (see "Moves and Assigns from the app" under [TBD](docs/decisions.md#tbd)).
 
 A Board is a `fuda-` repository that the code repository mounts as a submodule at `docs/board`.
 To move an existing `docs/board` there and keep its history:
@@ -192,7 +188,8 @@ use fuda on their repository, not for people changing fuda.
   and a dynamic import (see `WorkspacePicker.test.tsx`).
 - **Client:** shadcn components (`components/ui` is generated, don't edit it), Tailwind tokens from
   `index.css`, every view state in the URL.
-- **The Makefile uses only `go`, `pnpm` and `docker`.**
+- **The Makefile uses only `go`, `pnpm` and `docker`.** The macOS targets also use `codesign` and
+  `hdiutil`, which ship with macOS and the Xcode Command Line Tools.
 
 ## Pull requests
 

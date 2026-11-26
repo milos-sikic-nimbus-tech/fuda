@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Avatar } from '@/components/atoms/PersonChip'
+import { Avatar, PersonName } from '@/components/atoms/PersonChip'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { DateRange } from '@/components/molecules/DateRange'
 import { StatTile } from '@/components/molecules/StatTile'
@@ -12,6 +12,7 @@ import {
   activity,
   countBy,
   insightsSearchSchema,
+  doneCount,
   isOpen,
   labelsOf,
   periodOf,
@@ -47,7 +48,7 @@ function InsightsPage() {
       activity: activity(cards, period),
       created: cards.filter((c) => inPeriod(c.added)).length,
       claimed: cards.filter((c) => inPeriod(c.claimed)).length,
-      done: archive.filter((c) => inPeriod(c.done ?? '')).length,
+      done: doneCount(cards, archive, inPeriod),
       open: open.length,
       inProgress: cards.filter((c) => c.status.trim().toLowerCase() === 'in progress').length,
       blocked: cards.filter((c) => c.blockedBy).length,
@@ -109,7 +110,7 @@ function InsightsPage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <StatTile label="Created" value={view.created} hint={view.period.label} />
           <StatTile label="Claimed" value={view.claimed} hint={view.period.label} />
-          <StatTile label="Archived as done" value={view.done} hint={view.period.label} />
+          <StatTile label="Done" value={view.done} hint={view.period.label} />
           <StatTile label="Open now" value={view.open} hint="before merged" />
           <StatTile label="In progress now" value={view.inProgress} />
           <StatTile label="Blocked now" value={view.blocked} />
@@ -160,8 +161,8 @@ function InsightsPage() {
             slices={view.byOwner}
             labelOf={(key) => (
               <>
-                <Avatar name={key} className="size-4 text-[7px]" />
-                {key}
+                <Avatar id={key} className="size-4 text-[7px]" />
+                <PersonName id={key} />
               </>
             )}
             onSelect={(key) => filterBoard({ owner: key })}

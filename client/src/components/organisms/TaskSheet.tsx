@@ -80,6 +80,11 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
           <SheetTitle className="text-lg leading-snug">
             {task?.title ?? (isError ? 'Task not found' : 'Loading…')}
           </SheetTitle>
+          {task && (
+            <p title={task.path} className="truncate font-mono text-[11px] text-muted-foreground">
+              {task.path}
+            </p>
+          )}
         </SheetHeader>
         {task && (
           <div className="space-y-5 p-4">
@@ -96,11 +101,12 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               )}
               <Field label="Owner">
                 {owners.map((o) => (
-                  <PersonChip key={o} name={o} onClick={() => toggle('owner', o)} />
+                  <PersonChip key={o} id={o} onClick={() => toggle('owner', o)} />
                 ))}
                 <OwnerPicker
                   people={board?.facets.people ?? []}
                   owners={owners}
+                  me={board?.me?.personId}
                   saving={!!pending}
                   readOnly={(board?.readOnly ?? true) || task.archived}
                   onChange={(next) => assign.mutate({ card: task, owners: next })}
@@ -109,7 +115,7 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               {task.testers.length > 0 && (
                 <Field label="Tester">
                   {task.testers.map((o) => (
-                    <PersonChip key={o} name={o} onClick={() => toggle('tester', o)} />
+                    <PersonChip key={o} id={o} onClick={() => toggle('tester', o)} />
                   ))}
                 </Field>
               )}
@@ -172,7 +178,6 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               {task.added && <Field label="Added">{task.added}</Field>}
               {task.claimed && <Field label="Claimed">{task.claimed}</Field>}
               {task.done && <Field label="Done">{task.done}</Field>}
-              {task.inProd && <Field label="Prod">in prod</Field>}
               {task.custom.map((f) => (
                 <Field key={f.key} label={f.key}>
                   <span className="text-muted-foreground">{f.value || '—'}</span>
@@ -195,7 +200,6 @@ export function TaskSheet({ taskIds, prLink }: { taskIds: string[]; prLink?: str
               entries={task.activities}
               now={Math.max(boardUpdatedAt, taskUpdatedAt)}
             />
-            <p className="font-mono text-[11px] text-muted-foreground">{task.path}</p>
           </div>
         )}
       </SheetContent>

@@ -17,7 +17,7 @@ func (f fixedSource) Files(context.Context, string) (map[string][]byte, error) {
 
 func TestRestoreServesTheLastSyncedBoard(t *testing.T) {
 	dir := t.TempDir()
-	opts := Options{WorkBranch: "develop", BoardDir: "docs/board", DocsRoot: "docs", CacheDir: dir}
+	opts := Options{WorkBranch: "main", BoardDir: "docs/board", DocsRoot: "docs", CacheDir: dir}
 	files := map[string][]byte{
 		"docs/board/tasks/A1.md": []byte("---\nid: A1\ntitle: First\nstatus: backlog\n---\nBody\n"),
 	}
@@ -33,8 +33,8 @@ func TestRestoreServesTheLastSyncedBoard(t *testing.T) {
 	if !ready || len(view.Cards) != 1 || view.Cards[0].ID != "A1" {
 		t.Fatalf("restored board: ready=%v cards=%+v", ready, view.Cards)
 	}
-	if view.Sync.Develop.SHA != "sha1" {
-		t.Errorf("restored status keeps the cached head, got %q", view.Sync.Develop.SHA)
+	if view.Sync.Branch.SHA != "sha1" {
+		t.Errorf("restored status keeps the cached head, got %q", view.Sync.Branch.SHA)
 	}
 	if err := offline.Sync(context.Background()); err == nil {
 		t.Error("a failing host still reports the error")

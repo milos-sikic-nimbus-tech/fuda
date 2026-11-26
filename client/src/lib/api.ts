@@ -32,7 +32,6 @@ export type Card = {
   blocks: string[]
   references: string[]
   referencedBy: string[]
-  inProd: boolean
   activity?: Activity
   archived: boolean
   path: string
@@ -48,26 +47,42 @@ export type Activity = {
   details?: string[]
 }
 
-export type OpenPr = { number: number; url: string }
+export type OpenPr = { number: number; url: string; author?: string; authorId?: string }
+
+export type Person = {
+  id: string
+  name: string
+  aliases: string[]
+  github?: string
+  kind: 'human' | 'agent'
+}
+
+export type Me = { login: string; personId?: string }
 
 export type LabelGroup = { name: string; values: string[] }
 
 export type Facets = {
   statuses: string[]
-  people: string[]
+  people: Person[]
   testers: string[]
   labelGroups: LabelGroup[]
   labelColors: Record<string, string>
   prefixes: string[]
 }
 
+export type EpicMap = {
+  epic: string
+  body: string
+  counts: Record<string, number>
+  archived: number
+}
+
 export type Problem = { path: string; reason: string }
 
-export type BranchStatus = { branch: string; sha: string; syncedAt: string; notYet?: boolean }
+export type BranchStatus = { branch: string; sha: string; syncedAt: string }
 
 export type SyncStatus = {
-  develop: BranchStatus
-  main?: BranchStatus
+  branch: BranchStatus
   lastAttempt: string
   lastError?: string
 }
@@ -83,9 +98,11 @@ export type BoardData = {
   columns: Column[]
   cards: Card[]
   facets: Facets
+  maps: EpicMap[]
   problems: Problem[]
   sync: SyncStatus
   readOnly: boolean
+  me?: Me
 }
 
 export type BoardListing = { host: Host; repo: string; path: string; title: string }
@@ -104,10 +121,12 @@ export type GuideContent = GuidePage & { html: string }
 
 export class ApiError extends Error {
   readonly status: number
+  readonly code?: string
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -123,7 +142,7 @@ async function request<T>(
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body.error ?? res.statusText)
+    throw new ApiError(res.status, body.error ?? res.statusText, body.code)
   }
   return res.status === 202 || res.status === 204 ? (undefined as T) : res.json()
 }
@@ -136,6 +155,7 @@ export const api = {
   task: (id: string) => request<TaskDetail>(`${scoped}/tasks/${encodeURIComponent(id)}`),
   search: (q: string) => request<string[]>(`${scoped}/search?q=${encodeURIComponent(q)}`),
   archive: () => request<Card[]>(`${scoped}/archive`),
+  docList: () => request<string[]>(`${scoped}/docs/list`),
   doc: (path: string) => request<DocDetail>(`${scoped}/docs?path=${encodeURIComponent(path)}`),
   move: (id: string, seen: string, column: string) =>
     request<void>(

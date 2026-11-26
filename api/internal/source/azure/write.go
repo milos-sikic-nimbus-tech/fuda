@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,8 @@ import (
 
 	"fuda/internal/board"
 )
+
+const pushToProtectedBranch = "TF402455"
 
 var errPushRefused = errors.New("azure: the push was refused")
 
@@ -112,6 +115,8 @@ func (s *Source) push(ctx context.Context, branch, head, path string, content []
 		return true, nil
 	case res.status == http.StatusConflict:
 		return false, nil
+	case res.status == http.StatusForbidden && bytes.Contains(res.body, []byte(pushToProtectedBranch)):
+		return false, board.ErrProtectedBranch
 	}
 	return false, res.failure()
 }

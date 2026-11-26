@@ -25,7 +25,7 @@ func newReviewService(t *testing.T, prs map[string][]PullRequest, errs map[strin
 		"docs/board/tasks/T-2.md":  "---\nid: T-2\ntitle: Two\nstatus: backlog\n---\n",
 	}
 	host := &reviewHost{fakeHost: newFakeHost(files), prs: prs, errs: errs}
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	err := s.Poll(context.Background())
 	if _, ready := s.Board(); !ready {
 		t.Fatal(err)
@@ -81,6 +81,30 @@ func TestClosedPRReturnsTheCardToItsStatusStage(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := cardColumn(t, s, "T-1"); got != "in-progress" {
+		t.Errorf("after the PR closed: %q", got)
+	}
+}
+
+func TestCardMovedToInReviewByHandStaysAfterItsPRCloses(t *testing.T) {
+	s, host := newReviewService(t, nil, nil)
+	if err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "in progress", ToColumn: "in-review"}); err != nil {
+		t.Fatal(err)
+	}
+
+	host.prs = map[string][]PullRequest{"acme/app": {{Number: 5, Title: "T-1 work"}}}
+	if err := s.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	view, _ := s.Board()
+	if got := card(view.Board, "T-1"); got.Column != "in-review" || len(got.OpenPRs) != 1 {
+		t.Fatalf("with the PR open: %+v", got)
+	}
+
+	host.prs = nil
+	if err := s.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := cardColumn(t, s, "T-1"); got != "in-review" {
 		t.Errorf("after the PR closed: %q", got)
 	}
 }

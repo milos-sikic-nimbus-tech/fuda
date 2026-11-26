@@ -1,6 +1,6 @@
 # fuda
 
-A kanban board and doc reader over a git repo's markdown task files (`docs/board/tasks/*.md`). It
+A kanban board and doc reader over a board repository's markdown task files (`tasks/*.md` on `main`). It
 writes two things back, a Move (`status`) and an Assign (`owner`), as commits with the user's own
 token. One Go core serves the API and the embedded React app, as a web server and a desktop app.
 
@@ -13,9 +13,10 @@ token. One Go core serves the API and the embedded React app, as a web server an
   (hosts and local folders to Boards), `markdown`, `httpapi`, `web` (embedded SPA), `guide`
   (embedded Guide pages).
 - `client/` — Vite + React + TypeScript app. Builds into `api/internal/web/dist`; never contains Go.
+- `.scratch/<feature>/issues/` — this repo's own tickets. See `docs/agents/issue-tracker.md`.
 - `docs/` — `architecture.md` (how it works, with diagrams), `decisions.md` (why, plus TBD items
-  with proposals) and `glossary.md` (the domain words and where they live in the code). Read them
-  before structural changes. `CONTRIBUTING.md` — setup, rules, PRs.
+  with proposals) and `adr/` (one decision each). `CONTEXT.md` at the root is the glossary: the domain words and where
+  they live in the code. Read them before structural changes. `CONTRIBUTING.md` — setup, rules, PRs.
 
 ## Commands
 
@@ -30,17 +31,11 @@ token. One Go core serves the API and the embedded React app, as a web server an
 - Handlers are thin; behaviour lives in `board`. Interfaces are declared where they are used.
 - No speculative abstractions. Unit tests where the logic is; small fixtures in `testdata/`.
 - Repo content never breaks fuda: invalid files become Problems, a failed sync keeps the last snapshot.
-- The Makefile uses only `go`, `pnpm` and `docker`.
+- The Makefile uses only `go`, `pnpm` and `docker`. The macOS targets also use `codesign` and `hdiutil`,
+  which ship with macOS and the Xcode Command Line Tools.
 - Update docs (README, Guide pages, `docs/architecture.md`, `docs/decisions.md`) in the same change
   as the behaviour they describe. `docs/` states only what is true in the code; decided-but-unbuilt
   items go under TBD in `decisions.md`, with a proposal.
-
-## Tasks on fuda's board
-
-For each step an agent finishes on a task of fuda's board (`docs/board/tasks/`), it adds one line at
-the end of the task's `## Activity` section: `- <YYYY-MM-DD HH:MM> · <actor> · <event> · <result> ·
-<usage>` (usage optional). Only add lines; never change, reorder or delete existing ones. The Guide
-page "Agent guide" has the full rules.
 
 ## Personal overrides
 
@@ -48,3 +43,17 @@ Optional and per developer: if `personal-agent.md` exists next to this file, rea
 top of these rules. It is gitignored.
 
 @personal-agent.md
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

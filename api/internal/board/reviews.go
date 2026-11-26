@@ -14,6 +14,7 @@ type PullRequest struct {
 	URL    string
 	Title  string
 	Branch string
+	Author string
 }
 
 type ReviewSource interface {
@@ -21,23 +22,25 @@ type ReviewSource interface {
 }
 
 type LinkedPR struct {
-	Number int    `json:"number"`
-	URL    string `json:"url"`
+	Number   int    `json:"number"`
+	URL      string `json:"url"`
+	Author   string `json:"author,omitempty"`
+	AuthorID string `json:"authorId,omitempty"`
 }
 
 type prsByTask map[string][]LinkedPR
 
-func (s *Service) openReviews(ctx context.Context, develop taskfiles.Result) (prsByTask, error) {
+func (s *Service) openReviews(ctx context.Context, parsed taskfiles.Result) (prsByTask, error) {
 	found := prsByTask{}
 	source, ok := s.source.(ReviewSource)
 	if !ok {
 		return found, nil
 	}
 	known := map[string]bool{}
-	for _, t := range develop.Tasks {
+	for _, t := range parsed.Tasks {
 		known[t.ID] = true
 	}
-	for _, repo := range develop.Config.CodeRepos {
+	for _, repo := range parsed.Config.CodeRepos {
 		pulls, err := source.OpenPRs(ctx, repo)
 		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 			continue
@@ -47,7 +50,7 @@ func (s *Service) openReviews(ctx context.Context, develop taskfiles.Result) (pr
 		}
 		for _, pr := range pulls {
 			for _, id := range KnownIDs(pr.Title+"\n"+pr.Branch, known) {
-				found[id] = append(found[id], LinkedPR{Number: pr.Number, URL: pr.URL})
+				found[id] = append(found[id], LinkedPR{Number: pr.Number, URL: pr.URL, Author: pr.Author})
 			}
 		}
 	}

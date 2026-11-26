@@ -6,7 +6,7 @@ it describes.
 
 For how a repo is set up and how teams use the board, see the Guide pages in
 [`api/internal/guide/pages`](../api/internal/guide/pages) (also served inside the app). The words
-used here (Board, Stage, Move, Assign, Host, …) are defined in [glossary.md](glossary.md).
+used here (Board, Stage, Move, Assign, Host, …) are defined in [CONTEXT.md](../CONTEXT.md).
 
 ## The shape
 
@@ -23,8 +23,7 @@ flowchart LR
     D["docs/** (other md + images)"]
   end
   subgraph host["git host or local checkout"]
-    DEV["develop: the board"]
-    MAIN["main: optional, 'in prod'"]
+    DEV["main: the board"]
     PR["open PRs in the code repos: In review"]
   end
   subgraph fuda["fuda (one container)"]
@@ -37,7 +36,6 @@ flowchart LR
   UI["browser: React app"]
   repo --> DEV
   DEV --> SRC
-  MAIN --> SRC
   PR --> SRC
   SRC --> SVC
   REG --> SVC
@@ -58,12 +56,12 @@ are declared where they are used. The host names (`board.HostGitHub`, `board.Hos
 | `internal/config` | `FUDA_*` environment variables into one typed `Config`, validated per host. `FUDA_HOSTS` lists the hosts (`FUDA_SOURCE` still works as the old name). `LoadDesktop` does the same for the desktop app, with the values built into the binary as defaults. |
 | `internal/board` | All behaviour. `context.go`: the caller's host token travels in the request context. `boards.go`: `Registry`, the open Boards. `service.go`: the read side (board, task, search, archive, doc, asset). `sync.go`: when and how the snapshot is rebuilt. `cache.go`: the disk copy. `reviews.go`: open PRs in the code repositories → In review. The rules: `columns.go`, `facets.go`, `people.go`, `references.go`, `rules.go`, `board.go`. `move.go`: the Move flow and the retry loop both writes share. `assign.go`: the Assign flow. Declares `Source`, the optional `ReviewSource` and the optional `TaskEditor` (read a file, write it, name its last editor, say whether the caller may write). |
 | `internal/taskfiles` | Parses what fuda reads from a repo: task files (frontmatter + body) and the optional `stages.md`, `labels.md`, `people.md`, `repos.md`. Invalid files become Problems, never errors. `edit.go`: the pure edits. `StatusEdit` changes the `status` line (and adds `claimed` once). Assign rewrites the `owner` line in its own style. Both leave every other byte alone. `activity.go`: `SplitActivity` takes the `## Activity` section out of a body as Activity entries; a line that does not match keeps only its text, and lines indented under an entry (two spaces, then `- `) become its `Details`. |
-| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for develop, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place. No PRs. |
+| `internal/source/local` | A folder on disk with `docs/board/tasks/` (a code checkout) or `tasks/` (a tasks repository). Reads the working tree for the board branch, uncommitted edits included, and `git archive` for other branches (code checkouts only). Writes a Task file in place, at its real path (inside its epic folder if it has one). No PRs. |
 | `internal/source/github` | GitHub REST with the caller's token: branch head (conditional request), zipball, open pulls and their files, file contents at a commit, the user's `fuda-` repositories and the ones in the board setting (`FUDA_GITHUB_BOARDS`). 401 becomes `ErrUnauthorized`, 403 `ErrForbidden`. |
 | `internal/source/azure` | Azure DevOps REST 7.1 with the caller's Entra token: refs, items zip of `/docs`, one file with its object id, active PRs, the organizations of the user and their `fuda-` repositories and the ones in the board setting (`FUDA_AZURE_BOARDS`), the Contribute permission check. A write is a push with the branch head as `oldObjectId`; it reports "changed since read" when the file's object id moved, and retries when only the branch moved; any other refusal of the push is returned with the host's reason. |
 | `internal/markdown` | goldmark + GFM. Rewrites links and images: task files → the task sheet, docs → the reader, images → `/api/files`, other repo paths → the git host's web UI, missing targets → plain text. Raw HTML stays escaped. |
 | `internal/httpapi` | Routes, JSON, taking the login token for a request, request logging, panic recovery, the SPA handler. Thin: parse, call `board`, write. |
-| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. `menu.go`: the menu. `update.go`: "Check for updates" asks GitHub Releases for a newer version and opens its release page; it does not install anything. On macOS it ships as `fuda.app` (`Info.plist`, `icon.icns`). The GitHub client id and app slug are built in; the build fails without them. The board settings are built in too, optional; a value in the environment wins. |
+| `cmd/fuda-desktop` | The Wails v3 desktop shell: same handler and UI, no listening port. `menu.go`: the menu. `update.go`, `release.go`: "Check for updates" lists GitHub Releases, takes the newest published one by version (no matching asset needed) and opens its release page if it is newer; it does not install anything. On macOS it ships as an ad-hoc-signed `fuda.app` (`Info.plist`, `icon.icns`) inside a DMG. The GitHub client id and app slug are built in; the build fails without them. |
 | `internal/workspace` | Builds the Board registry from config (which source serves which Board) and keeps the list of local folders (`Folders`). Shared by both shells. |
 | `internal/login` | Login. `device.go`: device flow for GitHub on web (`NewCookieDevice`, sealed cookie, `cookies.go`) and for GitHub or Azure on desktop (`NewKeychainDevice`, a `TokenStore`). `session.go`: the Azure web login with PKCE (`NewCookieOAuth`, sealed cookie). `oauth.go`: a `provider` holds one host's endpoints. `refresh.go`: one refresh at a time per refresh token, shared by the web and device logins. `key.go`: the web cookie key. Knows nothing about Boards. |
 | `internal/keychain` | A `login.TokenStore` in the OS keychain (macOS Keychain, Windows Credential Manager). |
@@ -155,8 +153,8 @@ a token that expires within a minute.
 `board.Service` holds an `atomic.Pointer` to an immutable snapshot. Reads never lock; a sync
 builds a new snapshot and swaps it in. A snapshot contains:
 
-- the parsed develop result (tasks, archive, config, problems) and, when watched, main;
-- the built `Board` (columns, cards, facets, problems), computed once per sync;
+- the parsed result (tasks, archive, config, problems);
+- the built `Board` (columns, cards, facets, epic maps, problems), computed once per sync;
 - the date it was built on, so a sync rebuilds the Board when the day changes (Done column);
 - docs (`*.md`) and images under `docs/`, kept as bytes (images up to 5 MB each);
 - the open-PR result (which open PRs name each task: In review);
@@ -171,7 +169,7 @@ flowchart TD
   START["process start"] --> R["restore snapshot.gob<br/>from FUDA_CACHE_DIR, if any"] --> REQ
   REQ["every Board request<br/>(the client polls about every 5 s)"] --> GATE{"this token checked this Board<br/>in the last 3 s?"}
   GATE -- yes --> ANS
-  GATE -- no --> H["Poll: head SHA of develop with the caller's token"]
+  GATE -- no --> H["Poll: head SHA of main with the caller's token"]
   H --> SAME{"same head as<br/>the snapshot?"}
   SAME -- yes --> DUE{"PRs last read more than<br/>FUDA_SYNC_COOLDOWN ago?"}
   DUE -- yes --> BG["sync in the background"] --> S
@@ -180,10 +178,11 @@ flowchart TD
   B["Sync button: POST …/sync"] --> BC{"inside the cooldown?"}
   BC -- yes --> TMR["429"]
   BC -- no --> S
-  S --> HM["head SHA of develop<br/>(+ main if FUDA_WATCH_MAIN)"] --> F["download docs/ of each branch when a head moved<br/>save snapshot.gob<br/>parse"] --> PRS
-  PRS["open PRs into develop<br/>→ task files they change<br/>→ which ones they deliver"] --> SWAP["build the board, swap the snapshot"]
+  S --> HM["head SHA of main"] --> F["download docs/ when the head moved<br/>save snapshot.gob<br/>parse"] --> PRS
+  PRS["open PRs in the code repos<br/>→ task files they change<br/>→ which ones they deliver"] --> SWAP["build the board, swap the snapshot"]
 ```
 
+- **A repository without `main`** is a `board.ErrBranchMissing`: the API answers 404 with `code: "no-main-branch"` and the client shows an error page that says how to create the branch. A repository that does not exist or is not visible stays a plain 404.
 - **Failures keep the last snapshot.** A failed head or file read changes nothing and is reported
   as `sync.lastError` in `…/board`. If only the PR list fails, the new files are used without
   In review, and the error is reported. A refusal from the host (login or access) is returned to
@@ -214,27 +213,44 @@ flowchart TD
   of an open PR in a repository listed in `repos.md`, on any base branch. One PR can name several
   tasks. A card held in In review this way is locked: a Move is refused. Closing the PR returns the
   card to its `status` Stage; fuda never sets `merged`.
+- **By hand:** when the `pr-open` Stage also lists a status (the default In review lists
+  `in review`), a Move into it writes that status. Such a card stays in In review after a PR that
+  named it closes, because its status puts it there.
 - **A repository the caller cannot see** is skipped, so the Board loads without its In review. Any
   other failure keeps the board, drops In review and is reported as the sync error.
 - **Statuses compare** case-insensitively with whitespace collapsed.
-- **main** never moves a card. When watched, a card whose main copy is merged, testing or validated
-  gets the "in prod" badge.
-- **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them.
+- **In prod** is off: nothing sets the badge, and fuda reads no branch besides `main`. See TBD in
+  [decisions.md](decisions.md).
+- **Archived tasks** (`docs/board/archive/`) are not on the board; `/api/archive` lists them, with whatever Status they have.
+  The Archive is a place, not a status (ADR 0006): `done` is valid in `tasks/`, and the default Stages end with Done.
   The exception is a `stages.md` entry with `when: done`: it makes a Done column, always the last,
   with the archived tasks whose `done` date is within the last `days` days (default 14), today
   included, in the server's local date, newest first. A task without a valid `done` date is not
-  in it. Done cards are archived, so a Move or an Assign is refused, and the column has no
+  in it. Its cards are archived, so a Move or an Assign is refused, and the column has no
   statuses, so nothing drops on it. The filters and facets cover them like other cards; Insights
   ignore them.
+
+### Epic maps
+
+`tasks/<epic>/map.md` with `label: wayfinder:map` becomes an entry of `Board.maps`: the epic (folder
+name), the body without its frontmatter, the epic's task count per board column id (cards, so In review
+is included), and the number of its archived tasks. The client shows a Map button after the active filters and Clear, enabled
+only while the Filter menu selects exactly one epic that has a map; it opens a modal with the counts and
+the body as raw text. There is no percentage.
 
 ### Validation (what becomes a Problem)
 
 - No frontmatter, unclosed frontmatter, invalid YAML, frontmatter that isn't a mapping.
-- Missing `id`, `title` or `status`; a field with the wrong shape.
+- Missing `id`, `title` or `status`; a field with the wrong shape. Only `map.md` (in `tasks/`, `archive/` or
+  an epic folder) is skipped without a Problem; it is the epic's map, not a task. A `tasks/<epic>/map.md`
+  whose frontmatter has `label: wayfinder:map` is read as that epic's map (see Epic maps); one whose
+  frontmatter is unclosed, invalid YAML or not a mapping is a Problem. Without the label it is ignored.
 - A filename that doesn't start with the id.
-- `status: done` outside the archive.
-- A duplicate id (the first file by path wins).
-- A task file in a sub-folder of `tasks/` or `archive/`.
+- A duplicate id across all folders (the first file by path wins).
+- A task file more than one folder below `tasks/` or `archive/`. One level is an epic folder: the
+  task gets the label `epic:<folder>`, and its own `epic:` and `theme:` labels are dropped.
+- A task with an `epic:` or `theme:` label (deprecated): it still loads, and the Problem says to
+  move it into an epic folder.
 - An invalid `stages.md`, `labels.md`, `people.md` or `repos.md`: the file is ignored and the board is derived
   from the tasks instead.
 - A `when: done` stage with a `days` that is not a positive whole number: the stage stays and its
@@ -242,10 +258,15 @@ flowchart TD
 
 ### Facets (what the filters offer)
 
-- **People:** from `people.md` (names + aliases) when present; otherwise every owner and tester,
-  matched case-insensitively, with a unique first name folded into the full name. The Owner facet
-  starts with "No owner" (`none` in the `owner` URL list): it matches cards with an empty `owner`,
-  any-of with the named owners. `none` is reserved, so a person named "none" is not supported.
+- **People:** from `people.md` when present: each entry's `id`, `name`, `aliases`, `github` and
+  `kind`. `owner` and `tester` values must match an id exactly; any other value is a Problem on
+  that Task. A PR's author login is matched to `github` and sent as `authorId`. Otherwise every
+  owner and tester, matched case-insensitively, with a unique first name folded into the full name.
+  The Owner facet starts with "No owner" (`none` in the `owner` URL list): it matches cards with an
+  empty `owner`, any-of with the named owners. `none` is reserved, so a person with the id "none" is
+  not supported.
+- **Me:** `GET` of a board includes `me` (`login`, `personId`) when the source knows the caller's
+  login (GitHub `/user`, cached per token). The client uses it for "Assign to me" and "My tasks".
 - **Labels:** `group:value`. `theme` reads as `epic`; a bare value goes to the `label` group. From
   `labels.md` when present (only listed values are offered), otherwise from the tasks, with
   default `type` values added.
@@ -259,24 +280,22 @@ flowchart TD
 sequenceDiagram
   actor Dev
   actor Tester
-  participant Develop as develop
-  participant Main as main (optional)
+  participant Main as main of the tickets repo
   participant Fuda as fuda
-  Dev->>Develop: claim SS-12 (status in progress, owner, claimed)
-  Develop-->>Fuda: poll sees a new head
+  Dev->>Main: claim SS-12 (status in progress, owner, claimed)
+  Main-->>Fuda: poll sees a new head
   Note over Fuda: SS-12 in In progress
   Dev->>Fuda: opens a PR whose title or branch names SS-12
   Note over Fuda: SS-12 in In review, PR #n
-  Dev->>Develop: PR completes
-  Develop-->>Fuda: poll sees a new head
-  Note over Fuda: SS-12 in Merged
-  Tester->>Develop: status testing, then validated
-  Note over Fuda: Testing, then Validated
-  Develop->>Main: promotion
+  Dev->>Main: PR merged, set status merged
   Main-->>Fuda: poll sees a new head
-  Note over Fuda: "in prod" badge
-  Dev->>Develop: move to archive/, status done
-  Note over Fuda: in the Done column for days days if stages.md has when: done, always in the Archive view
+  Note over Fuda: SS-12 in Merged
+  Tester->>Main: status testing, then validated
+  Note over Fuda: Testing, then Validated
+  Tester->>Main: status done, done date
+  Note over Fuda: Done
+  Dev->>Main: later, move to archive/ (file unchanged)
+  Note over Fuda: off the board, in the Archive view
 ```
 
 The statuses and who changes them are in the Guide's workflow page.
@@ -298,7 +317,7 @@ the author). `board.Service.Move` does this:
 
 ```mermaid
 flowchart TD
-  R["POST …/tasks/{id}/move<br/>seen status, target column"] --> C{"archived, or a<br/>PR-derived column?"}
+  R["POST …/tasks/{id}/move<br/>seen status, target column"] --> C{"archived, locked by an open PR,<br/>or a column with no status?"}
   C -- yes --> F["403"]
   C -- no --> READ["read the file and its version"]
   READ --> SAME{"status still<br/>equals seen?"}
@@ -312,7 +331,7 @@ flowchart TD
 
 `claimed` is set to today only when the Task leaves the first column, has no `claimed` value, and
 moves to another column. fuda never changes a `claimed` value that exists. The write goes to the
-work branch (`develop`). GitHub implements `TaskEditor` with the contents API (the file's blob SHA is
+work branch (`main`). A refused push to a protected `main` is `ErrProtectedBranch`: GitHub says "protected branch" or "rule violations" (403, 409 or 422), Azure DevOps TF402455 (403). The move fails with "main is protected; allow fuda to push to it directly". GitHub implements `TaskEditor` with the contents API (the file's blob SHA is
 the version; a 409 is `ErrStale`, "changed since read"). Azure DevOps uses the pushes API. The Local source compares the
 file's hash with the one it read, then replaces the file through a temporary file and a rename, one write at a time, so an editor's change
 made before the write is never overwritten; it does not commit, and it cannot name who changed the file
@@ -327,8 +346,8 @@ shows the card back in its real column.
 
 An Assign is the same kind of commit on the `owner` field. `board.Service.Assign` checks that the
 Task is not archived, then runs the retry loop it shares with Move. The request carries the Owners
-the client showed (`seen`). If the current Owners differ from `seen` (compared as sets, after
-`people.md` aliases are folded), the first write wins: 409 with "Ben set the owners to Cy just
+the client showed (`seen`). If the current Owners differ from `seen` (compared as sets of ids, or of
+derived names when there is no `people.md`; an id not in `people.md` is refused with 422), the first write wins: 409 with "Ben set the owners to Cy just
 now". Otherwise `taskfiles.ApplyAssign` rewrites the line: comma text, a block list or a flow
 list keeps its style, a new line is comma text after `status`, and an empty set deletes the line.
 
@@ -341,10 +360,11 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 
 | Route | Returns |
 |---|---|
-| `GET …/board` | Columns, cards, facets, problems, sync state, title, origin. A card in a column with `activity: true` carries its latest Activity entry, without its detail lines. 503 (same body) until a snapshot exists. |
+| `GET …/board` | Columns, cards, facets, epic maps, problems, sync state, title, origin. A card in a column with `activity: true` carries its latest Activity entry, without its detail lines. 503 (same body) until a snapshot exists. |
 | `GET …/tasks/{id}` | One card plus custom fields, the Activity entries with their detail lines and the rendered body without its `## Activity` section. |
 | `GET …/search?q=` | Ids of tasks whose title or body contains the text. |
 | `GET …/archive` | Archived tasks as cards. |
+| `GET …/docs/list` | Paths of every Doc (relative to `docs/`, sorted): markdown under `docs/` outside `board/tasks/` and `board/archive/`. |
 | `GET …/docs?path=` | A doc under `docs/`: rendered HTML, title, tasks linking to it. |
 | `GET …/files?path=` | An image under `docs/`, with `nosniff` and a sandboxing CSP. |
 | `GET /api/guide`, `GET /api/guide/{slug}` | Guide pages. |
@@ -362,7 +382,7 @@ Board routes sit under `/api/<host>/<board path>`, for example `/api/github/<own
 React 19, TypeScript, Vite, TanStack Router (file routes, typed search params) and TanStack
 Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 
-- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$`, `/guide/$`. Outside a
+- **Routes:** `/` board (or list view), `/insights`, `/archive`, `/docs/$` (a file tree of the Docs on the left, the open doc on the right; with no `board/README.md` the Docs tab shows "Pick a doc"), `/guide/$`. Outside a
   Board, `/` lists the caller's Boards, or opens the only one. One top-bar button shows the current Board (host icon, name, branch) and, as a dropdown grouped by host
   then "Local", switches Boards with a full page load; its current row has "Open repo". An account menu next
   to the theme toggle lists each host with Log in or Log out as menu items (so the keyboard reaches them), and "Log out of all". The task sheet has a Stage row with a "Move to" menu, the keyboard and touch way to do what drag and drop does. Any 401 sends the browser to the login, which returns to the same
@@ -378,8 +398,7 @@ Query, Tailwind 4 with shadcn components, mermaid loaded lazily.
 ## Configuration
 
 Every setting is an environment variable; the list with defaults is in the Guide's self-host page
-and in [`.env.example`](../.env.example). Fixed in code: the board branch `develop`, the prod
-branch `main`, the board folder `docs/board/`, the docs root `docs/`.
+and in [`.env.example`](../.env.example). Fixed in code: the board branch `main` (the Local source reads the working tree whatever is checked out), the board folder `docs/board/`, the docs root `docs/`.
 
 ## Deployment
 

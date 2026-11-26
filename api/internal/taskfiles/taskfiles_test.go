@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,7 +25,7 @@ blocked_by: "Q26, J1"
 owner: "Ron, Chinmay"
 tester: ""
 batch: 3
-labels: ["theme:security", "area:be", "loose"]
+labels: ["sec:security", "area:be", "loose"]
 size: "S"
 added: "2026-09-25"
 pr: [1944, "#1950", "chore/c1-ruff"]
@@ -52,7 +53,7 @@ pr: chore/branch-name`, ""),
 	check(t, "blocked_by", s1.BlockedBy, "Q26, J1")
 	checkDeep(t, "owners", s1.Owners, []string{"Ron", "Chinmay"})
 	checkDeep(t, "testers", s1.Testers, []string(nil))
-	checkDeep(t, "labels", s1.Labels, []Label{{"theme", "security"}, {"area", "be"}, {"", "loose"}})
+	checkDeep(t, "labels", s1.Labels, []Label{{"sec", "security"}, {"area", "be"}, {"", "loose"}})
 	checkDeep(t, "prs", s1.PRs, []int{1944, 1950})
 	check(t, "pr ref", s1.PRRef, "chore/c1-ruff")
 	checkDeep(t, "custom", s1.Custom, []Field{{"batch", "3"}, {"size", "S"}})
@@ -79,8 +80,8 @@ func TestParseProblems(t *testing.T) {
 		{"missing status", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: t", ""), "missing required field status"},
 		{"filename", "docs/board/tasks/B2-x.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
 		{"prefix is not enough", "docs/board/tasks/A10.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "filename must start with the id"},
-		{"done outside archive", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "only valid in the archive"},
-		{"nested", "docs/board/tasks/old/A1.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "sub-folder"},
+		{"nested two deep", "docs/board/tasks/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: backlog", ""), "one epic folder"},
+		{"archive nested two deep", "docs/board/archive/old/new/A1.md", taskFile("id: A1\ntitle: t\nstatus: done", ""), "one epic folder"},
 		{"title is a list", "docs/board/tasks/A1.md", taskFile("id: A1\ntitle: [a, b]\nstatus: backlog", ""), `field "title"`},
 	}
 	for _, c := range cases {
@@ -93,6 +94,83 @@ func TestParseProblems(t *testing.T) {
 				t.Fatalf("reason %q does not mention %q", r.Problems[0].Reason, c.reason)
 			}
 		})
+	}
+}
+
+func TestParseSkipsMapFiles(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/map.md":          []byte("# map"),
+		"docs/board/tasks/auth/map.md":     []byte("---\ntitle: map\n---\n"),
+		"docs/board/tasks/auth/notes.md":   []byte("# no id"),
+		"docs/board/tasks/auth/A1.md":      taskFile("id: A1\ntitle: one\nstatus: backlog", ""),
+		"docs/board/tasks/auth/sub/map.md": []byte("# map"),
+		"docs/board/tasks/auth/MAP.md":     []byte("# not the map file"),
+	}
+	r := Parse(files, layout)
+	if len(r.Tasks) != 1 {
+		t.Fatalf("want only A1, got %+v", r.Tasks)
+	}
+	got := map[string]bool{}
+	for _, p := range r.Problems {
+		got[p.Path] = true
+	}
+	want := []string{"docs/board/tasks/auth/notes.md", "docs/board/tasks/auth/MAP.md", "docs/board/tasks/auth/sub/map.md"}
+	if len(got) != len(want) {
+		t.Fatalf("want problems for %v, got %+v", want, r.Problems)
+	}
+	for _, p := range want {
+		if !got[p] {
+			t.Errorf("want a problem for %s, got %+v", p, r.Problems)
+		}
+	}
+}
+
+func TestParseReadsEpicMaps(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/auth/map.md":    []byte("---\nlabel: wayfinder:map\n---\n# Destination\nSign in works.\n"),
+		"docs/board/tasks/billing/map.md": []byte("---\ntitle: unlabelled\n---\n# nope\n"),
+		"docs/board/tasks/notes/map.md":   []byte("# no frontmatter"),
+		"docs/board/tasks/broken/map.md":  []byte("---\nlabel: [unclosed\n---\n"),
+		"docs/board/tasks/other/map.md":   []byte("---\nlabel: something-else\n---\n"),
+		"docs/board/tasks/open/map.md":    []byte("---\nlabel: wayfinder:map\n"),
+		"docs/board/tasks/list/map.md":    []byte("---\n- wayfinder:map\n---\n"),
+		"docs/board/tasks/crlf/map.md":    []byte("---\r\nlabel: wayfinder:map\r\n---\r\nbody\r\n"),
+		"docs/board/tasks/map.md":         []byte("---\nlabel: wayfinder:map\n---\n"),
+		"docs/board/archive/auth/map.md":  []byte("---\nlabel: wayfinder:map\n---\n"),
+	}
+	r := Parse(files, layout)
+	if len(r.Maps) != 2 {
+		t.Fatalf("want the auth and crlf maps, got %+v", r.Maps)
+	}
+	if r.Maps[1].Epic != "crlf" || r.Maps[1].Body != "body\n" {
+		t.Errorf("CRLF map read wrong: %+v", r.Maps[1])
+	}
+	m := r.Maps[0]
+	if m.Epic != "auth" || m.Path != "docs/board/tasks/auth/map.md" || m.Body != "# Destination\nSign in works.\n" {
+		t.Errorf("unexpected map %+v", m)
+	}
+	problems := map[string]bool{}
+	for _, p := range r.Problems {
+		problems[p.Path] = true
+	}
+	broken := []string{"broken", "open", "list"}
+	if len(problems) != len(broken) {
+		t.Errorf("want problems only for the broken maps, got %+v", r.Problems)
+	}
+	for _, epic := range broken {
+		if !problems["docs/board/tasks/"+epic+"/map.md"] {
+			t.Errorf("want a problem for %s, got %+v", epic, r.Problems)
+		}
+	}
+}
+
+func TestParseAcceptsAnyStatusInTasksAndArchive(t *testing.T) {
+	r := Parse(map[string][]byte{
+		"docs/board/tasks/A1.md":   taskFile("id: A1\ntitle: t\nstatus: done", ""),
+		"docs/board/archive/A2.md": taskFile("id: A2\ntitle: t\nstatus: wontfix", ""),
+	}, layout)
+	if len(r.Problems) != 0 || len(r.Tasks) != 1 || len(r.Archived) != 1 || r.Archived[0].Status != "wontfix" {
+		t.Fatalf("want done in tasks and wontfix in archive with no problems, got %+v", r)
 	}
 }
 
@@ -114,6 +192,51 @@ func TestParseKeepsGoodFilesNextToBadOnes(t *testing.T) {
 	}
 	if len(r.Problems) != 2 {
 		t.Fatalf("want duplicate + broken file problems, got %+v", r.Problems)
+	}
+}
+
+func TestParseEpicFolders(t *testing.T) {
+	files := map[string][]byte{
+		"docs/board/tasks/auth/A1.md":    taskFile("id: A1\ntitle: in folder\nstatus: backlog\nlabels: [\"type:bug\"]", ""),
+		"docs/board/tasks/auth/A2.md":    taskFile("id: A2\ntitle: ignored labels\nstatus: backlog\nlabels: [\"epic:other\", \"theme:x\", \"area:be\"]", ""),
+		"docs/board/tasks/B1.md":         taskFile("id: B1\ntitle: flat twin\nstatus: backlog", ""),
+		"docs/board/tasks/E1.md":         taskFile("id: E1\ntitle: flat\nstatus: backlog\nlabels: [\"theme:legacy\"]", ""),
+		"docs/board/tasks/billing/A1.md": taskFile("id: A1\ntitle: dup\nstatus: backlog", ""),
+		"docs/board/archive/B1.md":       taskFile("id: B1\ntitle: archived twin\nstatus: done", ""),
+		"docs/board/archive/auth/C1.md":  taskFile("id: C1\ntitle: old\nstatus: done", ""),
+	}
+	r := Parse(files, layout)
+
+	byID := map[string]Task{}
+	for _, task := range slices.Concat(r.Tasks, r.Archived) {
+		byID[task.ID] = task
+	}
+	checkDeep(t, "A1 labels", byID["A1"].Labels, []Label{{"type", "bug"}, {"epic", "auth"}})
+	checkDeep(t, "A2 labels", byID["A2"].Labels, []Label{{"area", "be"}, {"epic", "auth"}})
+	checkDeep(t, "E1 labels", byID["E1"].Labels, []Label{{"theme", "legacy"}})
+	checkDeep(t, "C1 labels", byID["C1"].Labels, []Label{{"epic", "auth"}})
+	check(t, "A2 path", byID["A2"].Path, "docs/board/tasks/auth/A2.md")
+
+	reasons := map[string]string{}
+	for _, p := range r.Problems {
+		reasons[p.Path] = p.Reason
+	}
+	if len(reasons) != 4 {
+		t.Fatalf("want deprecation for A2 and B1 plus the duplicate, got %+v", r.Problems)
+	}
+	for _, p := range []string{"docs/board/tasks/auth/A2.md", "docs/board/tasks/E1.md"} {
+		if !strings.Contains(reasons[p], "deprecated") {
+			t.Errorf("%s: want a deprecation notice, got %q", p, reasons[p])
+		}
+	}
+	if !strings.Contains(reasons["docs/board/tasks/B1.md"], "duplicate id B1") {
+		t.Errorf("want duplicate across tasks and archive, got %q", reasons["docs/board/tasks/B1.md"])
+	}
+	if !strings.Contains(reasons["docs/board/tasks/auth/A2.md"], "remove the label") {
+		t.Errorf("want remove-the-label advice inside a folder, got %q", reasons["docs/board/tasks/auth/A2.md"])
+	}
+	if !strings.Contains(reasons["docs/board/tasks/billing/A1.md"], "duplicate id A1") {
+		t.Errorf("want duplicate across folders, got %q", reasons["docs/board/tasks/billing/A1.md"])
 	}
 }
 
@@ -141,8 +264,13 @@ colors:
 `),
 		"docs/board/people.md": []byte(`---
 people:
-  - name: Nemanja Mudrinic
+  - id: nemanja
+    name: Nemanja Mudrinic
     aliases: [Nemanja]
+    github: nmudrinic
+  - id: research-agent
+    name: Research agent
+    kind: agent
 ---
 | table | stays |
 `),
@@ -162,7 +290,10 @@ people:
 		{Name: "epic", Values: []string{}},
 	})
 	checkDeep(t, "label colors", r.Config.LabelColors, map[string]string{"type:bug": "#ff0000"})
-	checkDeep(t, "people", r.Config.People, []Person{{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}}})
+	checkDeep(t, "people", r.Config.People, []Person{
+		{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: KindHuman},
+		{ID: "research-agent", Name: "Research agent", Kind: KindAgent},
+	})
 	checkDeep(t, "code repos", r.Config.CodeRepos, []string{"acme/app", "acme/web"})
 }
 
@@ -229,6 +360,21 @@ func TestParseInvalidConfigIsIgnored(t *testing.T) {
 		}
 		if r.Config.Stages != nil || r.Config.LabelGroups != nil || r.Config.People != nil || r.Config.CodeRepos != nil {
 			t.Fatalf("%s: invalid config must be ignored, got %+v", p, r.Config)
+		}
+	}
+}
+
+func TestParseInvalidPeople(t *testing.T) {
+	cases := map[string]string{
+		"no id":        "---\npeople:\n  - name: Ann\n---\n",
+		"duplicate id": "---\npeople:\n  - id: ann\n    name: Ann\n  - id: Ann\n    name: Ann B\n---\n",
+		"unknown kind": "---\npeople:\n  - id: ann\n    name: Ann\n    kind: robot\n---\n",
+		"no name":      "---\npeople:\n  - id: ann\n---\n",
+	}
+	for name, content := range cases {
+		r := Parse(map[string][]byte{"docs/board/people.md": []byte(content)}, layout)
+		if len(r.Problems) != 1 || r.Config.People != nil {
+			t.Errorf("%s: want one problem and no people, got %+v / %+v", name, r.Problems, r.Config.People)
 		}
 	}
 }

@@ -17,6 +17,7 @@ type fakeHost struct {
 	head        int
 	writes      int
 	editor      string
+	login       string
 	readOnly    bool
 	beforeWrite func(h *fakeHost)
 }
@@ -78,6 +79,12 @@ func (h *fakeHost) LastEditor(context.Context, string, string) (string, error) {
 	return h.editor, nil
 }
 
+func (h *fakeHost) ViewerLogin(context.Context) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.login, nil
+}
+
 func (h *fakeHost) CanWrite(context.Context) (bool, error) {
 	return !h.readOnly, nil
 }
@@ -104,7 +111,7 @@ func taskContent(status string, extra string) string {
 
 func newMoveService(t *testing.T, host *fakeHost) *Service {
 	t.Helper()
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	s.now = func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) }
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
@@ -130,6 +137,46 @@ func TestMoveWritesTheStatusAndClaimsTheTask(t *testing.T) {
 	check(t, "file", host.file(), taskContent("in progress", "claimed: 2026-10-09\n"))
 	check(t, "writes", host.writes, 1)
 	check(t, "column after the move", cardColumn(t, s, "T-1"), "in-progress")
+}
+
+func TestMoveToTheDefaultDoneStageWritesStatusAndClaimedNotDone(t *testing.T) {
+	host := newFakeHost(map[string]string{taskPath: taskContent("validated", "claimed: 2026-01-01\n")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "validated", ToColumn: "done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", host.file(), taskContent("done", "claimed: 2026-01-01\n"))
+	check(t, "column after the move", cardColumn(t, s, "T-1"), "done")
+}
+
+func TestMoveToTheDefaultInReviewStageWritesItsStatus(t *testing.T) {
+	host := newFakeHost(map[string]string{taskPath: taskContent("in progress", "claimed: 2026-01-01\n")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "in progress", ToColumn: "in-review"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", host.file(), taskContent("in review", "claimed: 2026-01-01\n"))
+	check(t, "column after the move", cardColumn(t, s, "T-1"), "in-review")
+}
+
+func TestMoveWritesToTheFileInsideItsEpicFolder(t *testing.T) {
+	epicPath := "docs/board/tasks/auth/T-1.md"
+	host := newFakeHost(map[string]string{epicPath: taskContent("backlog", "")})
+	s := newMoveService(t, host)
+
+	err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check(t, "file", string(host.files[epicPath]), taskContent("in progress", "claimed: 2026-10-09\n"))
+	check(t, "files", len(host.files), 1)
 }
 
 func TestMoveClaimsOnlyWhenLeavingTheFirstStage(t *testing.T) {
@@ -232,8 +279,9 @@ func TestMoveGivesUpInsteadOfForcing(t *testing.T) {
 func TestMoveRefusals(t *testing.T) {
 	archivePath := "docs/board/archive/T-2.md"
 	host := newFakeHost(map[string]string{
-		taskPath:    taskContent("backlog", ""),
-		archivePath: "---\nid: T-2\ntitle: Two\nstatus: done\n---\n",
+		taskPath:               taskContent("backlog", ""),
+		archivePath:            "---\nid: T-2\ntitle: Two\nstatus: done\n---\n",
+		"docs/board/stages.md": "---\nstages:\n  - name: Backlog\n    status: [backlog]\n  - name: In review\n    when: pr-open\n---\n",
 	})
 	s := newMoveService(t, host)
 	ctx := context.Background()
@@ -259,7 +307,7 @@ func TestMoveRefusals(t *testing.T) {
 }
 
 func TestMoveNeedsASourceThatWrites(t *testing.T) {
-	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(fakeSource{files: map[string][]byte{taskPath: []byte(taskContent("backlog", ""))}}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +358,7 @@ func (c *countingHost) CanWrite(ctx context.Context) (bool, error) {
 
 func TestWriteAccessIsKeptForAMinutePerToken(t *testing.T) {
 	host := &countingHost{fakeHost: newFakeHost(map[string]string{taskPath: taskContent("backlog", "")})}
-	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(host, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main"})
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
 	ctx := WithToken(context.Background(), "ann")

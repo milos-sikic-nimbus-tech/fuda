@@ -1,4 +1,4 @@
-import { Ban, GitPullRequest, Rocket } from 'lucide-react'
+import { Ban, GitPullRequest } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Hint } from '@/components/atoms/Hint'
 import { LabelChip } from '@/components/atoms/LabelChip'
@@ -7,7 +7,8 @@ import { Avatar } from '@/components/atoms/PersonChip'
 import { ResultBadge } from '@/components/molecules/ActivityTimeline'
 import { StatusIcon } from '@/components/atoms/StatusIcon'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
-import type { Card, Column } from '@/lib/api'
+import { usePeople } from '@/hooks/usePeople'
+import type { Card, Column, OpenPr } from '@/lib/api'
 import { listOf } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 
@@ -44,6 +45,11 @@ function Signal({
 }
 
 function CardSignals({ card }: { card: Card }) {
+  const { personOf } = usePeople()
+  const prAuthor = (pr: OpenPr) => {
+    if (pr.authorId) return ` by ${personOf(pr.authorId).name}`
+    return pr.author ? ` by @${pr.author}` : ''
+  }
   return (
     <>
       {card.blockedBy && (
@@ -55,7 +61,7 @@ function CardSignals({ card }: { card: Card }) {
         </Signal>
       )}
       {card.openPrs.map((pr) => (
-        <Hint key={pr.url} label={`Open pull request #${pr.number} names this task`}>
+        <Hint key={pr.url} label={`Open pull request #${pr.number}${prAuthor(pr)} names this task`}>
           <a
             href={pr.url}
             target="_blank"
@@ -64,17 +70,14 @@ function CardSignals({ card }: { card: Card }) {
             className={cn(chipClass, 'hover:border-violet-400 hover:text-foreground')}
           >
             <GitPullRequest className="size-3 text-violet-500" />#{pr.number}
+            {pr.authorId ? (
+              <Avatar id={pr.authorId} className="size-3.5 text-[6px]" />
+            ) : (
+              pr.author && <span className="max-w-20 truncate">@{pr.author}</span>
+            )}
           </a>
         </Hint>
       ))}
-      {card.inProd && (
-        <Signal
-          hint="Its file on main is merged, testing or validated"
-          icon={<Rocket className="size-3 text-emerald-600" />}
-        >
-          prod
-        </Signal>
-      )}
     </>
   )
 }
@@ -146,8 +149,8 @@ export function TaskCard({
           {card.owners.map((owner) => (
             <Avatar
               key={owner}
-              name={owner}
-              hint={`Owner: ${owner}`}
+              id={owner}
+              role="Owner"
               className="size-4.5 text-[8px] ring-2 ring-card"
             />
           ))}

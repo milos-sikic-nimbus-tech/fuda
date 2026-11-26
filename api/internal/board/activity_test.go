@@ -16,7 +16,7 @@ func activities(entries ...taskfiles.Activity) func(*taskfiles.Task) {
 func TestCardShowsTheLatestActivityOnlyInAnActivityColumn(t *testing.T) {
 	first := taskfiles.Activity{Text: "first"}
 	latest := taskfiles.Activity{When: "2026-10-27 10:40", Actor: "builder", Event: "build", Result: "PASS", Text: "latest", Details: []string{"a finding"}}
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{
 			task("A1", "in progress", activities(first, latest)),
 			task("A2", "backlog", activities(first)),
@@ -47,7 +47,7 @@ func TestCardShowsTheLatestActivityOnlyInAnActivityColumn(t *testing.T) {
 func TestTaskViewSplitsTheActivityFromTheBody(t *testing.T) {
 	files := map[string][]byte{"docs/board/tasks/A1.md": []byte("---\nid: A1\ntitle: t\nstatus: backlog\n---\n" +
 		"## Done when\nit is.\n\n## Activity\n\n- 2026-10-27 09:12 · factory · spec · READY · 12k\n- a free note\n")}
-	s := NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop"})
 	if err := s.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}

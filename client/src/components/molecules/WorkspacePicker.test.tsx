@@ -25,7 +25,7 @@ function fakeBoard(listing: BoardListing, url?: string) {
   return {
     title: listing.title,
     origin: { host: listing.host, repo: listing.repo, url },
-    sync: { develop: { branch: 'develop' } },
+    sync: { branch: { branch: 'main' } },
   } as BoardData
 }
 

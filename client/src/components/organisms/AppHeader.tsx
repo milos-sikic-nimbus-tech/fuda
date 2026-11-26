@@ -44,7 +44,7 @@ export function AppHeader({ board }: { board?: BoardData }) {
         <Link to="/archive" className={tabClass}>
           <TabLabel icon={Archive}>Archive</TabLabel>
         </Link>
-        <Link to="/docs/$" params={{ _splat: 'board/README.md' }} className={tabClass}>
+        <Link to="/docs/$" params={{ _splat: '' }} className={tabClass}>
           <TabLabel icon={FileText}>Docs</TabLabel>
         </Link>
         <Link to="/guide/$" params={{ _splat: '' }} className={tabClass}>

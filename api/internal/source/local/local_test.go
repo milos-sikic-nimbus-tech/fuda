@@ -33,8 +33,8 @@ func writeTree(t *testing.T, files map[string]string) string {
 
 func openBoard(t *testing.T, root string) *board.Service {
 	t.Helper()
-	s := board.NewService(local.New(root, "docs", "docs/board", "develop", true), board.Options{
-		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
+	s := board.NewService(local.New(root, "docs", "docs/board", "main", true), board.Options{
+		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main",
 	})
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)
@@ -177,8 +177,8 @@ func TestAFolderThatCannotBeWrittenIsReadOnly(t *testing.T) {
 
 func TestTwoWritesFromTheSameVersionLetOnlyOneThrough(t *testing.T) {
 	root := writeTree(t, map[string]string{"tasks/T-1.md": taskFile("")})
-	source := local.New(root, "docs", "docs/board", "develop", true)
-	_, version, err := source.ReadFile(context.Background(), "develop", "docs/board/tasks/T-1.md")
+	source := local.New(root, "docs", "docs/board", "main", true)
+	_, version, err := source.ReadFile(context.Background(), "main", "docs/board/tasks/T-1.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestTwoWritesFromTheSameVersionLetOnlyOneThrough(t *testing.T) {
 	for i := range writers {
 		go func() {
 			content := []byte(taskFile("labels: " + strings.Repeat("x", i+1) + "\n"))
-			results <- source.WriteFile(context.Background(), "develop", "docs/board/tasks/T-1.md", content, version, "")
+			results <- source.WriteFile(context.Background(), "main", "docs/board/tasks/T-1.md", content, version, "")
 		}()
 	}
 
@@ -208,8 +208,8 @@ func TestTwoWritesFromTheSameVersionLetOnlyOneThrough(t *testing.T) {
 
 func TestABoardOpenedReadOnlyRefusesWrites(t *testing.T) {
 	root := writeTree(t, map[string]string{"tasks/T-1.md": taskFile("")})
-	s := board.NewService(local.New(root, "docs", "docs/board", "develop", false), board.Options{
-		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main",
+	s := board.NewService(local.New(root, "docs", "docs/board", "main", false), board.Options{
+		DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "main",
 	})
 	if err := s.Poll(context.Background()); err != nil {
 		t.Fatal(err)

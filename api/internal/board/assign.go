@@ -19,6 +19,8 @@ type AssignRequest struct {
 	Owners     []string `json:"owners"`
 }
 
+var ErrUnknownPerson = errors.New("not an id in people.md")
+
 func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 	if slices.ContainsFunc(req.Owners, invalidOwner) {
 		return ErrInvalidOwner
@@ -39,7 +41,10 @@ func (s *Service) Assign(ctx context.Context, req AssignRequest) error {
 		return ErrNotMovable
 	}
 
-	known := newPeople(snap.develop.Config.People, snap.develop.Tasks)
+	known := newPeople(snap.parsed.Config.People, snap.parsed.Tasks)
+	if unknown := known.unknown(req.Owners); len(unknown) > 0 {
+		return fmt.Errorf("%w: %s", ErrUnknownPerson, strings.Join(unknown, ", "))
+	}
 	return s.commit(ctx, editor, task.Path, func(content []byte, current taskfiles.Task) ([]byte, string, error) {
 		if !sameNames(known.canonical(current.Owners), known.canonical(req.FromOwners)) {
 			who := s.lastEditor(ctx, editor, task.Path)

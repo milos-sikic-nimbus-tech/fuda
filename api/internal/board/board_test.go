@@ -62,13 +62,13 @@ func columnIDs(b Board) []string {
 }
 
 func TestDefaultColumnsWithoutStages(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("A1", "backlog"),
 		task("A2", "In Progress"),
 		task("A3", "qa"),
 	}}})
 
-	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated", "unknown-qa"}
+	want := []string{"backlog", "in-progress", "in-review", "merged", "testing", "validated", "done", "unknown-qa"}
 	if got := columnIDs(b); !reflect.DeepEqual(got, want) {
 		t.Fatalf("columns: got %v, want %v", got, want)
 	}
@@ -84,7 +84,7 @@ func TestDefaultColumnsWithoutStages(t *testing.T) {
 }
 
 func TestConfiguredStagesWithSeveralStatuses(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "in qa"), task("A2", "testing"), task("A3", "blocked-ish")},
 		Config: taskfiles.Config{Stages: []taskfiles.Stage{
 			{Name: "Todo", Statuses: []string{"backlog"}},
@@ -104,7 +104,7 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 	tasks := []taskfiles.Task{task("A1", "in progress")}
 	prs := map[string][]LinkedPR{"A1": {{Number: 42}}}
 
-	withReview := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks}, OpenPRs: prs})
+	withReview := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks}, OpenPRs: prs})
 	if columnOf(withReview, "A1") != "in-review" {
 		t.Error("default stages include In review")
 	}
@@ -112,7 +112,7 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 		t.Errorf("open PRs %v", got)
 	}
 
-	without := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{Stages: []taskfiles.Stage{
+	without := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{Stages: []taskfiles.Stage{
 		{Name: "Doing", Statuses: []string{"in progress"}},
 	}}}, OpenPRs: prs})
 	if columnOf(without, "A1") != "doing" {
@@ -121,35 +121,14 @@ func TestOpenPRMovesToReviewOnlyWhenAStageAllowsIt(t *testing.T) {
 }
 
 func TestClaimedTaskStaysInItsStatus(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "backlog", owners("Ana"))}}})
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "backlog", owners("Ana"))}}})
 	if columnOf(b, "A1") != "backlog" || len(b.Problems) != 0 {
 		t.Error("an owner does not move a task or raise a problem")
 	}
 }
 
-func TestInProd(t *testing.T) {
-	main := taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}}
-	b := Build(Inputs{
-		Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated"), task("A2", "merged"), task("A3", "in progress")}},
-		Main:    &main,
-	})
-	for _, id := range []string{"A1", "A2"} {
-		if !card(b, id).InProd {
-			t.Errorf("%s is merged or later on main", id)
-		}
-	}
-	if c := card(b, "A3"); c.InProd {
-		t.Error("in progress on main is not in prod")
-	}
-
-	unwatched := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{task("A1", "validated")}}})
-	if card(unwatched, "A1").InProd {
-		t.Error("without main nothing is in prod")
-	}
-}
-
 func TestReferencesAndBlocks(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("SS-1", "backlog", blockedBy("SS-2, waiting on data"), body("See SS-3. Not SS-30 or SS-1.")),
 		task("SS-2", "backlog"),
 		task("SS-3", "backlog"),
@@ -162,23 +141,40 @@ func TestReferencesAndBlocks(t *testing.T) {
 	check(t, "referenced by", card(b, "SS-3").ReferencedBy, []string{"SS-1"})
 }
 
-func TestPeopleFromConfigAreStrict(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
-		Tasks: []taskfiles.Task{task("A1", "backlog", owners("nemanja", "Guest"))},
-		Config: taskfiles.Config{People: []taskfiles.Person{
-			{Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}},
-		}},
-	}})
-	check(t, "facet", b.Facets.People, []string{"Nemanja Mudrinic"})
-	check(t, "card owners", card(b, "A1").Owners, []string{"Nemanja Mudrinic", "Guest"})
+func TestPeopleFromConfigMatchIdsOnly(t *testing.T) {
+	b := Build(Inputs{
+		Parsed: taskfiles.Result{
+			Tasks: []taskfiles.Task{task("A1", "backlog", owners("Nemanja", "nemanja", "Guest"))},
+			Config: taskfiles.Config{People: []taskfiles.Person{
+				{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: taskfiles.KindHuman},
+				{ID: "research-agent", Name: "Research agent", Kind: taskfiles.KindAgent},
+			}},
+		},
+		OpenPRs: map[string][]LinkedPR{"A1": {{Number: 7, Author: "NMudrinic"}, {Number: 8, Author: "stranger"}}},
+	})
+	check(t, "facet", b.Facets.People, []Person{
+		{ID: "nemanja", Name: "Nemanja Mudrinic", Aliases: []string{"Nemanja"}, GitHub: "nmudrinic", Kind: "human"},
+		{ID: "research-agent", Name: "Research agent", Aliases: []string{}, Kind: "agent"},
+	})
+	check(t, "card owners", card(b, "A1").Owners, []string{"Nemanja", "nemanja", "Guest"})
+	check(t, "problems", b.Problems, []Problem{
+		{Path: "docs/board/tasks/A1.md", Reason: `owner "Nemanja" is not an id in people.md`},
+		{Path: "docs/board/tasks/A1.md", Reason: `owner "Guest" is not an id in people.md`},
+	})
+	check(t, "pr authors", card(b, "A1").OpenPRs, []LinkedPR{{Number: 7, Author: "NMudrinic", AuthorID: "nemanja"}, {Number: 8, Author: "stranger"}})
 }
 
 func TestPeopleDerivedFoldUniqueFirstNames(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{Tasks: []taskfiles.Task{
+	b := Build(Inputs{Parsed: taskfiles.Result{Tasks: []taskfiles.Task{
 		task("A1", "backlog", owners("Nemanja", "Jack")),
 		task("A2", "backlog", owners("Nemanja Mudrinic", "Jack Westbrock", "Jack Black")),
 	}}})
-	check(t, "facet", b.Facets.People, []string{"Jack", "Jack Black", "Jack Westbrock", "Nemanja Mudrinic"})
+	var ids []string
+	for _, p := range b.Facets.People {
+		ids = append(ids, p.ID)
+	}
+	check(t, "facet", ids, []string{"Jack", "Jack Black", "Jack Westbrock", "Nemanja Mudrinic"})
+	check(t, "derived person", b.Facets.People[0], Person{ID: "Jack", Name: "Jack", Aliases: []string{}, Kind: "human"})
 	check(t, "A1 owners", card(b, "A1").Owners, []string{"Nemanja Mudrinic", "Jack"})
 }
 
@@ -190,7 +186,7 @@ func TestLabelGroups(t *testing.T) {
 		taskfiles.Label{Value: "loose"},
 	))}
 
-	derived := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks}})
+	derived := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks}})
 	check(t, "derived groups", derived.Facets.LabelGroups, []LabelGroup{
 		{Name: "epic", Values: []string{"security"}},
 		{Name: "area", Values: []string{"be"}},
@@ -199,13 +195,22 @@ func TestLabelGroups(t *testing.T) {
 	})
 	check(t, "card labels", card(derived, "A1").Labels, []string{"epic:security", "area:be", "type:spike", "label:loose"})
 
-	configured := Build(Inputs{Develop: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
+	configured := Build(Inputs{Parsed: taskfiles.Result{Tasks: tasks, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
 		{Name: "type", Values: []string{"bug"}},
 		{Name: "theme", Values: []string{"security"}},
 	}}}})
 	check(t, "configured groups are strict", configured.Facets.LabelGroups, []LabelGroup{
 		{Name: "type", Values: []string{"bug"}},
 		{Name: "epic", Values: []string{"security"}},
+	})
+
+	foldered := append(slices.Clone(tasks), task("A2", "backlog", labels(taskfiles.Label{Group: "epic", Value: "billing"})))
+	withoutEpic := Build(Inputs{Parsed: taskfiles.Result{Tasks: foldered, Config: taskfiles.Config{LabelGroups: []taskfiles.LabelGroup{
+		{Name: "area", Values: []string{"web"}},
+	}}}})
+	check(t, "epics always become a group", withoutEpic.Facets.LabelGroups, []LabelGroup{
+		{Name: "area", Values: []string{"web"}},
+		{Name: "epic", Values: []string{"billing", "security"}},
 	})
 }
 
@@ -232,7 +237,7 @@ func check(t *testing.T, what string, got, want any) {
 }
 
 func TestLabelColorsAreDistinctWithinAGroupAndConfigurable(t *testing.T) {
-	b := Build(Inputs{Develop: taskfiles.Result{
+	b := Build(Inputs{Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "backlog", labels(
 			taskfiles.Label{Group: "epic", Value: "one"},
 			taskfiles.Label{Group: "epic", Value: "two"},
@@ -253,6 +258,43 @@ func TestLabelColorsAreDistinctWithinAGroupAndConfigurable(t *testing.T) {
 	}
 }
 
+func TestEpicMapsCountTasksPerColumn(t *testing.T) {
+	epic := labels(taskfiles.Label{Group: "epic", Value: "auth"})
+	archived := task("A9", "done", epic)
+	archived.Archived = true
+	b := Build(Inputs{
+		Parsed: taskfiles.Result{
+			Tasks: []taskfiles.Task{
+				task("A1", "backlog", epic),
+				task("A2", "backlog", epic),
+				task("A3", "in progress", epic),
+				task("A4", "merged", epic),
+				task("B1", "backlog"),
+			},
+			Archived: []taskfiles.Task{archived, task("B9", "done")},
+			Maps: []taskfiles.Map{
+				{Epic: "auth", Path: "docs/board/tasks/auth/map.md", Body: "# Destination\n"},
+			},
+		},
+		OpenPRs: map[string][]LinkedPR{"A3": {{Number: 7}}},
+	})
+	if len(b.Maps) != 1 {
+		t.Fatalf("want one map, got %+v", b.Maps)
+	}
+	m := b.Maps[0]
+	want := map[string]int{"backlog": 2, "in-review": 1, "merged": 1}
+	if m.Epic != "auth" || m.Body != "# Destination\n" || !reflect.DeepEqual(m.Counts, want) || m.Archived != 1 {
+		t.Errorf("unexpected map %+v, want counts %v", m, want)
+	}
+}
+
+func TestBoardWithoutMapsHasEmptyList(t *testing.T) {
+	b := Build(Inputs{})
+	if b.Maps == nil || len(b.Maps) != 0 {
+		t.Errorf("want an empty, non-nil list, got %#v", b.Maps)
+	}
+}
+
 func archived(id, done string, mods ...func(*taskfiles.Task)) taskfiles.Task {
 	t := task(id, "done", mods...)
 	t.Archived = true
@@ -263,7 +305,7 @@ func archived(id, done string, mods ...func(*taskfiles.Task)) taskfiles.Task {
 
 func TestDoneColumnHoldsTasksDoneWithinTheWindow(t *testing.T) {
 	today := time.Date(2026, 10, 28, 15, 0, 0, 0, time.Local)
-	b := Build(Inputs{Today: today, Develop: taskfiles.Result{
+	b := Build(Inputs{Today: today, Parsed: taskfiles.Result{
 		Tasks: []taskfiles.Task{task("A1", "backlog")},
 		Archived: []taskfiles.Task{
 			archived("A2", "2026-10-20", owners("Ana"), labels(taskfiles.Label{Group: "type", Value: "bug"})),
@@ -296,7 +338,7 @@ func TestDoneColumnHoldsTasksDoneWithinTheWindow(t *testing.T) {
 	if last.ID != "done" || !last.Done || last.Days != 14 || len(last.Statuses) != 0 {
 		t.Errorf("done column must be last with no statuses, got %+v", b.Columns)
 	}
-	if !slices.Contains(b.Facets.Statuses, "done") || !slices.Contains(b.Facets.People, "Ana") {
+	if !slices.Contains(b.Facets.Statuses, "done") || !slices.ContainsFunc(b.Facets.People, func(p Person) bool { return p.Name == "Ana" }) {
 		t.Errorf("facets must cover done cards, got %+v", b.Facets)
 	}
 	if !slices.Contains(b.Facets.LabelGroups[0].Values, "bug") {
@@ -305,7 +347,7 @@ func TestDoneColumnHoldsTasksDoneWithinTheWindow(t *testing.T) {
 }
 
 func TestNoDoneStageKeepsArchivedTasksOffTheBoard(t *testing.T) {
-	b := Build(Inputs{Today: time.Now(), Develop: taskfiles.Result{
+	b := Build(Inputs{Today: time.Now(), Parsed: taskfiles.Result{
 		Tasks:    []taskfiles.Task{task("A1", "backlog")},
 		Archived: []taskfiles.Task{archived("A2", time.Now().Format(time.DateOnly))},
 	}})
@@ -320,7 +362,7 @@ func TestDoneColumnFollowsTheDateWithoutNewCommits(t *testing.T) {
 		"docs/board/archive/A1.md": []byte("---\nid: A1\ntitle: t\nstatus: done\ndone: 2026-10-27\n---\n"),
 		"docs/board/tasks/A2.md":   []byte("---\nid: A2\ntitle: t\nstatus: backlog\n---\n"),
 	}
-	s := NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(fakeSource{files}, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop"})
 	now := time.Date(2026, 10, 28, 23, 0, 0, 0, time.Local)
 	s.now = func() time.Time { return now }
 	doneCards := func() int {
@@ -346,7 +388,7 @@ func TestDoneColumnFollowsTheDateWhenOpenPRsFail(t *testing.T) {
 		"docs/board/archive/A1.md": []byte("---\nid: A1\ntitle: t\nstatus: done\ndone: 2026-10-28\n---\n"),
 	}
 	source := &failingPRSource{fakeSource: fakeSource{files}}
-	s := NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop", ProdBranch: "main"})
+	s := NewService(source, Options{DocsRoot: "docs", BoardDir: "docs/board", WorkBranch: "develop"})
 	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.Local)
 	s.now = func() time.Time { return now }
 	if err := s.Sync(context.Background()); err != nil {

@@ -33,10 +33,8 @@ type Config struct {
 	AzureClientID     string `env:"FUDA_AZURE_CLIENT_ID"`
 	AzureClientSecret string `env:"FUDA_AZURE_CLIENT_SECRET"`
 
-	GitHubBoards []string `env:"FUDA_GITHUB_BOARDS"`
-	AzureBoards  []string `env:"FUDA_AZURE_BOARDS"`
-
-	WatchMain    bool          `env:"FUDA_WATCH_MAIN" envDefault:"false"`
+	GitHubBoards []string      `env:"FUDA_GITHUB_BOARDS"`
+	AzureBoards  []string      `env:"FUDA_AZURE_BOARDS"`
 	SyncCooldown time.Duration `env:"FUDA_SYNC_COOLDOWN" envDefault:"30s"`
 	CacheDir     string        `env:"FUDA_CACHE_DIR" envDefault:"./.fuda-cache"`
 }

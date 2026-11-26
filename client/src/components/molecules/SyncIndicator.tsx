@@ -34,21 +34,9 @@ export function SyncIndicator({ sync }: { sync: SyncStatus }) {
   const mutation = useSync()
   useSyncErrorToast(sync.lastError)
 
-  const mainNote = sync.main
-    ? sync.main.notYet
-      ? `${sync.main.branch}: no board there yet`
-      : `${sync.main.branch} @ ${shortSha(sync.main.sha)}`
-    : 'main is not watched'
-
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <Hint
-        label={
-          <>
-            Last read {ago(sync.develop.syncedAt)} · {mainNote}
-          </>
-        }
-      >
+      <Hint label={<>Last read {ago(sync.branch.syncedAt)}</>}>
         <span className="inline-flex items-center gap-2">
           <span
             className={cn(
@@ -56,9 +44,9 @@ export function SyncIndicator({ sync }: { sync: SyncStatus }) {
               sync.lastError ? 'bg-amber-500 ring-amber-100' : 'bg-primary ring-primary/15',
             )}
           />
-          <span className="hidden lg:inline">synced {ago(sync.develop.syncedAt)}</span>
+          <span className="hidden lg:inline">synced {ago(sync.branch.syncedAt)}</span>
           <span className="hidden font-mono text-[11px] lg:inline">
-            {shortSha(sync.develop.sha)}
+            {shortSha(sync.branch.sha)}
           </span>
         </span>
       </Hint>

@@ -43,7 +43,6 @@ such as `http://192.168.1.5:8080` has no working login.
 | `FUDA_AZURE_BOARDS` | | Optional. The same for Azure DevOps: `org/project/repo`, separated by commas. Example: `acme/Team/activity-tracker` |
 | `FUDA_AZURE_TENANT` | `organizations` | The Entra tenant that may log in. Use your tenant id for a single-tenant app |
 | `FUDA_TITLE` | repository name | Shown in the header of the `local` Board |
-| `FUDA_WATCH_MAIN` | `false` | Also read `main` for the "in prod" badge |
 | `FUDA_SYNC_COOLDOWN` | `30s` | Minimum time between manual syncs and pull-request re-reads |
 | `FUDA_CACHE_DIR` | `/data` in the image | Where the last read copy and the GitHub login cookie key are kept. Must persist |
 

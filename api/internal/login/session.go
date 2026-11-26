@@ -62,7 +62,7 @@ func NewCookieOAuth(log *slog.Logger, cfg Config) (*Web, error) {
 		sealer:  sealer,
 		secure:  strings.HasPrefix(base, "https://"),
 		log:     log,
-		now:     time.Now,
+		now:     wallClock,
 	}
 	web.refreshes = newRefreshMemo(app, func() time.Time { return web.now() })
 	return web, nil

@@ -16,12 +16,11 @@ const cacheFile = "snapshot.gob"
 
 type cachedFiles struct {
 	Heads   map[string]string
-	Develop map[string][]byte
-	Main    map[string][]byte
+	Files   map[string][]byte
 	SavedAt time.Time
 }
 
-func (s *Service) saveCache(heads map[string]string, develop, main map[string][]byte) error {
+func (s *Service) saveCache(heads map[string]string, files map[string][]byte) error {
 	if s.opts.CacheDir == "" {
 		return nil
 	}
@@ -33,7 +32,7 @@ func (s *Service) saveCache(heads map[string]string, develop, main map[string][]
 		return err
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	err = gob.NewEncoder(tmp).Encode(cachedFiles{Heads: heads, Develop: develop, Main: main, SavedAt: s.now()})
+	err = gob.NewEncoder(tmp).Encode(cachedFiles{Heads: heads, Files: files, SavedAt: s.now()})
 	if closeErr := tmp.Close(); err == nil {
 		err = closeErr
 	}
@@ -59,8 +58,11 @@ func (s *Service) Restore() error {
 	if err := gob.NewDecoder(f).Decode(&cached); err != nil {
 		return fmt.Errorf("read %s: %w", f.Name(), err)
 	}
-	snap := s.build(taskfiles.Parse(cached.Develop, s.layout()), s.parseMain(cached.Main), cached.Develop, cached.Heads, prsByTask{})
+	if len(cached.Files) == 0 {
+		return nil
+	}
+	snap := s.build(taskfiles.Parse(cached.Files, s.layout()), cached.Files, cached.Heads, prsByTask{})
 	s.snapshot.Store(snap)
-	s.markSyncedAt(cached.Heads, snap, cached.SavedAt)
+	s.markSyncedAt(cached.Heads, cached.SavedAt)
 	return nil
 }

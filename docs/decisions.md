@@ -17,22 +17,31 @@ with a proposal.
   program (the web and desktop shells share one write path).
 - **Assign writes `owner` in the file's own style.** Comma text stays comma text, a YAML list
   stays a YAML list, and a new `owner` line is comma text right after `status`. Removing every
-  Owner deletes the line. The names come from `people.md`, or from the names already on the board
-  when there is none. Archived Tasks cannot be assigned. An Owner name is one line of text with no
-  commas; fuda refuses other names, so a request cannot change the shape of the `owner` line.
+  Owner deletes the line. With `people.md` it writes ids, and refuses one that is not listed;
+  without it, the names already on the board. Archived Tasks cannot be assigned.
+- **`owner` holds a person's id.** Each `people.md` entry has a required, unique `id`, a display
+  `name`, optional `aliases` (search only), `github` (login) and `kind` (`human` or `agent`).
+  With the file, an owner or tester that is not an id is a Problem on that Task; aliases are not
+  used to match. The GitHub login maps the logged-in user and pull request authors to people and
+  gives the avatar. Without the file, people are derived from the Tasks as before. See
+  [ADR 0007](adr/0007-owners-are-person-ids.md).
 - **A Move or Assign that loses a conflict goes back.** If other lines of the file changed first, fuda
   applies the edit again, up to four times. If `status` changed first, the first write wins: the
   card goes back with a message such as "Ben moved this to Testing just now". An Assign works the
   same on `owner`: if the Owners changed first, fuda says "Ben set the owners to Cy just
   now". Archived Tasks and the PR-derived Stage cannot be Move targets.
-- **develop is the board.** Columns and filters come from develop. Claims are committed to develop
-  so everyone sees them. main is optional and only adds the "in prod" badge; it never moves a
-  card, because anything on main is on develop too.
+- **main is the board.** Columns and filters come from `main` of the tasks repository, and moves
+  and claims are committed to it. Local boards read whatever is on disk. The old `develop` branch
+  is not read and not warned about.
 - **In review comes from open PRs that name the task.** The board lists its code repositories in
   `repos.md` (`code_repos: [org/app]`). An open PR in any of them, on any base branch, puts every
   task whose id is in its title or branch name In review. Such a card is locked: it cannot be
-  dragged, a Move is refused, and nothing is dropped into that Stage by hand. When the PR closes
-  the card returns to its `status` Stage; fuda never sets `merged`. A person who cannot see a code
+  dragged and a Move is refused. When the PR closes the card returns to its `status` Stage; fuda
+  never sets `merged`.
+- **In review can also be set by hand.** A `pr-open` Stage that also lists a status accepts a
+  Move, which writes that status; the default In review lists `in review`. Both ways work on one
+  Board: the PR still locks the card while it is open, and a card moved by hand stays in In review
+  after the PR closes. A `pr-open` Stage with no status stays PR-only. A person who cannot see a code
   repository still gets the Board, without that repository's In review. Ids are matched whole,
   case-insensitively: `T-1` does not match `T-12`.
 - **The repository decides its board.** Columns come from an optional `stages.md`, label groups
@@ -102,7 +111,9 @@ with a proposal.
   ones. Remove features that don't work rather than leave them half-wired.
 - **Tests where the logic is.** Unit tests for parsing and rules, one HTTP smoke test, no mocking
   framework, no end-to-end suite. Small fixtures in `testdata/`.
-- **The Makefile uses only `go`, `pnpm` and `docker`,** so anyone can clone and run it.
+- **The Makefile uses only `go`, `pnpm` and `docker`,** so anyone can clone and run it. The macOS
+  targets also use `codesign` and `hdiutil`, which ship with macOS and the Xcode Command Line Tools
+  (cgo needs them anyway).
 - **Docs change with the code.** README, Guide pages and these docs are updated in the same PR as
   the behaviour they describe.
 
@@ -111,12 +122,22 @@ with a proposal.
 Decided as a direction, not built. Each has a proposal; a PR that builds one moves it above and
 updates [architecture.md](architecture.md).
 
+### In prod
+
+- **Open:** the "in prod" badge is off. It came from comparing `develop` with `main`
+  (`FUDA_WATCH_MAIN`), which no longer exists: a board is a tasks repository with one branch.
+- **Proposal:** bring it back later only as a label the user sets on a Task, not derived from a
+  branch or from PRs (agreed with the upstream maintainer, 25 November 2026).
+
 ### Moves and Assigns from the app
 
 - **Settled:** fuda will write a Move (`status`) and an Assign (`owner`), and nothing else, as
   one-line commits through the host's web API, on GitHub and Azure DevOps. Task files stay the
-  only source of truth; no database, no realtime service. "Read-only" is already replaced above.
-  This will also replace "develop is the board".
+  only source of truth; no database, no realtime service. See ADRs
+  [0001](adr/0001-fuda-writes-moves-and-assigns.md),
+  [0002](adr/0002-tasks-in-their-own-repository.md),
+  [0003](adr/0003-users-read-and-write-with-their-own-token.md) and
+  [0004](adr/0004-desktop-app-with-wails.md). "Read-only" is already replaced above.
 - **Open:** nothing to decide. Ready for a spec.
 - **Proposal:**
   - **Boards.** A Board is a tasks repository whose name starts with `fuda-` or that is listed in
@@ -160,7 +181,9 @@ updates [architecture.md](architecture.md).
 
 ### Signing and notarizing the macOS app
 
-- **Settled:** `fuda.app` ships unsigned. People right-click, Open the first time.
+- **Settled:** `fuda.app` is ad-hoc signed (`codesign --sign -`) and ships in a DMG. Ad-hoc signing
+  makes the bundle valid, so macOS shows the "unverified developer" prompt instead of "damaged". People
+  open it once from System Settings → Privacy & Security → Open Anyway.
 - **Open:** whether to pay for an Apple Developer account.
 - **Proposal:** Sign `fuda.app` with a Developer ID certificate and notarize it in the `release`
   workflow (`codesign`, `xcrun notarytool`, `stapler`), with the certificate and App Store Connect
@@ -194,6 +217,17 @@ updates [architecture.md](architecture.md).
 - **Open:** nothing runs `make check` on a PR yet.
 - **Proposal:** a GitHub Actions workflow that installs Go, Node and pnpm and runs `make check`
   on every PR, set as a required status check on `main`.
+
+### Removing `epic:` and `theme:` labels
+
+- **Settled:** the epic of a task is the folder it sits in (`tasks/<epic>/`, also under
+  `archive/`). `epic:` and `theme:` labels are deprecated: such a task still loads and is listed
+  as a Problem. In an epic folder the labels are ignored.
+- **Settled:** `archive/` keeps epic folders, so archiving a task is a plain `git mv` that keeps
+  its epic and its label.
+- **Open:** when to stop reading them. Tasks directly in `tasks/` still use them for the Epic group.
+- **Proposal:** once repos have moved their tasks into epic folders, stop reading the labels
+  (the Problem becomes the removal), and drop the `theme`/`epic` folding in `board/facets.go`.
 
 ### More git hosts
 

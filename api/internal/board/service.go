@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +23,7 @@ type Source interface {
 	Files(ctx context.Context, branch string) (map[string][]byte, error)
 }
 
-var ErrBranchMissing = errors.New("branch not found")
+var ErrBranchMissing = errors.New("the repository has no main branch")
 
 var ErrNotFound = errors.New("not found")
 
@@ -35,8 +36,6 @@ type Options struct {
 	DocsRoot   string
 	BoardDir   string
 	WorkBranch string
-	ProdBranch string
-	WatchMain  bool
 	Cooldown   time.Duration
 	CacheDir   string
 	Logger     *slog.Logger
@@ -63,27 +62,25 @@ type Service struct {
 	mu          sync.Mutex
 	lastRequest time.Time
 	access      map[string]knownAccess
+	logins      map[string]string
 	status      SyncStatus
 }
 
 type SyncStatus struct {
-	Develop     BranchStatus  `json:"develop"`
-	Main        *BranchStatus `json:"main,omitempty"`
-	LastAttempt time.Time     `json:"lastAttempt"`
-	LastError   string        `json:"lastError,omitempty"`
+	Branch      BranchStatus `json:"branch"`
+	LastAttempt time.Time    `json:"lastAttempt"`
+	LastError   string       `json:"lastError,omitempty"`
 }
 
 type BranchStatus struct {
 	Branch   string    `json:"branch"`
 	SHA      string    `json:"sha"`
 	SyncedAt time.Time `json:"syncedAt"`
-	NotYet   bool      `json:"notYet,omitempty"`
 }
 
 type snapshot struct {
 	board   Board
-	develop taskfiles.Result
-	main    *taskfiles.Result
+	parsed  taskfiles.Result
 	files   map[string][]byte
 	reviews prsByTask
 	docs    map[string][]byte
@@ -98,7 +95,7 @@ func NewService(source Source, opts Options) *Service {
 	if opts.Logger == nil {
 		opts.Logger = slog.New(slog.DiscardHandler)
 	}
-	return &Service{source: source, opts: opts, now: time.Now, access: map[string]knownAccess{}}
+	return &Service{source: source, opts: opts, now: time.Now, access: map[string]knownAccess{}, logins: map[string]string{}}
 }
 
 type BoardView struct {
@@ -109,6 +106,7 @@ type BoardView struct {
 	Sync   SyncStatus `json:"sync"`
 
 	ReadOnly bool `json:"readOnly"`
+	Me       *Me  `json:"me,omitempty"`
 }
 
 func (s *Service) Board() (BoardView, bool) {
@@ -122,12 +120,7 @@ func (s *Service) Board() (BoardView, bool) {
 func (s *Service) Status() SyncStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	status := s.status
-	if status.Main != nil {
-		main := *status.Main
-		status.Main = &main
-	}
-	return status
+	return s.status
 }
 
 type TaskView struct {
@@ -174,7 +167,7 @@ func (s *Service) Search(query string) []string {
 	if snap == nil {
 		return []string{}
 	}
-	return Search(snap.develop.Tasks, query)
+	return Search(snap.parsed.Tasks, query)
 }
 
 func (s *Service) Archive() []Card {
@@ -182,8 +175,8 @@ func (s *Service) Archive() []Card {
 	if snap == nil {
 		return []Card{}
 	}
-	out := make([]Card, 0, len(snap.develop.Archived))
-	for _, t := range snap.develop.Archived {
+	out := make([]Card, 0, len(snap.parsed.Archived))
+	for _, t := range snap.parsed.Archived {
 		out = append(out, archivedCard(t))
 	}
 	return out
@@ -223,7 +216,7 @@ func (s *Service) Doc(relative string) (DocView, error) {
 	}
 	name := path.Base(repoPath)
 	backlinks := []string{}
-	for _, t := range snap.develop.Tasks {
+	for _, t := range snap.parsed.Tasks {
 		if linksTo(t, repoPath) {
 			backlinks = append(backlinks, t.ID)
 		}
@@ -234,6 +227,23 @@ func (s *Service) Doc(relative string) (DocView, error) {
 		HTML:      html,
 		Backlinks: backlinks,
 	}, nil
+}
+
+func (s *Service) Docs() []string {
+	snap := s.snapshot.Load()
+	if snap == nil {
+		return []string{}
+	}
+	taskRoots := []string{path.Join(s.opts.BoardDir, "tasks") + "/", path.Join(s.opts.BoardDir, "archive") + "/"}
+	paths := []string{}
+	for repoPath := range snap.docs {
+		if slices.ContainsFunc(taskRoots, func(root string) bool { return strings.HasPrefix(repoPath, root) }) {
+			continue
+		}
+		paths = append(paths, strings.TrimPrefix(repoPath, s.opts.DocsRoot+"/"))
+	}
+	slices.Sort(paths)
+	return paths
 }
 
 func (s *Service) Asset(repoPath string) ([]byte, string, error) {

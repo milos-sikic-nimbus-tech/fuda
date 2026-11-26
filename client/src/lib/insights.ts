@@ -114,3 +114,13 @@ export const labelsOf = (group: string) => (card: Card) =>
 export function isOpen(card: Card): boolean {
   return !['merged', 'testing', 'validated', 'done'].includes(card.status.trim().toLowerCase())
 }
+
+export function doneCount(
+  boardCards: Card[],
+  archived: Card[],
+  inPeriod: (date: string) => boolean,
+): number {
+  return [...boardCards, ...archived].filter(
+    (c) => c.status.trim().toLowerCase() === 'done' && inPeriod(c.done ?? ''),
+  ).length
+}

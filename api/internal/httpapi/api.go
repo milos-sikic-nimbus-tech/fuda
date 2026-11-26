@@ -46,6 +46,7 @@ func (a api) routes(mux *http.ServeMux) {
 			"GET /search":             a.search,
 			"GET /archive":            a.archive,
 			"GET /docs":               a.doc,
+			"GET /docs/list":          a.docList,
 			"GET /files":              a.file,
 			"POST /sync":              a.sync,
 		} {
@@ -175,6 +176,11 @@ func (a api) board(w http.ResponseWriter, r *http.Request, service *board.Servic
 		a.log.Warn("write access could not be checked; showing a read-only board", "error", err)
 	}
 	view.ReadOnly = !canWrite
+	me, err := service.Me(r.Context())
+	if err != nil {
+		a.log.Warn("the logged-in user could not be read", "error", err)
+	}
+	view.Me = me
 	a.json(w, http.StatusOK, view)
 }
 
@@ -234,6 +240,10 @@ func (a api) doc(w http.ResponseWriter, r *http.Request, service *board.Service)
 	a.result(w, view, err)
 }
 
+func (a api) docList(w http.ResponseWriter, _ *http.Request, service *board.Service) {
+	a.json(w, http.StatusOK, service.Docs())
+}
+
 func (a api) file(w http.ResponseWriter, r *http.Request, service *board.Service) {
 	content, contentType, err := service.Asset(r.URL.Query().Get("path"))
 	if err != nil {
@@ -276,8 +286,12 @@ func (a api) result(w http.ResponseWriter, v any, err error) {
 		a.json(w, http.StatusUnauthorized, map[string]string{"error": "login required"})
 	case errors.Is(err, board.ErrForbidden):
 		a.json(w, http.StatusForbidden, map[string]string{"error": "no access"})
-	case errors.Is(err, board.ErrNotMovable):
+	case errors.Is(err, board.ErrBranchMissing):
+		a.json(w, http.StatusNotFound, map[string]string{"error": err.Error(), "code": "no-main-branch"})
+	case errors.Is(err, board.ErrNotMovable), errors.Is(err, board.ErrProtectedBranch):
 		a.json(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+	case errors.Is(err, board.ErrUnknownPerson):
+		a.json(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	case errors.Is(err, board.ErrInvalidOwner):
 		a.json(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 	case errors.As(err, &conflict):

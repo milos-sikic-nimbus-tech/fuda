@@ -2,11 +2,11 @@
 
 A kanban board and doc reader for teams that keep their tasks as markdown files in git.
 
-Each task is one file in `docs/board/tasks/` with YAML frontmatter (`status`, `owner`, `labels`, …).
+A board is its own tickets repository, named `fuda-<project>` (the prefix is required), with its tasks on `main`. Each task is one file in `docs/board/tasks/` with YAML frontmatter (`status`, `owner`, `labels`, …).
 fuda reads them from GitHub, Azure DevOps (log in with your Microsoft account) or a local checkout, and shows them as a board with filters,
 a task reader and the repo's docs. People (and their AI agents) move tasks with ordinary commits.
 On GitHub a person can also drag a card to another Stage: fuda commits that one `status` change as
-the logged-in user, and pick a Task's Owners from the short names in `people.md`.
+the logged-in user, and pick a Task's Owners from the people in `people.md`, stored by id.
 
 > Status: early development, in use on two repositories.
 
@@ -46,15 +46,16 @@ fuda shows a banner with an install link (built from `FUDA_GITHUB_APP_SLUG`). Se
 
 ## Desktop app
 
-Download the archive for your system from the latest GitHub Release, unpack it and open `fuda.app`
-(macOS) or `fuda-desktop.exe` (Windows). Log in with GitHub: fuda shows a code and opens GitHub, where
+Download the file for your system from the latest GitHub Release: the DMG (macOS, `arm64` for Apple
+Silicon, `amd64` for Intel) or the zip with `fuda-desktop.exe` (Windows). Log in with GitHub: fuda shows a code and opens GitHub, where
 you type it. Azure DevOps works the same way, and you can be logged in to both. Each login token stays in your
 OS keychain, and you can log out of one host or of all from the account menu in the top bar. The app checks for new releases and opens the download page when there is one.
 
-The builds are not signed, so your system warns the first time:
+The builds have no developer certificate, so your system warns the first time:
 
-- **macOS:** "fuda cannot be opened". Right-click `fuda.app`, choose Open, then Open again. Or
-  run `xattr -dr com.apple.quarantine fuda.app`.
+- **macOS:** open the DMG and drag fuda to Applications. Open it once; macOS refuses. Then go to
+  System Settings → Privacy & Security and choose Open Anyway. Or run
+  `xattr -dr com.apple.quarantine /Applications/fuda.app`.
 - **Windows:** SmartScreen says "Windows protected your PC". Choose More info, then Run anyway.
 
 ## License

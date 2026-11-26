@@ -20,7 +20,8 @@ const board = {
   columns: [
     column('backlog'),
     column('in-progress'),
-    column('in-review', { prOpen: true, statuses: [] }),
+    column('in-review', { prOpen: true }),
+    column('pr-only', { prOpen: true, statuses: [] }),
     column('done', { done: true, statuses: [], days: 14 }),
   ],
   cards: [card('A-1'), card('A-2')],
@@ -61,15 +62,16 @@ describe('canDrag', () => {
 })
 
 describe('canDrop', () => {
-  it('refuses its own column and PR-derived columns', () => {
+  it('refuses its own column and a column only open PRs fill', () => {
     expect(canDrop(card('A-1'), board.columns[0]!)).toBe(false)
-    expect(canDrop(card('A-1'), board.columns[2]!)).toBe(false)
-  })
-  it('refuses the Done column', () => {
     expect(canDrop(card('A-1'), board.columns[3]!)).toBe(false)
   })
-  it('accepts another column', () => {
+  it('refuses the Done column', () => {
+    expect(canDrop(card('A-1'), board.columns[4]!)).toBe(false)
+  })
+  it('accepts another column, In review included when it has a status', () => {
     expect(canDrop(card('A-1'), board.columns[1]!)).toBe(true)
+    expect(canDrop(card('A-1'), board.columns[2]!)).toBe(true)
   })
 })
 
@@ -77,6 +79,7 @@ describe('moveTargets', () => {
   it('lists the columns a free card can move to', () => {
     expect(moveTargets(card('A-1'), board.columns, false, false).map((c) => c.id)).toEqual([
       'in-progress',
+      'in-review',
     ])
   })
   it('lists nothing for a card that cannot be dragged', () => {
@@ -87,6 +90,12 @@ describe('moveTargets', () => {
 
 describe('columnStatus', () => {
   it('names the status a column shows', () => {
-    expect(board.columns.map(columnStatus)).toEqual(['backlog', 'in progress', 'in review', 'done'])
+    expect(board.columns.map(columnStatus)).toEqual([
+      'backlog',
+      'in progress',
+      'in review',
+      'in review',
+      'done',
+    ])
   })
 })

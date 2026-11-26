@@ -10,6 +10,7 @@ import {
   Tag,
   TextSearch,
   User,
+  UserRound,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DateRange } from '@/components/molecules/DateRange'
@@ -26,6 +27,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBoardSearch } from '@/hooks/useBoardSearch'
 import type { FilterGroup } from '@/hooks/useFilterGroups'
+import { listOf, toggled } from '@/lib/filters'
 
 function groupIcon(id: string) {
   if (id === 'owner' || id === 'tester') return User
@@ -41,7 +43,7 @@ function isTyping(target: EventTarget | null): boolean {
   )
 }
 
-export function FilterMenu({ groups }: { groups: FilterGroup[] }) {
+export function FilterMenu({ groups, me }: { groups: FilterGroup[]; me?: string }) {
   const { search, update } = useBoardSearch()
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<string | null>(null)
@@ -58,7 +60,19 @@ export function FilterMenu({ groups }: { groups: FilterGroup[] }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const mine = !!me && listOf(search.owner).includes(me)
   const flags = [
+    ...(me
+      ? [
+          {
+            id: 'mine',
+            label: 'My tasks',
+            icon: UserRound,
+            on: mine,
+            toggle: () => update({ owner: toggled(search.owner, me) }),
+          },
+        ]
+      : []),
     {
       id: 'blocked',
       label: 'Blocked only',

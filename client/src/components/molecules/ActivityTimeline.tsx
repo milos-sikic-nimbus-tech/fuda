@@ -113,7 +113,7 @@ function Entry({ entry, now }: { entry: Activity; now: number }) {
     <>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
         <span className="inline-flex items-center gap-1.5">
-          <Avatar name={entry.actor} />
+          <Avatar id={entry.actor ?? ''} />
           <span className="font-medium">{entry.actor}</span>
         </span>
         <span>{entry.event}</span>

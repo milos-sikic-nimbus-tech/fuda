@@ -51,12 +51,22 @@ func (s *Source) WriteFile(ctx context.Context, branch, path string, content []b
 		return err
 	}
 	switch {
+	case protectedBranch(res.status, res.body):
+		return board.ErrProtectedBranch
 	case res.status == http.StatusConflict, res.status == http.StatusUnprocessableEntity && bytes.Contains(res.body, []byte("does not match")):
 		return board.ErrStale
 	case res.status >= 300:
 		return res.failure()
 	}
 	return nil
+}
+
+func protectedBranch(status int, body []byte) bool {
+	if status != http.StatusForbidden && status != http.StatusConflict && status != http.StatusUnprocessableEntity {
+		return false
+	}
+	text := strings.ToLower(string(body))
+	return strings.Contains(text, "protected branch") || strings.Contains(text, "rule violations") || strings.Contains(text, "through a pull request")
 }
 
 func (s *Source) LastEditor(ctx context.Context, branch, path string) (string, error) {
@@ -86,4 +96,14 @@ func (s *Source) CanWrite(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return repo.Permissions.Push, nil
+}
+
+func (s *Source) ViewerLogin(ctx context.Context) (string, error) {
+	var user struct {
+		Login string `json:"login"`
+	}
+	if err := s.getJSON(ctx, "/user", &user); err != nil {
+		return "", err
+	}
+	return user.Login, nil
 }

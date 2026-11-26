@@ -27,7 +27,7 @@ export function columnStatus(column: Column): string {
 }
 
 export function canDrop(card: Card, column: Column): boolean {
-  return !column.prOpen && column.statuses.length > 0 && card.column !== column.id
+  return column.statuses.length > 0 && card.column !== column.id
 }
 
 export function moveTargets(
