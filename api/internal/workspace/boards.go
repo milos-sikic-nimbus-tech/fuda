@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"fuda/internal/board"
 	"fuda/internal/config"
@@ -14,10 +15,15 @@ import (
 )
 
 const (
-	docsRoot   = "docs"
-	boardDir   = "docs/board"
-	workBranch = "main"
+	docsRoot    = "docs"
+	boardDir    = "docs/board"
+	boardPrefix = "fuda-"
+	workBranch  = "main"
 )
+
+func inCodeRepo(id board.ID) bool {
+	return id.Host != board.HostLocal && !strings.HasPrefix(path.Base(id.Repo), boardPrefix)
+}
 
 type hostLinks struct {
 	code   func(string) string
@@ -117,6 +123,7 @@ func NewRegistry(log *slog.Logger, cfg config.Config, folders *Folders) *board.R
 			CodeURL:    links.code,
 			PRLink:     links.pr,
 			Origin:     links.origin,
+			InCodeRepo: inCodeRepo(id),
 		}), nil
 	}, listBoards(cfg, folders), installs)
 }
