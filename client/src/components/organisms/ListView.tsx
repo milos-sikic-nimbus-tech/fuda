@@ -14,6 +14,7 @@ function Row({ card }: { card: Card }) {
   const labels = card.labels
     .filter((l) => ['type', 'epic'].includes(labelText(l).group))
     .slice(0, 2)
+
   return (
     <li>
       <div
@@ -64,7 +65,11 @@ export function ListView({ columns, cards }: { columns: Column[]; cards: Card[] 
       <div className="mx-auto max-w-6xl overflow-hidden rounded-xl border border-border bg-card shadow-xs">
         {columns.map((column) => {
           const rows = cards.filter((c) => c.column === column.id)
-          if (rows.length === 0) return null
+
+          if (rows.length === 0) {
+            return null
+          }
+
           return (
             <section key={column.id}>
               <h2 className="sticky top-0 z-10 flex h-9 items-center gap-2 border-b border-border/60 bg-muted/80 px-3 text-xs font-medium backdrop-blur">

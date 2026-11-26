@@ -8,7 +8,11 @@ export function InstallBanner() {
   const { data } = useBoardListing()
   const [closed, setClosed] = useState(false)
   const url = missingInstallUrl(data)
-  if (!url || closed) return null
+
+  if (!url || closed) {
+    return null
+  }
+
   return (
     <div
       role="status"

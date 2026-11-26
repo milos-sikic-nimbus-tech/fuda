@@ -11,7 +11,10 @@ import {
 import type { Problem } from '@/lib/api'
 
 export function ProblemsDrawer({ problems }: { problems: Problem[] }) {
-  if (problems.length === 0) return null
+  if (problems.length === 0) {
+    return null
+  }
+
   return (
     <Sheet>
       <SheetTrigger asChild>

@@ -12,7 +12,10 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: true } },
   queryCache: new QueryCache({
     onError: (error) => {
-      if (error instanceof ApiError && [403, 404].includes(error.status)) return
+      if (error instanceof ApiError && [403, 404].includes(error.status)) {
+        return
+      }
+
       toast.error('Could not load data', { id: 'load-error', description: error.message })
     },
   }),

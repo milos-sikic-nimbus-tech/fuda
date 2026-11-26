@@ -9,18 +9,24 @@ export function buildDocTree(paths: string[]): DocNode[] {
     let level = root
     parts.forEach((name, i) => {
       const nodePath = parts.slice(0, i + 1).join('/')
+
       if (i === parts.length - 1) {
         level.push({ kind: 'doc', name, path: nodePath })
+
         return
       }
+
       let folder = level.find((n) => n.kind === 'folder' && n.name === name)
+
       if (!folder) {
         folder = { kind: 'folder', name, path: nodePath, children: [] }
         level.push(folder)
       }
+
       level = folder.kind === 'folder' ? folder.children : level
     })
   }
+
   return sortNodes(root)
 }
 

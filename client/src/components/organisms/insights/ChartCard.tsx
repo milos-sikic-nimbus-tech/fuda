@@ -19,6 +19,7 @@ export function ChartCard({
   className?: string
 }) {
   const [asTable, setAsTable] = useState(false)
+
   return (
     <section className={cn('rounded-xl border border-border bg-card p-4 shadow-xs', className)}>
       <header className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">

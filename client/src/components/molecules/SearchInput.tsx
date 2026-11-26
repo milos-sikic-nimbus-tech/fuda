@@ -11,16 +11,24 @@ export function SearchInput({
 }) {
   const [draft, setDraft] = useState(value ?? '')
   const [synced, setSynced] = useState(value)
+
   if (value !== synced) {
     setSynced(value)
-    if ((value ?? '') !== draft.trim()) setDraft(value ?? '')
+
+    if ((value ?? '') !== draft.trim()) {
+      setDraft(value ?? '')
+    }
   }
 
   useEffect(() => {
     const handle = setTimeout(() => {
       const next = draft.trim() || undefined
-      if (next !== value) onChange(next)
+
+      if (next !== value) {
+        onChange(next)
+      }
     }, 250)
+
     return () => clearTimeout(handle)
   }, [draft, value, onChange])
 

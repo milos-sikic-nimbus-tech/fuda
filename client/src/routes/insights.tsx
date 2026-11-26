@@ -43,6 +43,7 @@ function InsightsPage() {
     const period = periodOf(search, today)
     const inPeriod = (date: string) => within(period, date)
     const open = cards.filter(isOpen)
+
     return {
       period,
       activity: activity(cards, period),
@@ -70,7 +71,9 @@ function InsightsPage() {
     }
   }, [data, archive, search, today])
 
-  if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+  if (!data) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+  }
 
   const filterBoard = (search: Record<string, string>) => void toBoard({ to: '/', search })
   const dot = (color: string) => (

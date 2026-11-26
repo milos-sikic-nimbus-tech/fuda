@@ -11,8 +11,12 @@ const series = [
 ] as const
 
 function niceMax(value: number): number {
-  if (value <= 4) return 4
+  if (value <= 4) {
+    return 4
+  }
+
   const step = 10 ** Math.floor(Math.log10(value))
+
   return Math.ceil(value / step) * step
 }
 
@@ -95,6 +99,7 @@ export function ActivityChart({ unit, buckets }: { unit: BucketUnit; buckets: Bu
             ))}
             {buckets.map((w, i) => {
               const x0 = padding.left + i * band + band / 2 - barWidth - 1
+
               return (
                 <g key={w.start} onMouseEnter={() => setHover(i)}>
                   <rect
@@ -108,6 +113,7 @@ export function ActivityChart({ unit, buckets }: { unit: BucketUnit; buckets: Bu
                     const value = w[s.key]
                     const top = y(value)
                     const h = padding.top + plotHeight - top
+
                     return value > 0 ? (
                       <path
                         key={s.key}

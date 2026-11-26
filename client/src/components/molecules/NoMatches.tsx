@@ -4,6 +4,7 @@ import { useBoardSearch } from '@/hooks/useBoardSearch'
 
 export function NoMatches() {
   const { clear } = useBoardSearch()
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
       <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">

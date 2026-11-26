@@ -13,9 +13,19 @@ const toValue = (day?: Date) => (day ? format(day, 'yyyy-MM-dd') : undefined)
 
 function describe({ from, to }: Range, emptyLabel: string): string {
   const label = (value: string) => format(parseISO(value), 'd MMM yyyy')
-  if (from && to) return from === to ? label(from) : `${label(from)} – ${label(to)}`
-  if (from) return `from ${label(from)}`
-  if (to) return `until ${label(to)}`
+
+  if (from && to) {
+    return from === to ? label(from) : `${label(from)} – ${label(to)}`
+  }
+
+  if (from) {
+    return `from ${label(from)}`
+  }
+
+  if (to) {
+    return `until ${label(to)}`
+  }
+
   return emptyLabel
 }
 

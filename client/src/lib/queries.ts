@@ -43,6 +43,7 @@ export function useBoard() {
       query.data ? applyPendingAssigns(applyPendingMoves(query.data, moves), assigns) : undefined,
     [query.data, moves, assigns],
   )
+
   return { ...query, data }
 }
 
@@ -55,6 +56,7 @@ export function usePendingMoves(): PendingMove[] {
     filters: { mutationKey: moveKey, status: 'pending' },
     select: (mutation) => mutation.state.variables as MoveVariables,
   })
+
   return useMemo(() => saving.map((v) => ({ cardId: v.card.id, column: v.column })), [saving])
 }
 
@@ -68,8 +70,10 @@ function reportSaveFailure(error: unknown, what: string, retry: string) {
           window.location.assign(loginPath(window.location.pathname + window.location.search)),
       },
     })
+
     return
   }
+
   toast.error(error instanceof ApiError ? error.message : `The ${what} was not saved`, {
     description: 'The card went back.',
   })
@@ -77,6 +81,7 @@ function reportSaveFailure(error: unknown, what: string, retry: string) {
 
 export function useMove() {
   const client = useQueryClient()
+
   return useMutation({
     mutationKey: moveKey,
     mutationFn: ({ card, column }: MoveVariables) => api.move(card.id, card.status, column),
@@ -94,11 +99,13 @@ export function usePendingAssigns(): PendingAssign[] {
     filters: { mutationKey: assignKey, status: 'pending' },
     select: (mutation) => mutation.state.variables as AssignVariables,
   })
+
   return useMemo(() => saving.map((v) => ({ cardId: v.card.id, owners: v.owners })), [saving])
 }
 
 export function useAssign() {
   const client = useQueryClient()
+
   return useMutation({
     mutationKey: assignKey,
     mutationFn: ({ card, owners }: AssignVariables) => api.assign(card.id, card.owners, owners),
@@ -121,6 +128,7 @@ export function useTask(id: string | undefined) {
 
 export function useTextSearch(q: string | undefined, enabled: boolean) {
   const query = q?.trim() ?? ''
+
   return useQuery({
     queryKey: keys.search(query),
     queryFn: () => api.search(query),
@@ -143,6 +151,7 @@ export function useDoc(path: string) {
 
 export function useSync() {
   const client = useQueryClient()
+
   return useMutation({
     mutationFn: api.sync,
     onSuccess: () => {
@@ -152,8 +161,10 @@ export function useSync() {
     onError: (error) => {
       if (error instanceof ApiError && error.status === 429) {
         toast.info('Synced moments ago', { description: 'Try again in a few seconds.' })
+
         return
       }
+
       toast.error('Sync failed', { description: error.message })
     },
   })

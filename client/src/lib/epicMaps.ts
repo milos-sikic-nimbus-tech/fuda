@@ -8,7 +8,11 @@ export function mapForSelection(
   const epics = listOf(labelParam)
     .filter((l) => l.startsWith('epic:'))
     .map((l) => l.slice('epic:'.length))
-  if (epics.length !== 1) return undefined
+
+  if (epics.length !== 1) {
+    return undefined
+  }
+
   return maps.find((m) => m.epic === epics[0])
 }
 

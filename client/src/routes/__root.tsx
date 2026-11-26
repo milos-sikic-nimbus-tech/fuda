@@ -23,7 +23,10 @@ function RootLayout() {
   const head = data?.sync.branch.sha
 
   useEffect(() => {
-    if (!head) return
+    if (!head) {
+      return
+    }
+
     for (const key of ['task', 'search', 'archive', 'doc']) {
       void client.invalidateQueries({ queryKey: [key] })
     }

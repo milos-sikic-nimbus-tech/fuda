@@ -9,8 +9,15 @@ import { cn } from '@/lib/utils'
 
 function ago(iso: string): string {
   const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`
+
+  if (seconds < 60) {
+    return 'just now'
+  }
+
+  if (seconds < 3600) {
+    return `${Math.round(seconds / 60)} min ago`
+  }
+
   return `${Math.round(seconds / 3600)} h ago`
 }
 
@@ -26,6 +33,7 @@ function useSyncErrorToast(lastError: string | undefined) {
         description: `${lastError}. Showing the last good copy.`,
       })
     }
+
     shown.current = lastError
   }, [lastError])
 }

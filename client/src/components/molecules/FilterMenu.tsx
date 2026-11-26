@@ -30,9 +30,18 @@ import type { FilterGroup } from '@/hooks/useFilterGroups'
 import { listOf, toggled } from '@/lib/filters'
 
 function groupIcon(id: string) {
-  if (id === 'owner' || id === 'tester') return User
-  if (id === 'status') return CircleDot
-  if (id === 'prefix') return Hash
+  if (id === 'owner' || id === 'tester') {
+    return User
+  }
+
+  if (id === 'status') {
+    return CircleDot
+  }
+
+  if (id === 'prefix') {
+    return Hash
+  }
+
   return Tag
 }
 
@@ -57,6 +66,7 @@ export function FilterMenu({ groups, me }: { groups: FilterGroup[]; me?: string 
       }
     }
     window.addEventListener('keydown', onKey)
+
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
@@ -101,7 +111,10 @@ export function FilterMenu({ groups, me }: { groups: FilterGroup[]; me?: string 
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) setView(null)
+
+        if (!next) {
+          setView(null)
+        }
       }}
     >
       <PopoverTrigger asChild>
@@ -137,6 +150,7 @@ export function FilterMenu({ groups, me }: { groups: FilterGroup[]; me?: string 
               <CommandGroup>
                 {groups.map((g) => {
                   const Icon = groupIcon(g.id)
+
                   return (
                     <CommandItem
                       key={g.id}

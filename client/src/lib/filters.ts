@@ -35,6 +35,7 @@ export function listOf(value: string | undefined): string[] {
 export function toggled(value: string | undefined, item: string): string | undefined {
   const list = listOf(value)
   const next = list.includes(item) ? list.filter((v) => v !== item) : [...list, item]
+
   return next.length ? next.join(',') : undefined
 }
 
@@ -42,6 +43,7 @@ export function splitOwners(owner: string | undefined) {
   const list = listOf(owner)
   const names = list.filter((o) => o !== NO_OWNER)
   const noOwner = list.includes(NO_OWNER)
+
   return {
     noOwner,
     names,
@@ -71,8 +73,14 @@ function anyOf(selected: string[], values: string[]): boolean {
 }
 
 function ownersMatch(people: Person[], selected: string[], owners: string[]): boolean {
-  if (selected.length === 0) return true
-  if (owners.length === 0 && selected.includes(NO_OWNER)) return true
+  if (selected.length === 0) {
+    return true
+  }
+
+  if (owners.length === 0 && selected.includes(NO_OWNER)) {
+    return true
+  }
+
   return selected.some((o) => o !== NO_OWNER && ownerMatches(people, o, owners))
 }
 
@@ -82,14 +90,17 @@ function labelsMatch(selected: string[], labels: string[]): boolean {
     const group = label.split(':')[0]
     byGroup.set(group, [...(byGroup.get(group) ?? []), label])
   }
+
   return [...byGroup.values()].every((wanted) => wanted.some((l) => labels.includes(l)))
 }
 
 function quickText(card: Card, people: Person[]): string {
   const names = [...card.owners, ...card.testers].flatMap((id) => {
     const p = personOf(people, id)
+
     return [id, p.name, ...p.aliases]
   })
+
   return [card.id, card.title, ...names, ...card.labels].join(' ').toLowerCase()
 }
 
@@ -130,8 +141,12 @@ const byDone = (a: Card, b: Card) => (b.done ?? '').localeCompare(a.done ?? '') 
 
 export function sortCards(cards: Card[], sort: BoardSearch['sort']): Card[] {
   const open = sort === 'added' ? byAdded : byId
+
   return [...cards].sort((a, b) => {
-    if (a.archived !== b.archived) return a.archived ? 1 : -1
+    if (a.archived !== b.archived) {
+      return a.archived ? 1 : -1
+    }
+
     return a.archived ? byDone(a, b) : open(a, b)
   })
 }
@@ -141,6 +156,7 @@ export function activeFilterCount(search: BoardSearch): number {
     (n, key) => n + listOf(search[key]).length,
     0,
   )
+
   return (
     lists +
     [search.blocked, search.available, search.q, search.from, search.to].filter(Boolean).length
@@ -168,9 +184,14 @@ export function countFacets(cards: Card[]): FacetCounts {
     add(counts.status, card.status)
     add(counts.prefix, card.prefix)
     card.owners.forEach((o) => add(counts.owner, o))
-    if (card.owners.length === 0) add(counts.owner, NO_OWNER)
+
+    if (card.owners.length === 0) {
+      add(counts.owner, NO_OWNER)
+    }
+
     card.testers.forEach((t) => add(counts.tester, t))
     card.labels.forEach((l) => add(counts.label, l))
   }
+
   return counts
 }

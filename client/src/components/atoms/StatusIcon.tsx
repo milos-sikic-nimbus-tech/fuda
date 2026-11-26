@@ -17,12 +17,14 @@ function arc(fraction: number): string {
   const angle = fraction * 2 * Math.PI
   const x = 7 + 4 * Math.sin(angle)
   const y = 7 - 4 * Math.cos(angle)
+
   return `M7 7 L7 3 A4 4 0 ${fraction > 0.5 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z`
 }
 
 export function StatusIcon({ status, className }: { status: string; className?: string }) {
   const shape = shapes[status.trim().toLowerCase()] ?? 'empty'
   const color = statusHue(status)
+
   return (
     <svg
       viewBox="0 0 14 14"

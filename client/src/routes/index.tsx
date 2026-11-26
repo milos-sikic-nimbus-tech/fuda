@@ -30,7 +30,10 @@ function BoardPage() {
   )
   const taskIds = useMemo(() => data?.cards.map((c) => c.id) ?? [], [data])
 
-  if (!BOARD_PREFIX) return <BoardList />
+  if (!BOARD_PREFIX) {
+    return <BoardList />
+  }
+
   if (error) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
@@ -38,7 +41,10 @@ function BoardPage() {
       </p>
     )
   }
-  if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading the board…</p>
+
+  if (!data) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading the board…</p>
+  }
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">

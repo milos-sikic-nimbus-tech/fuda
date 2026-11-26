@@ -45,6 +45,7 @@ export function CommandPalette() {
       }
     }
     window.addEventListener('keydown', onKey)
+
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 

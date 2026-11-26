@@ -10,6 +10,7 @@ export function HostIcon({ host, className }: { host: Host; className?: string }
       </svg>
     )
   }
+
   if (host === 'azure') {
     return (
       <svg viewBox="0 0 16 16" aria-hidden="true" className={cn('fill-current', className)}>
@@ -17,5 +18,6 @@ export function HostIcon({ host, className }: { host: Host; className?: string }
       </svg>
     )
   }
+
   return <FolderGit2 aria-hidden="true" className={className} />
 }
