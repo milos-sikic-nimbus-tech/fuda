@@ -199,6 +199,23 @@ updates [architecture.md](architecture.md).
   `fuda.app` bundle (replacing only the inner binary breaks the signature and Gatekeeper may
   refuse to open the app). Until then, installing is a manual download.
 
+### One version everywhere
+
+- **Settled:** the root `VERSION` file is the one version. The Makefile reads it for the desktop
+  binary and `Info.plist`, and the `release` workflow refuses a tag that differs. See
+  [ADR 0011](adr/0011-one-version-and-a-board-format.md).
+- **Open:** the rest of ADR 0011 is not built: the API does not report the version, the app has no
+  footer showing it, the Docker image has no version tag, `client/package.json` has its own version,
+  the Guide does not name it, and nothing fails when they drift.
+- **Proposal:**
+  - **API.** Set `main.version` in `cmd/fuda` with an ldflag from `VERSION` and serve it at
+    `GET /api/version`.
+  - **Footer.** The app reads `/api/version` and shows it in a footer.
+  - **Docker.** `make docker` tags the image with `VERSION` next to `latest`.
+  - **Client.** `client/package.json` carries the same version.
+  - **Guide.** Guide pages that name a version take it from the API instead of text.
+  - **Drift.** `make check` fails when `client/package.json` differs from `VERSION`.
+
 ### History-based dates and insights
 
 - **Settled:** fuda only knows the dates written in frontmatter (`added`, `claimed`, `done`).

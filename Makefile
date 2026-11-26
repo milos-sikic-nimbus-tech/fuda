@@ -3,7 +3,7 @@ ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 .PHONY: dev dev-api dev-client check check-api check-client fmt build client docker desktop desktop-macos desktop-macos-dmg desktop-windows clean
 
-VERSION ?= dev
+VERSION ?= $(strip $(shell cat VERSION))
 GITHUB_CLIENT_ID ?=
 GITHUB_APP_SLUG ?=
 AZURE_CLIENT_ID ?=
