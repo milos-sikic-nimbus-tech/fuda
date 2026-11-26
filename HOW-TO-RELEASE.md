@@ -11,11 +11,16 @@ without them. `FUDA_GITHUB_BOARDS` and `FUDA_AZURE_BOARDS` are optional and pass
 
 ## Cut a release
 
+`main` is protected, so the version bump goes through a pull request:
+
 ```bash
+git switch -c release-0.2.1 main
 echo 0.2.1 > VERSION
 git commit -am "Release 0.2.1"
-git tag "v$(cat VERSION)"
-git push origin main "v$(cat VERSION)"
+git push -u origin release-0.2.1   # open the PR and merge it
+git switch main && git pull
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 - `VERSION` at the repository root is the one version. The tag must be `v` plus its contents; the
@@ -26,9 +31,10 @@ git push origin main "v$(cat VERSION)"
 - The version goes into the binary (`main.version`) and into `Info.plist` (`CFBundleVersion`,
   `CFBundleShortVersionString`). The Makefile reads `VERSION`, so local builds carry it too;
   `VERSION=x` on the `make` line overrides it.
-- The workflow creates a draft release with generated notes, builds both DMGs, uploads them and
-  publishes the release only after both are uploaded. If a build fails, the draft stays hidden: fix
-  it and re-run the failed jobs, or delete the draft and the tag.
+- The workflow first runs `make check` (the `ci` workflow), for prereleases too; nothing is created
+  when it fails. Then it creates a draft release with generated notes, builds both DMGs, uploads them
+  and publishes the release only after both are uploaded. If a build fails, the draft stays hidden:
+  fix it and re-run the failed jobs, or delete the draft and the tag.
 
 ## What users get
 

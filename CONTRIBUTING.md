@@ -191,7 +191,8 @@ use fuda on their repository, not for people changing fuda.
 ## Pull requests
 
 1. Branch from `main`. One topic per PR.
-2. `make check` passes (Go lint + tests, client lint + format + types + tests).
+2. `make check` passes (Go lint + tests, client lint + format + types + tests). The `ci` workflow
+   runs it on every PR and on every push to `main`.
 3. Docs change in the same PR as the behaviour: README, the Guide pages, `docs/architecture.md`,
    and `docs/decisions.md` when a decision changes.
 4. Commit messages say what changed and why, in the imperative ("Restore the last board from the
