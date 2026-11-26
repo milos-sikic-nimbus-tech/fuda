@@ -68,19 +68,22 @@ function addCopyButtons(root: HTMLElement) {
   }
 }
 
-async function renderMermaid(root: HTMLElement) {
+async function renderMermaid(root: HTMLElement, isStale: () => boolean) {
   const blocks = [...root.querySelectorAll<HTMLElement>('code.language-mermaid')]
   if (blocks.length === 0) return
   const { default: mermaid } = await import('mermaid')
+  if (isStale()) return
   mermaid.initialize({
     startOnLoad: false,
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'neutral',
     securityLevel: 'strict',
   })
   for (const [i, code] of blocks.entries()) {
+    if (isStale()) return
     const pre = code.closest('pre') ?? code
     try {
       const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, code.textContent ?? '')
+      if (isStale()) return
       const figure = document.createElement('div')
       figure.className = 'mermaid-diagram'
       figure.innerHTML = svg
@@ -122,7 +125,9 @@ export function RichContent({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const pattern = useMemo(() => idPattern(taskIds), [taskIds])
+  // Callers pass a fresh array on every render (the board polls), so key on the ids, not identity.
+  const idsKey = taskIds.join('\n')
+  const pattern = useMemo(() => idPattern(idsKey ? idsKey.split('\n') : []), [idsKey])
 
   useEffect(() => {
     const root = ref.current
@@ -132,7 +137,11 @@ export function RichContent({
     if (lead) promoteSection(root, lead)
     if (pattern) linkTaskIds(root, pattern, selfId)
     addCopyButtons(root)
-    void renderMermaid(root)
+    let stale = false
+    void renderMermaid(root, () => stale)
+    return () => {
+      stale = true
+    }
   }, [html, pattern, selfId, lead, dropTitle])
 
   return (
