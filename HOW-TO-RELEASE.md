@@ -20,8 +20,9 @@ git push origin main "v$(cat VERSION)"
 
 - `VERSION` at the repository root is the one version. The tag must be `v` plus its contents; the
   workflow fails on a mismatch.
-- `X.Y.Z` is a stable release. `X.Y.Z-rc.N` (any `-suffix`) is a prerelease, which the in-app update
-  check does not offer. Any other tag fails the workflow.
+- `X.Y.Z` is a stable release and must be tagged on a commit that is on `main`; the workflow fails
+  otherwise. `X.Y.Z-rc.N` (any `-suffix`) is a prerelease: any commit may be tagged, and the in-app
+  update check does not offer it. Any other tag fails the workflow.
 - The version goes into the binary (`main.version`) and into `Info.plist` (`CFBundleVersion`,
   `CFBundleShortVersionString`). The Makefile reads `VERSION`, so local builds carry it too;
   `VERSION=x` on the `make` line overrides it.
