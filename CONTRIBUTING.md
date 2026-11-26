@@ -190,6 +190,10 @@ use fuda on their repository, not for people changing fuda.
   `index.css`, every view state in the URL.
 - **The Makefile uses only `go`, `pnpm` and `docker`.** The macOS targets also use `codesign` and
   `hdiutil`, which ship with macOS and the Xcode Command Line Tools.
+- **`if` bodies are braced, with a blank line before and after every `if` and before every
+  `return`.** `pnpm lint` enforces it; `oxlint --fix` adds them.
+- **Formatting-only commits go in `.git-blame-ignore-revs`.** Run
+  `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips them.
 
 ## Pull requests
 
