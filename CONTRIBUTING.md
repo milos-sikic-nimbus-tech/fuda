@@ -129,10 +129,7 @@ Set `FUDA_GITHUB_CLIENT_ID` (a GitHub App with "Enable Device Flow" on) and run 
 build it in with `make desktop-macos`. The build reads `FUDA_GITHUB_CLIENT_ID`, `FUDA_GITHUB_APP_SLUG` and `FUDA_AZURE_CLIENT_ID` from your local env file (the one `make dev` loads). `GITHUB_CLIENT_ID=<id>`, `GITHUB_APP_SLUG=<slug>` or `AZURE_CLIENT_ID=<id>` on the `make` line wins. The GitHub id and slug are required: the build fails without them. The Azure id is optional. The build also reads the optional board lists `FUDA_GITHUB_BOARDS` and `FUDA_AZURE_BOARDS` from the env file (`GITHUB_BOARDS=` and `AZURE_BOARDS=` on the `make` line win); a value in the environment at run time wins over the built-in one. The App needs "Expire user
 authorization tokens" off: there is no client secret, so fuda cannot refresh a token.
 
-To release, push a tag such as `v0.1.0`. The `release` workflow builds macOS (arm64, amd64) and
-Windows, and uploads `fuda-desktop_<os>_<arch>` archives to the GitHub Release. Set the repository
-variables `FUDA_GITHUB_CLIENT_ID` and `FUDA_GITHUB_APP_SLUG` first; `FUDA_GITHUB_BOARDS` and `FUDA_AZURE_BOARDS` are optional and passed to the build when set. The app checks the latest release on start and from
-Help → Check for updates… and, when there is a newer one, offers to open its release page. It does not install anything. A build made with `VERSION=dev` never checks.
+To release, see [How to release](HOW-TO-RELEASE.md).
 
 ### Desktop icon
 
@@ -198,7 +195,8 @@ use fuda on their repository, not for people changing fuda.
 ## Pull requests
 
 1. Branch from `main`. One topic per PR.
-2. `make check` passes (Go lint + tests, client lint + format + types + tests).
+2. `make check` passes (Go lint + tests, client lint + format + types + tests). The `ci` workflow
+   runs it on every PR and on every push to `main`.
 3. Docs change in the same PR as the behaviour: README, the Guide pages, `docs/architecture.md`,
    and `docs/decisions.md` when a decision changes.
 4. Commit messages say what changed and why, in the imperative ("Restore the last board from the
