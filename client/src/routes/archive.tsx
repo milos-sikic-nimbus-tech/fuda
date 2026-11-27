@@ -13,6 +13,7 @@ function ArchivePage() {
   const [q, setQ] = useState('')
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
+
     return needle ? data.filter((c) => `${c.id} ${c.title}`.toLowerCase().includes(needle)) : data
   }, [data, q])
 

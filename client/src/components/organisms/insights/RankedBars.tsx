@@ -17,6 +17,7 @@ export function RankedBars({
   onSelect?: (key: string) => void
 }) {
   const max = Math.max(1, ...slices.map((s) => s.count))
+
   return (
     <ChartCard title={title} description={description}>
       {slices.length === 0 ? (
@@ -44,6 +45,7 @@ export function RankedBars({
                 <span className="text-right text-muted-foreground tabular-nums">{s.count}</span>
               </button>
             )
+
             return (
               <li key={s.key}>
                 {clickable ? <Hint label={`Open the board filtered to ${s.key}`}>{row}</Hint> : row}

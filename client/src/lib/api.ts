@@ -136,14 +136,18 @@ async function request<T>(
   { redirectToLogin = true }: { redirectToLogin?: boolean } = {},
 ): Promise<T> {
   const res = await fetch(url, init)
+
   if (res.status === 401 && redirectToLogin) {
     window.location.assign(loginPath(window.location.pathname + window.location.search))
+
     return new Promise<T>(() => {})
   }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.error ?? res.statusText, body.code)
   }
+
   return res.status === 202 || res.status === 204 ? (undefined as T) : res.json()
 }
 

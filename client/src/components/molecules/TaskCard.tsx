@@ -20,8 +20,10 @@ const chipClass =
 function rankLabels(labels: string[]): string[] {
   const rank = (label: string) => {
     const i = labelPriority.indexOf(labelText(label).group)
+
     return i === -1 ? labelPriority.length : i
   }
+
   return [...labels].sort((a, b) => rank(a) - rank(b))
 }
 
@@ -47,9 +49,13 @@ function Signal({
 function CardSignals({ card }: { card: Card }) {
   const { personOf } = usePeople()
   const prAuthor = (pr: OpenPr) => {
-    if (pr.authorId) return ` by ${personOf(pr.authorId).name}`
+    if (pr.authorId) {
+      return ` by ${personOf(pr.authorId).name}`
+    }
+
     return pr.author ? ` by @${pr.author}` : ''
   }
+
   return (
     <>
       {card.blockedBy && (

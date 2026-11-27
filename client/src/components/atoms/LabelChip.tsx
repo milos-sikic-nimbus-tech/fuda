@@ -16,6 +16,7 @@ export function LabelChip({
 }) {
   const { group, value } = labelText(label)
   const colorOf = useLabelColor()
+
   return (
     <Hint
       label={`${group ? `${group}: ` : ''}${value} · click to ${active ? 'remove the filter' : 'filter'}`}

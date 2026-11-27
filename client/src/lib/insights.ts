@@ -37,23 +37,34 @@ const dayLabel = (day: Date) => format(day, 'd MMM yyyy')
 
 export function periodOf({ range = '12w', from, to }: InsightsSearch, today = new Date()): Period {
   const end = startOfDay(today)
+
   if (from) {
     const start = parseISO(from)
     const last = to ? parseISO(to) : end
+
     return {
       start,
       end: last,
       label: from === to ? dayLabel(start) : `${dayLabel(start)} – ${dayLabel(last)}`,
     }
   }
-  if (range === '7d') return { start: subDays(end, 6), end, label: 'last 7 days' }
+
+  if (range === '7d') {
+    return { start: subDays(end, 6), end, label: 'last 7 days' }
+  }
+
   const weeks = Number.parseInt(range)
+
   return { start: subWeeks(startOfISOWeek(end), weeks - 1), end, label: `last ${weeks} weeks` }
 }
 
 export function within(period: Period, date: string): boolean {
-  if (!date) return false
+  if (!date) {
+    return false
+  }
+
   const day = parseISO(date)
+
   return day >= period.start && day <= period.end
 }
 
@@ -70,6 +81,7 @@ export function activity(cards: Card[], period: Period): { unit: BucketUnit; buc
   const count = Math.max(0, Math.floor(differenceInCalendarDays(period.end, first) / step) + 1)
   const buckets: Bucket[] = Array.from({ length: count }, (_, i) => {
     const start = addDays(first, i * step)
+
     return {
       start: format(start, 'yyyy-MM-dd'),
       label: format(start, 'd MMM'),
@@ -78,13 +90,17 @@ export function activity(cards: Card[], period: Period): { unit: BucketUnit; buc
     }
   })
   const place = (date: string, key: 'created' | 'claimed') => {
-    if (!within(period, date)) return
+    if (!within(period, date)) {
+      return
+    }
+
     buckets[Math.floor(differenceInCalendarDays(parseISO(date), first) / step)][key]++
   }
   for (const card of cards) {
     place(card.added, 'created')
     place(card.claimed, 'claimed')
   }
+
   return { unit, buckets }
 }
 
@@ -94,8 +110,13 @@ export function topSlices(counts: Map<string, number>, limit = 8): Slice[] {
   const sorted = [...counts.entries()]
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
-  if (sorted.length <= limit) return sorted
+
+  if (sorted.length <= limit) {
+    return sorted
+  }
+
   const rest = sorted.slice(limit - 1).reduce((n, s) => n + s.count, 0)
+
   return [...sorted.slice(0, limit - 1), { key: 'Other', count: rest }]
 }
 
@@ -103,8 +124,11 @@ export function countBy(cards: Card[], keysOf: (card: Card) => string[]): Map<st
   const counts = new Map<string, number>()
   for (const card of cards) {
     const keys = keysOf(card)
-    for (const key of keys.length ? keys : ['None']) counts.set(key, (counts.get(key) ?? 0) + 1)
+    for (const key of keys.length ? keys : ['None']) {
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
   }
+
   return counts
 }
 

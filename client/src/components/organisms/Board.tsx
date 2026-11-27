@@ -20,6 +20,7 @@ export function Board({
   const move = useMove()
   const saving = new Set(usePendingMoves().map((m) => m.cardId))
   useLeaveWarning(saving.size > 0)
+
   return (
     <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-3 sm:snap-none sm:px-4 sm:pb-4">
       {columns.map((column) => (
@@ -33,7 +34,10 @@ export function Board({
           onDragStart={setDragging}
           onDragEnd={() => setDragging(null)}
           onDrop={() => {
-            if (dragging) move.mutate({ card: dragging, column: column.id })
+            if (dragging) {
+              move.mutate({ card: dragging, column: column.id })
+            }
+
             setDragging(null)
           }}
           collapsed={isCollapsed(column.id)}

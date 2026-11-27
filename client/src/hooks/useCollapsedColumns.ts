@@ -5,6 +5,7 @@ const storageKey = 'fuda-collapsed-columns'
 function read(): string[] {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey) ?? '[]')
+
     return Array.isArray(value) ? value.filter((v) => typeof v === 'string') : []
   } catch {
     return []
@@ -22,6 +23,7 @@ export function useCollapsedColumns() {
       } catch {
         return next
       }
+
       return next
     })
   }, [])

@@ -59,15 +59,23 @@ export function Column({
   return (
     <section
       onDragOver={(e) => {
-        if (!dropAllowed) return
+        if (!dropAllowed) {
+          return
+        }
+
         e.preventDefault()
         setOver(true)
       }}
       onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setOver(false)
+        }
       }}
       onDrop={(e) => {
-        if (!dropAllowed) return
+        if (!dropAllowed) {
+          return
+        }
+
         e.preventDefault()
         setOver(false)
         onDrop()
