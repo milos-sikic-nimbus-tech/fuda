@@ -404,8 +404,11 @@ func TestProtectedMainHintDependsOnWhereTheBoardLives(t *testing.T) {
 				t.Fatal(err)
 			}
 			err := s.Move(context.Background(), MoveRequest{TaskID: "T-1", FromStatus: "backlog", ToColumn: "in-progress"})
-			if !errors.Is(err, tt.want) {
-				t.Errorf("got %v, want %v", err, tt.want)
+			if !errors.Is(err, ErrProtectedBranch) {
+				t.Errorf("%v is not an ErrProtectedBranch", err)
+			}
+			if err.Error() != tt.want.Error() {
+				t.Errorf("got %q, want %q", err, tt.want)
 			}
 		})
 	}

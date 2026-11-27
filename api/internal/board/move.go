@@ -20,7 +20,15 @@ var ErrStale = errors.New("file changed since it was read")
 
 var ErrProtectedBranch = errors.New("main is protected; allow fuda to push to it directly")
 
-var ErrProtectedCodeRepoBranch = errors.New("main is protected; change this task in a pull request")
+type protectedCodeRepoError struct{}
+
+func (protectedCodeRepoError) Error() string {
+	return "main is protected; change this task in a pull request"
+}
+
+func (protectedCodeRepoError) Unwrap() error { return ErrProtectedBranch }
+
+var ErrProtectedCodeRepoBranch error = protectedCodeRepoError{}
 
 var ErrNotMovable = errors.New("this task cannot be changed")
 

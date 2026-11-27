@@ -15,14 +15,13 @@ import (
 )
 
 const (
-	docsRoot    = "docs"
-	boardDir    = "docs/board"
-	boardPrefix = "fuda-"
-	workBranch  = "main"
+	docsRoot   = "docs"
+	boardDir   = "docs/board"
+	workBranch = "main"
 )
 
 func inCodeRepo(id board.ID) bool {
-	return id.Host != board.HostLocal && !strings.HasPrefix(path.Base(id.Repo), boardPrefix)
+	return id.Host != board.HostLocal && !strings.HasPrefix(path.Base(id.Repo), board.BoardPrefix)
 }
 
 type hostLinks struct {
